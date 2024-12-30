@@ -487,7 +487,7 @@ unittest
     }
     catch (ConfigException exc)
     {
-        assert(exc.toString() == "(0:0): chris.jay: Required key was not found in configuration or command line arguments");
+        assert(exc.toString() == "<unknown>(0:0): chris.jay: Required key was not found in configuration or command line arguments");
     }
 }
 

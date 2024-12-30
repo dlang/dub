@@ -88,16 +88,6 @@ import dub.internal.dyaml.tagdirective;
  */
 
 
-/**
- * Marked exception thrown at parser errors.
- *
- * See_Also: MarkedYAMLException
- */
-class ParserException : MarkedYAMLException
-{
-    mixin MarkedExceptionCtors;
-}
-
 package:
 /// Generates events from tokens provided by a Scanner.
 ///
@@ -171,6 +161,17 @@ final class Parser
         {
             currentEvent_.id = EventID.invalid;
             ensureState();
+        }
+
+        /// Set file name.
+        ref inout(string) name() inout @safe return pure nothrow @nogc
+        {
+            return scanner_.name;
+        }
+        /// Get a mark from the current reader position
+        Mark mark() const @safe pure nothrow @nogc
+        {
+            return scanner_.mark;
         }
 
     private:
@@ -508,9 +509,9 @@ final class Parser
             }
 
             const token = scanner_.front;
-            throw new ParserException("While parsing a " ~ (block ? "block" : "flow") ~ " node",
-                            startMark, "expected node content, but found: "
-                            ~ token.idString, token.startMark);
+            throw new ParserException("While parsing a " ~ (block ? "block" : "flow")
+                ~ " node, expected node content, but found: " ~ token.idString,
+                token.startMark, "node started here", startMark);
         }
 
         /// Handle escape sequences in a double quoted scalar.
@@ -618,8 +619,8 @@ final class Parser
                 }
                 //handle must be in tagDirectives_
                 enforce(replacement !is null,
-                        new ParserException("While parsing a node", startMark,
-                                  "found undefined tag handle: " ~ handle, tagMark));
+                    new ParserException("While parsing a node, found undefined tag handle: "
+                        ~ handle, tagMark, "node started here", startMark));
                 return replacement ~ suffix;
             }
             return suffix;
@@ -658,9 +659,8 @@ final class Parser
             if(scanner_.front.id != TokenID.blockEnd)
             {
                 const token = scanner_.front;
-                throw new ParserException("While parsing a block collection", marks_.data.back,
-                                "expected block end, but found " ~ token.idString,
-                                token.startMark);
+                throw new ParserException("While parsing a block sequence, expected block end, but found: "
+                    ~ token.idString, token.startMark, "sequence started here", marks_.data.back);
             }
 
             state_ = popState();
@@ -730,9 +730,8 @@ final class Parser
             if(scanner_.front.id != TokenID.blockEnd)
             {
                 const token = scanner_.front;
-                throw new ParserException("While parsing a block mapping", marks_.data.back,
-                                "expected block end, but found: " ~ token.idString,
-                                token.startMark);
+                throw new ParserException("While parsing a block mapping, expected block end, but found: "
+                    ~ token.idString, token.startMark, "mapping started here", marks_.data.back);
             }
 
             state_ = popState();
@@ -797,9 +796,8 @@ final class Parser
                     else
                     {
                         const token = scanner_.front;
-                        throw new ParserException("While parsing a flow sequence", marks_.data.back,
-                                        "expected ',' or ']', but got: " ~
-                                        token.idString, token.startMark);
+                        throw new ParserException("While parsing a flow sequence, expected ',' or ']', but got: " ~
+                            token.idString, token.startMark, "sequence started here", marks_.data.back);
                     }
                 }
 
@@ -912,9 +910,8 @@ final class Parser
                     else
                     {
                         const token = scanner_.front;
-                        throw new ParserException("While parsing a flow mapping", marks_.data.back,
-                                        "expected ',' or '}', but got: " ~
-                                        token.idString, token.startMark);
+                        throw new ParserException("While parsing a flow mapping, expected ',' or '}', but got: "
+                            ~ token.idString, token.startMark, "mapping started here", marks_.data.back);
                     }
                 }
 
@@ -955,4 +952,90 @@ final class Parser
         {
             return scalarEvent(mark, mark, null, null, true, "");
         }
+}
+
+// Provide good error message for bad block mapping
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `[`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While parsing a flow node, expected node content, but found: streamEnd\n" ~
+       "<unknown>:1,2\nnode started here: <unknown>:1,2");
+}
+
+// Provide good error message for bad block mapping
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `&anchor !foo!bar value`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While parsing a node, found undefined tag handle: !foo!\n" ~
+       "<unknown>:1,9\nnode started here: <unknown>:1,1");
+}
+
+// Provide good error message for bad block mapping
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `- a
+,`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While parsing a block sequence, expected block end, but found: flowEntry\n" ~
+       "<unknown>:2,1\nsequence started here: <unknown>:1,1");
+}
+
+// Provide good error message for bad block mapping
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `a: b
+,`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While parsing a block mapping, expected block end, but found: flowEntry\n" ~
+       "<unknown>:2,1\nmapping started here: <unknown>:1,1");
+}
+
+// Provide good error message for bad flow sequence
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `[a,b,c`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While parsing a flow sequence, expected ',' or ']', but got: streamEnd\n" ~
+       "<unknown>:1,7\nsequence started here: <unknown>:1,1");
+}
+
+// Provide good error message for bad flow mapping
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `{a,b,c`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While parsing a flow mapping, expected ',' or '}', but got: streamEnd\n" ~
+       "<unknown>:1,7\nmapping started here: <unknown>:1,1");
 }

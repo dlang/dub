@@ -74,14 +74,6 @@ alias isFlowScalarBreakSpace = among!(' ', '\t', '\0', '\n', '\r', '\u0085', '\u
 
 alias isNSAnchorName = c => !c.isWhiteSpace && !c.among!('[', ']', '{', '}', ',', '\uFEFF');
 
-/// Marked exception thrown at scanner errors.
-///
-/// See_Also: MarkedYAMLException
-class ScannerException : MarkedYAMLException
-{
-    mixin MarkedExceptionCtors;
-}
-
 /// Generates tokens from data provided by a Reader.
 struct Scanner
 {
@@ -95,18 +87,12 @@ struct Scanner
         /// We emit the KEY token before all keys, so when we find a potential simple
         /// key, we try to locate the corresponding ':' indicator. Simple keys should be
         /// limited to a single line and 1024 characters.
-        ///
-        /// 16 bytes on 64-bit.
         static struct SimpleKey
         {
-            /// Character index in reader where the key starts.
-            uint charIndex = uint.max;
+            /// Position of the key
+            Mark mark;
             /// Index of the key token from start (first token scanned being 0).
             uint tokenIndex;
-            /// Line the key starts at.
-            uint line;
-            /// Column the key starts at.
-            ushort column;
             /// Is this required to be a simple key?
             bool required;
             /// Is this struct "null" (invalid)?.
@@ -188,9 +174,14 @@ struct Scanner
         }
 
         /// Set file name.
-        void name(string name) @safe pure nothrow @nogc
+        ref inout(string) name() inout @safe return pure nothrow @nogc
         {
-            reader_.name = name;
+            return reader_.name;
+        }
+        /// Get a mark from the current reader position
+        Mark mark() const @safe pure nothrow @nogc
+        {
+            return reader_.mark;
         }
 
     private:
@@ -198,7 +189,7 @@ struct Scanner
         /// function.
         string expected(T)(string expected, T found)
         {
-            return text("expected ", expected, ", but found ", found);
+            return text(expected, ", but found ", found);
         }
 
         /// Determine whether or not we need to fetch more tokens before peeking/getting a token.
@@ -284,12 +275,11 @@ struct Scanner
             foreach(level, ref key; possibleSimpleKeys_)
             {
                 if(key.isNull) { continue; }
-                if(key.line != reader_.line || reader_.charIndex - key.charIndex > 1024)
+                if(key.mark.line != reader_.mark.line || reader_.mark.column - key.mark.column > 1024)
                 {
                     enforce(!key.required,
-                            new ScannerException("While scanning a simple key",
-                                                 Mark(reader_.name, key.line, key.column),
-                                                 "could not find expected ':'", reader_.mark));
+                        new ScannerException("While scanning a simple key, could not find expected ':'",
+                            reader_.mark, "key started here", key.mark));
                     key.isNull = true;
                 }
             }
@@ -311,17 +301,19 @@ struct Scanner
             removePossibleSimpleKey();
             const tokenCount = tokensTaken_ + cast(uint)tokens_.length;
 
-            const line   = reader_.line;
+            const line = reader_.line;
             const column = reader_.column;
-            const key    = SimpleKey(cast(uint)reader_.charIndex, tokenCount, line,
-                                     cast(ushort)min(column, ushort.max), required);
+            const key = SimpleKey(reader_.mark, tokenCount, required);
 
             if(possibleSimpleKeys_.length <= flowLevel_)
             {
                 const oldLength = possibleSimpleKeys_.length;
                 possibleSimpleKeys_.length = flowLevel_ + 1;
-                //No need to initialize the last element, it's already done in the next line.
-                possibleSimpleKeys_[oldLength .. flowLevel_] = SimpleKey.init;
+                // Make sure all the empty keys are null
+                foreach (ref emptyKey; possibleSimpleKeys_[oldLength .. flowLevel_])
+                {
+                    emptyKey.isNull = true;
+                }
             }
             possibleSimpleKeys_[flowLevel_] = key;
         }
@@ -335,9 +327,8 @@ struct Scanner
             {
                 const key = possibleSimpleKeys_[flowLevel_];
                 enforce(!key.required,
-                        new ScannerException("While scanning a simple key",
-                                             Mark(reader_.name, key.line, key.column),
-                                             "could not find expected ':'", reader_.mark));
+                    new ScannerException("While scanning a simple key, could not find expected ':'",
+                         reader_.mark, "key started here", key.mark));
                 possibleSimpleKeys_[flowLevel_].isNull = true;
             }
         }
@@ -360,7 +351,7 @@ struct Scanner
                 // restrictive than what the specification requires.
                 // if(pedantic_ && flowLevel_ > 0 && indent_ > column)
                 // {
-                //     throw new ScannerException("Invalid indentation or unclosed '[' or '{'",
+                //     throw new ScannerException("Invalid intendation or unclosed '[' or '{'",
                 //                                reader_.mark)
                 // }
                 return;
@@ -399,7 +390,7 @@ struct Scanner
         ///Add STREAM-END token.
         void fetchStreamEnd() @safe
         {
-            //Set indentation to -1 .
+            //Set intendation to -1 .
             unwindIndent(-1);
             removePossibleSimpleKey();
             allowSimpleKey_ = false;
@@ -412,7 +403,7 @@ struct Scanner
         /// Add DIRECTIVE token.
         void fetchDirective() @safe
         {
-            // Set indentation to -1 .
+            // Set intendation to -1 .
             unwindIndent(-1);
             // Reset simple keys.
             removePossibleSimpleKey();
@@ -497,7 +488,7 @@ struct Scanner
         void blockChecks(string type, TokenID id)()
         {
             enum context = type ~ " keys are not allowed here";
-            // Are we allowed to start a key (not necessarily a simple one)?
+            // Are we allowed to start a key (not neccesarily a simple one)?
             enforce(allowSimpleKey_, new ScannerException(context, reader_.mark));
 
             if(addIndent(reader_.column))
@@ -547,18 +538,18 @@ struct Scanner
                !possibleSimpleKeys_[flowLevel_].isNull)
             {
                 const key = possibleSimpleKeys_[flowLevel_];
-                possibleSimpleKeys_[flowLevel_].isNull = true;
-                Mark keyMark = Mark(reader_.name, key.line, key.column);
-                const idx = key.tokenIndex - tokensTaken_;
+                assert(key.tokenIndex >= tokensTaken_);
 
-                assert(idx >= 0);
+                possibleSimpleKeys_[flowLevel_].isNull = true;
+                Mark keyMark = key.mark;
+                const idx = key.tokenIndex - tokensTaken_;
 
                 // Add KEY.
                 // Manually inserting since tokens are immutable (need linked list).
                 tokens_.insert(keyToken(keyMark, keyMark), idx);
 
                 // If this key starts a new block mapping, we need to add BLOCK-MAPPING-START.
-                if(flowLevel_ == 0 && addIndent(key.column))
+                if(flowLevel_ == 0 && addIndent(key.mark.column))
                 {
                     tokens_.insert(blockMappingStartToken(keyMark, keyMark), idx);
                 }
@@ -753,23 +744,23 @@ struct Scanner
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanAlphaNumericToSlice(string name)(const Mark startMark)
+        void scanAlphaNumericToSlice(string name)(ref char[] slice, const Mark startMark)
         {
             size_t length;
             dchar c = reader_.peek();
             while(c.isAlphaNum || c.among!('-', '_')) { c = reader_.peek(++length); }
 
-            enforce(length > 0, new ScannerException("While scanning " ~ name,
-                startMark, expected("alphanumeric, '-' or '_'", c), reader_.mark));
+            enforce(length > 0, new ScannerException(expected("While scanning a " ~ name ~ ", expected alphanumeric, '-' or '_'", c),
+                reader_.mark, name~" started here", startMark));
 
-            reader_.sliceBuilder.write(reader_.get(length));
+            slice ~= reader_.get(length);
         }
 
         /// Scan a string.
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanAnchorAliasToSlice(const Mark startMark) @safe
+        char[] readAnchorAlias(const Mark startMark) @safe
         {
             size_t length;
             dchar c = reader_.peek();
@@ -778,10 +769,11 @@ struct Scanner
                 c = reader_.peek(++length);
             }
 
-            enforce(length > 0, new ScannerException("While scanning an anchor or alias",
-                startMark, expected("a printable character besides '[', ']', '{', '}' and ','", c), reader_.mark));
+            enforce(length > 0, new ScannerException(
+                expected("While scanning an anchor or alias, expected a printable character besides '[', ']', '{', '}' and ','", c),
+                reader_.mark, "started here", startMark));
 
-            reader_.sliceBuilder.write(reader_.get(length));
+            return reader_.get(length);
         }
 
         /// Scan and throw away all characters until next line break.
@@ -794,14 +786,14 @@ struct Scanner
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanToNextBreakToSlice() @safe
+        void scanToNextBreakToSlice(ref char[] slice) @safe
         {
             uint length;
             while(!reader_.peek(length).isBreak)
             {
                 ++length;
             }
-            reader_.sliceBuilder.write(reader_.get(length));
+            slice ~= reader_.get(length);
         }
 
 
@@ -859,17 +851,15 @@ struct Scanner
             reader_.forward();
 
             // Scan directive name
-            reader_.sliceBuilder.begin();
-            scanDirectiveNameToSlice(startMark);
-            const name = reader_.sliceBuilder.finish();
+            char[] name;
+            scanDirectiveNameToSlice(name, startMark);
 
-            reader_.sliceBuilder.begin();
+            char[] value;
 
             // Index where tag handle ends and suffix starts in a tag directive value.
             uint tagHandleEnd = uint.max;
-            if(name == "YAML")     { scanYAMLDirectiveValueToSlice(startMark); }
-            else if(name == "TAG") { tagHandleEnd = scanTagDirectiveValueToSlice(startMark); }
-            char[] value = reader_.sliceBuilder.finish();
+            if(name == "YAML")     { scanYAMLDirectiveValueToSlice(value, startMark); }
+            else if(name == "TAG") { tagHandleEnd = scanTagDirectiveValueToSlice(value, startMark); }
 
             Mark endMark = reader_.mark;
 
@@ -891,55 +881,55 @@ struct Scanner
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanDirectiveNameToSlice(const Mark startMark) @safe
+        void scanDirectiveNameToSlice(ref char[] slice, const Mark startMark) @safe
         {
             // Scan directive name.
-            scanAlphaNumericToSlice!"a directive"(startMark);
+            scanAlphaNumericToSlice!"directive"(slice, startMark);
 
             enforce(reader_.peek().among!(' ', '\0', '\n', '\r', '\u0085', '\u2028', '\u2029'),
-                new ScannerException("While scanning a directive", startMark,
-                    expected("alphanumeric, '-' or '_'", reader_.peek()), reader_.mark));
+                new ScannerException(expected("While scanning a directive, expected alphanumeric, '-' or '_'", reader_.peek()),
+                    reader_.mark, "directive started here", startMark));
         }
 
         /// Scan value of a YAML directive token. Returns major, minor version separated by '.'.
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanYAMLDirectiveValueToSlice(const Mark startMark) @safe
+        void scanYAMLDirectiveValueToSlice(ref char[] slice, const Mark startMark) @safe
         {
             findNextNonSpace();
 
-            scanYAMLDirectiveNumberToSlice(startMark);
+            scanYAMLDirectiveNumberToSlice(slice, startMark);
 
             enforce(reader_.peekByte() == '.',
-                new ScannerException("While scanning a directive", startMark,
-                    expected("digit or '.'", reader_.peek()), reader_.mark));
+                new ScannerException(expected("While scanning a directive, expected digit or '.'", reader_.peek()),
+                    reader_.mark, "directive started here", startMark));
             // Skip the '.'.
             reader_.forward();
 
-            reader_.sliceBuilder.write('.');
-            scanYAMLDirectiveNumberToSlice(startMark);
+            slice ~= '.';
+            scanYAMLDirectiveNumberToSlice(slice, startMark);
 
             enforce(reader_.peek().among!(' ', '\0', '\n', '\r', '\u0085', '\u2028', '\u2029'),
-                new ScannerException("While scanning a directive", startMark,
-                    expected("digit or '.'", reader_.peek()), reader_.mark));
+                new ScannerException(expected("While scanning a directive, expected digit or '.'", reader_.peek()),
+                    reader_.mark, "directive started here", startMark));
         }
 
         /// Scan a number from a YAML directive.
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanYAMLDirectiveNumberToSlice(const Mark startMark) @safe
+        void scanYAMLDirectiveNumberToSlice(ref char[] slice, const Mark startMark) @safe
         {
             enforce(isDigit(reader_.peek()),
-                new ScannerException("While scanning a directive", startMark,
-                    expected("digit", reader_.peek()), reader_.mark));
+                new ScannerException(expected("While scanning a directive, expected a digit", reader_.peek()),
+                    reader_.mark, "directive started here", startMark));
 
             // Already found the first digit in the enforce(), so set length to 1.
             uint length = 1;
             while(reader_.peek(length).isDigit) { ++length; }
 
-            reader_.sliceBuilder.write(reader_.get(length));
+            slice ~= reader_.get(length);
         }
 
         /// Scan value of a tag directive.
@@ -948,14 +938,14 @@ struct Scanner
         /// characters into that slice.
         ///
         /// Returns: Length of tag handle (which is before tag prefix) in scanned data
-        uint scanTagDirectiveValueToSlice(const Mark startMark) @safe
+        uint scanTagDirectiveValueToSlice(ref char[] slice, const Mark startMark) @safe
         {
             findNextNonSpace();
-            const startLength = reader_.sliceBuilder.length;
-            scanTagDirectiveHandleToSlice(startMark);
-            const handleLength = cast(uint)(reader_.sliceBuilder.length  - startLength);
+            const startLength = slice.length;
+            scanTagDirectiveHandleToSlice(slice, startMark);
+            const handleLength = cast(uint)(slice.length  - startLength);
             findNextNonSpace();
-            scanTagDirectivePrefixToSlice(startMark);
+            scanTagDirectivePrefixToSlice(slice, startMark);
 
             return handleLength;
         }
@@ -964,24 +954,24 @@ struct Scanner
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanTagDirectiveHandleToSlice(const Mark startMark) @safe
+        void scanTagDirectiveHandleToSlice(ref char[] slice, const Mark startMark) @safe
         {
-            scanTagHandleToSlice!"directive"(startMark);
+            scanTagHandleToSlice!"directive"(slice, startMark);
             enforce(reader_.peekByte() == ' ',
-                new ScannerException("While scanning a directive handle", startMark,
-                    expected("' '", reader_.peek()), reader_.mark));
+                new ScannerException(expected("While scanning a directive handle, expected ' '", reader_.peek()),
+                    reader_.mark, "directive started here", startMark));
         }
 
         /// Scan prefix of a tag directive.
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanTagDirectivePrefixToSlice(const Mark startMark) @safe
+        void scanTagDirectivePrefixToSlice(ref char[] slice, const Mark startMark) @safe
         {
-            scanTagURIToSlice!"directive"(startMark);
+            scanTagURIToSlice!"directive"(slice, startMark);
             enforce(reader_.peek().among!(' ', '\0', '\n', '\r', '\u0085', '\u2028', '\u2029'),
-                new ScannerException("While scanning a directive prefix", startMark,
-                    expected("' '", reader_.peek()), reader_.mark));
+                new ScannerException(expected("While scanning a directive prefix, expected ' '", reader_.peek()),
+                    reader_.mark, "directive started here", startMark));
         }
 
         /// Scan (and ignore) ignored line after a directive.
@@ -990,8 +980,8 @@ struct Scanner
             findNextNonSpace();
             if(reader_.peekByte() == '#') { scanToNextBreak(); }
             enforce(reader_.peek().isBreak,
-                new ScannerException("While scanning a directive", startMark,
-                      expected("comment or a line break", reader_.peek()), reader_.mark));
+                new ScannerException(expected("While scanning a directive, expected a comment or a line break", reader_.peek()),
+                    reader_.mark, "directive started here", startMark));
             scanLineBreak();
         }
 
@@ -1001,7 +991,7 @@ struct Scanner
         /// The specification does not restrict characters for anchors and
         /// aliases. This may lead to problems, for instance, the document:
         ///   [ *alias, value ]
-        /// can be interpreted in two ways, as
+        /// can be interpteted in two ways, as
         ///   [ "value" ]
         /// and
         ///   [ *alias , "value" ]
@@ -1011,10 +1001,7 @@ struct Scanner
             const startMark = reader_.mark;
             reader_.forward(); // The */& character was only peeked, so we drop it now
 
-            reader_.sliceBuilder.begin();
-            scanAnchorAliasToSlice(startMark);
-            // On error, value is discarded as we return immediately
-            char[] value = reader_.sliceBuilder.finish();
+            char[] value = readAnchorAlias(startMark);
 
             assert(!reader_.peek().isNSAnchorName, "Anchor/alias name not fully scanned");
 
@@ -1035,8 +1022,7 @@ struct Scanner
             const startMark = reader_.mark;
             dchar c = reader_.peek(1);
 
-            reader_.sliceBuilder.begin();
-            scope(failure) { reader_.sliceBuilder.finish(); }
+            char[] slice;
             // Index where tag handle ends and tag suffix starts in the tag value
             // (slice) we will produce.
             uint handleEnd;
@@ -1046,17 +1032,17 @@ struct Scanner
                 reader_.forward(2);
 
                 handleEnd = 0;
-                scanTagURIToSlice!"tag"(startMark);
+                scanTagURIToSlice!"tag"(slice, startMark);
                 enforce(reader_.peekByte() == '>',
-                    new ScannerException("While scanning a tag", startMark,
-                        expected("'>'", reader_.peek()), reader_.mark));
+                    new ScannerException(expected("While scanning a tag, expected a '>'", reader_.peek()),
+                        reader_.mark, "tag started here", startMark));
                 reader_.forward();
             }
             else if(c.isWhiteSpace)
             {
                 reader_.forward();
                 handleEnd = 0;
-                reader_.sliceBuilder.write('!');
+                slice ~= '!';
             }
             else
             {
@@ -1076,24 +1062,23 @@ struct Scanner
 
                 if(useHandle)
                 {
-                    scanTagHandleToSlice!"tag"(startMark);
-                    handleEnd = cast(uint)reader_.sliceBuilder.length;
+                    scanTagHandleToSlice!"tag"(slice, startMark);
+                    handleEnd = cast(uint)slice.length;
                 }
                 else
                 {
                     reader_.forward();
-                    reader_.sliceBuilder.write('!');
-                    handleEnd = cast(uint)reader_.sliceBuilder.length;
+                    slice ~= '!';
+                    handleEnd = cast(uint)slice.length;
                 }
 
-                scanTagURIToSlice!"tag"(startMark);
+                scanTagURIToSlice!"tag"(slice, startMark);
             }
 
             enforce(reader_.peek().isBreakOrSpace,
-                new ScannerException("While scanning a tag", startMark, expected("' '", reader_.peek()),
-                    reader_.mark));
+                new ScannerException(expected("While scanning a tag, expected a ' '", reader_.peek()),
+                    reader_.mark, "tag started here", startMark));
 
-            char[] slice = reader_.sliceBuilder.finish();
             return tagToken(startMark, reader_.mark, slice, handleEnd);
         }
 
@@ -1115,23 +1100,22 @@ struct Scanner
             Mark endMark;
             uint indent = max(1, indent_ + 1);
 
-            reader_.sliceBuilder.begin();
-            alias Transaction = SliceBuilder.Transaction;
+            char[] slice;
             // Used to strip the last line breaks written to the slice at the end of the
             // scalar, which may be needed based on chomping.
-            Transaction breaksTransaction = Transaction(&reader_.sliceBuilder);
+            char[] newBreakSlice;
             // Read the first indentation/line breaks before the scalar.
-            size_t startLen = reader_.sliceBuilder.length;
+            size_t startLen = newBreakSlice.length;
             if(increment == int.min)
             {
-                auto indentation = scanBlockScalarIndentationToSlice();
+                auto indentation = scanBlockScalarIndentationToSlice(newBreakSlice);
                 endMark = indentation[1];
                 indent  = max(indent, indentation[0]);
             }
             else
             {
                 indent += increment - 1;
-                endMark = scanBlockScalarBreaksToSlice(indent);
+                endMark = scanBlockScalarBreaksToSlice(newBreakSlice, indent);
             }
 
             // int.max means there's no line break (int.max is outside UTF-32).
@@ -1140,24 +1124,22 @@ struct Scanner
             // Scan the inner part of the block scalar.
             while(reader_.column == indent && reader_.peekByte() != '\0')
             {
-                breaksTransaction.commit();
+                slice ~= newBreakSlice;
                 const bool leadingNonSpace = !reader_.peekByte().among!(' ', '\t');
                 // This is where the 'interesting' non-whitespace data gets read.
-                scanToNextBreakToSlice();
+                scanToNextBreakToSlice(slice);
                 lineBreak = scanLineBreak();
 
 
                 // This transaction serves to rollback data read in the
                 // scanBlockScalarBreaksToSlice() call.
-                breaksTransaction = Transaction(&reader_.sliceBuilder);
-                startLen = reader_.sliceBuilder.length;
+                newBreakSlice = [];
+                startLen = slice.length;
                 // The line breaks should actually be written _after_ the if() block
                 // below. We work around that by inserting
-                endMark = scanBlockScalarBreaksToSlice(indent);
+                endMark = scanBlockScalarBreaksToSlice(newBreakSlice, indent);
 
-                // This will not run during the last iteration (see the if() vs the
-                // while()), hence breaksTransaction rollback (which happens after this
-                // loop) will never roll back data written in this if() block.
+                // This will not run during the last iteration
                 if(reader_.column == indent && reader_.peekByte() != '\0')
                 {
                     // Unfortunately, folding rules are ambiguous.
@@ -1168,16 +1150,16 @@ struct Scanner
                     {
                         // No breaks were scanned; no need to insert the space in the
                         // middle of slice.
-                        if(startLen == reader_.sliceBuilder.length)
+                        if(startLen == slice.length + newBreakSlice.length)
                         {
-                            reader_.sliceBuilder.write(' ');
+                            newBreakSlice ~= ' ';
                         }
                     }
                     else
                     {
                         // We need to insert in the middle of the slice in case any line
                         // breaks were scanned.
-                        reader_.sliceBuilder.insert(lineBreak, startLen);
+                        newBreakSlice.insert(lineBreak, 0);
                     }
 
                     ////this is Clark Evans's interpretation (also in the spec
@@ -1208,11 +1190,10 @@ struct Scanner
                 }
             }
 
-            // If chomping is Keep, we keep (commit) the last scanned line breaks
+            // If chompint is Keep, we keep (commit) the last scanned line breaks
             // (which are at the end of the scalar). Otherwise re remove them (end the
             // transaction).
-            if(chomping == Chomping.keep)  { breaksTransaction.commit(); }
-            else                           { breaksTransaction.end(); }
+            if(chomping == Chomping.keep)  { slice ~= newBreakSlice; }
             if(chomping != Chomping.strip && lineBreak != int.max)
             {
                 // If chomping is Keep, we keep the line break but the first line break
@@ -1220,18 +1201,18 @@ struct Scanner
                 // be inserted _before_ the other line breaks.
                 if(chomping == Chomping.keep)
                 {
-                    reader_.sliceBuilder.insert(lineBreak, startLen);
+                    slice.insert(lineBreak, startLen);
                 }
-                // If chomping is not Keep, breaksTransaction was cancelled so we can
-                // directly write the first line break (as it isn't stripped - chomping
-                // is not Strip)
+                // If chomping is not Keep, discard the line break
                 else
                 {
-                    reader_.sliceBuilder.write(lineBreak);
+                    if (lineBreak != '\0')
+                    {
+                        slice ~= lineBreak;
+                    }
                 }
             }
 
-            char[] slice = reader_.sliceBuilder.finish();
             return scalarToken(startMark, endMark, slice, style);
         }
 
@@ -1254,8 +1235,8 @@ struct Scanner
             }
 
             enforce(c.among!(' ', '\0', '\n', '\r', '\u0085', '\u2028', '\u2029'),
-                new ScannerException("While scanning a block scalar", startMark,
-                expected("chomping or indentation indicator", c), reader_.mark));
+                new ScannerException(expected("While scanning a block scalar, expected a chomping or indentation indicator", c),
+                    reader_.mark, "scalar started here", startMark));
 
             return tuple(chomping, increment);
         }
@@ -1296,8 +1277,8 @@ struct Scanner
             assert(increment < 10 && increment >= 0, "Digit has invalid value");
 
             enforce(increment > 0,
-                new ScannerException("While scanning a block scalar", startMark,
-                    expected("indentation indicator in range 1-9", "0"), reader_.mark));
+                new ScannerException(expected("While scanning a block scalar, expected an indentation indicator in range 1-9", "0"),
+                    reader_.mark, "scalar started here", startMark));
 
             reader_.forward();
             c = reader_.peek();
@@ -1311,8 +1292,8 @@ struct Scanner
             if(reader_.peekByte()== '#') { scanToNextBreak(); }
 
             enforce(reader_.peek().isBreak,
-                new ScannerException("While scanning a block scalar", startMark,
-                    expected("comment or line break", reader_.peek()), reader_.mark));
+                new ScannerException(expected("While scanning a block scalar, expected a comment or line break", reader_.peek()),
+                    reader_.mark, "scalar started here", startMark));
 
             scanLineBreak();
         }
@@ -1321,7 +1302,7 @@ struct Scanner
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        Tuple!(uint, Mark) scanBlockScalarIndentationToSlice() @safe
+        Tuple!(uint, Mark) scanBlockScalarIndentationToSlice(ref char[] slice) @safe
         {
             uint maxIndent;
             Mark endMark = reader_.mark;
@@ -1330,7 +1311,7 @@ struct Scanner
             {
                 if(reader_.peekByte() != ' ')
                 {
-                    reader_.sliceBuilder.write(scanLineBreak());
+                    slice ~= scanLineBreak();
                     endMark = reader_.mark;
                     continue;
                 }
@@ -1345,7 +1326,7 @@ struct Scanner
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        Mark scanBlockScalarBreaksToSlice(const uint indent) @safe
+        Mark scanBlockScalarBreaksToSlice(ref char[] slice, const uint indent) @safe
         {
             Mark endMark = reader_.mark;
 
@@ -1353,39 +1334,38 @@ struct Scanner
             {
                 while(reader_.column < indent && reader_.peekByte() == ' ') { reader_.forward(); }
                 if(!reader_.peek().among!('\n', '\r', '\u0085', '\u2028', '\u2029'))  { break; }
-                reader_.sliceBuilder.write(scanLineBreak());
+                slice ~= scanLineBreak();
                 endMark = reader_.mark;
             }
 
             return endMark;
         }
 
-        /// Scan a quoted flow scalar token with specified quotes.
+        /// Scan a qouted flow scalar token with specified quotes.
         Token scanFlowScalar(const ScalarStyle quotes) @safe
         {
             const startMark = reader_.mark;
             const quote     = reader_.get();
 
-            reader_.sliceBuilder.begin();
+            char[] slice;
 
-            scanFlowScalarNonSpacesToSlice(quotes, startMark);
+            scanFlowScalarNonSpacesToSlice(slice, quotes, startMark);
 
             while(reader_.peek() != quote)
             {
-                scanFlowScalarSpacesToSlice(startMark);
-                scanFlowScalarNonSpacesToSlice(quotes, startMark);
+                scanFlowScalarSpacesToSlice(slice, startMark);
+                scanFlowScalarNonSpacesToSlice(slice, quotes, startMark);
             }
             reader_.forward();
 
-            auto slice = reader_.sliceBuilder.finish();
             return scalarToken(startMark, reader_.mark, slice, quotes);
         }
 
-        /// Scan non-space characters in a flow scalar.
+        /// Scan nonspace characters in a flow scalar.
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanFlowScalarNonSpacesToSlice(const ScalarStyle quotes, const Mark startMark)
+        void scanFlowScalarNonSpacesToSlice(ref char[] slice, const ScalarStyle quotes, const Mark startMark)
             @safe
         {
             for(;;)
@@ -1395,19 +1375,19 @@ struct Scanner
                 size_t numCodePoints;
                 while(!reader_.peek(numCodePoints).isFlowScalarBreakSpace) { ++numCodePoints; }
 
-                if (numCodePoints > 0) { reader_.sliceBuilder.write(reader_.get(numCodePoints)); }
+                if (numCodePoints > 0) { slice ~= reader_.get(numCodePoints); }
 
                 c = reader_.peek();
                 if(quotes == ScalarStyle.singleQuoted && c == '\'' && reader_.peek(1) == '\'')
                 {
                     reader_.forward(2);
-                    reader_.sliceBuilder.write('\'');
+                    slice ~= '\'';
                 }
                 else if((quotes == ScalarStyle.doubleQuoted && c == '\'') ||
                         (quotes == ScalarStyle.singleQuoted && c.among!('"', '\\')))
                 {
                     reader_.forward();
-                    reader_.sliceBuilder.write(c);
+                    slice ~= c;
                 }
                 else if(quotes == ScalarStyle.doubleQuoted && c == '\\')
                 {
@@ -1420,7 +1400,7 @@ struct Scanner
                         // place (in a slice) in case of '\P' and '\L' (very uncommon,
                         // but we don't want to break the spec)
                         char[2] escapeSequence = ['\\', cast(char)c];
-                        reader_.sliceBuilder.write(escapeSequence);
+                        slice ~= escapeSequence;
                     }
                     else if(c.among!(escapeHexCodeList))
                     {
@@ -1429,32 +1409,27 @@ struct Scanner
 
                         foreach(i; 0 .. hexLength) {
                             enforce(reader_.peek(i).isHexDigit,
-                                new ScannerException("While scanning a double quoted scalar", startMark,
-                                    expected("escape sequence of hexadecimal numbers",
-                                        reader_.peek(i)), reader_.mark));
+                                new ScannerException(expected("While scanning a double quoted scalar, expected an escape sequence of hexadecimal numbers", reader_.peek(i)),
+                                    reader_.mark, "scalar started here", startMark));
                         }
                         char[] hex = reader_.get(hexLength);
 
-                        enforce((hex.length > 0) && (hex.length <= 8),
-                            new ScannerException("While scanning a double quoted scalar", startMark,
-                                  "overflow when parsing an escape sequence of " ~
-                                  "hexadecimal numbers.", reader_.mark));
+                        assert((hex.length > 0) && (hex.length <= 8), "Hex escape overflow");
 
                         char[2] escapeStart = ['\\', cast(char) c];
-                        reader_.sliceBuilder.write(escapeStart);
-                        reader_.sliceBuilder.write(hex);
+                        slice ~= escapeStart;
+                        slice ~= hex;
 
                     }
                     else if(c.among!('\n', '\r', '\u0085', '\u2028', '\u2029'))
                     {
                         scanLineBreak();
-                        scanFlowScalarBreaksToSlice(startMark);
+                        scanFlowScalarBreaksToSlice(slice, startMark);
                     }
                     else
                     {
-                        throw new ScannerException("While scanning a double quoted scalar", startMark,
-                              text("found unsupported escape character ", c),
-                              reader_.mark);
+                        throw new ScannerException(text("While scanning a double quoted scalar, found unsupported escape character ", c),
+                            reader_.mark, "scalar started here", startMark);
                     }
                 }
                 else { return; }
@@ -1465,7 +1440,7 @@ struct Scanner
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// spaces into that slice.
-        void scanFlowScalarSpacesToSlice(const Mark startMark) @safe
+        void scanFlowScalarSpacesToSlice(ref char[] slice, const Mark startMark) @safe
         {
             // Increase length as long as we see whitespace.
             size_t length;
@@ -1475,14 +1450,14 @@ struct Scanner
             // Can check the last byte without striding because '\0' is ASCII
             const c = reader_.peek(length);
             enforce(c != '\0',
-                new ScannerException("While scanning a quoted scalar", startMark,
-                    "found unexpected end of buffer", reader_.mark));
+                new ScannerException("While scanning a quoted scalar, found unexpected end of buffer",
+                    reader_.mark, "scalar started here", startMark));
 
             // Spaces not followed by a line break.
             if(!c.among!('\n', '\r', '\u0085', '\u2028', '\u2029'))
             {
                 reader_.forward(length);
-                reader_.sliceBuilder.write(whitespaces);
+                slice ~= whitespaces;
                 return;
             }
 
@@ -1490,21 +1465,21 @@ struct Scanner
             reader_.forward(length);
             const lineBreak = scanLineBreak();
 
-            if(lineBreak != '\n') { reader_.sliceBuilder.write(lineBreak); }
+            if(lineBreak != '\n') { slice ~= lineBreak; }
 
             // If we have extra line breaks after the first, scan them into the
             // slice.
-            const bool extraBreaks = scanFlowScalarBreaksToSlice(startMark);
+            const bool extraBreaks = scanFlowScalarBreaksToSlice(slice, startMark);
 
             // No extra breaks, one normal line break. Replace it with a space.
-            if(lineBreak == '\n' && !extraBreaks) { reader_.sliceBuilder.write(' '); }
+            if(lineBreak == '\n' && !extraBreaks) { slice ~= ' '; }
         }
 
         /// Scan line breaks in a flow scalar.
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// line breaks into that slice.
-        bool scanFlowScalarBreaksToSlice(const Mark startMark) @safe
+        bool scanFlowScalarBreaksToSlice(ref char[] slice, const Mark startMark) @safe
         {
             // True if at least one line break was found.
             bool anyBreaks;
@@ -1514,8 +1489,8 @@ struct Scanner
                 const prefix = reader_.prefix(3);
                 enforce(!(prefix == "---" || prefix == "...") ||
                     !reader_.peek(3).isWhiteSpace,
-                    new ScannerException("While scanning a quoted scalar", startMark,
-                        "found unexpected document separator", reader_.mark));
+                    new ScannerException("While scanning a quoted scalar, found unexpected document separator",
+                        reader_.mark, "scalar started here", startMark));
 
                 // Skip any whitespaces.
                 while(reader_.peekByte().among!(' ', '\t')) { reader_.forward(); }
@@ -1525,7 +1500,7 @@ struct Scanner
 
                 const lineBreak = scanLineBreak();
                 anyBreaks = true;
-                reader_.sliceBuilder.write(lineBreak);
+                slice ~= lineBreak;
             }
             return anyBreaks;
         }
@@ -1543,10 +1518,9 @@ struct Scanner
             // document separators at the beginning of the line.
             // if(indent == 0) { indent = 1; }
 
-            reader_.sliceBuilder.begin();
+            char[] slice;
 
-            alias Transaction = SliceBuilder.Transaction;
-            Transaction spacesTransaction;
+            char[] newSpacesSlice;
             // Stop at a comment.
             while(reader_.peekByte() != '#')
             {
@@ -1558,7 +1532,8 @@ struct Scanner
                     const cNext = reader_.peek(length + 1);
                     if(c.isWhiteSpace ||
                        (flowLevel_ == 0 && c == ':' && cNext.isWhiteSpace) ||
-                       (flowLevel_ > 0 && c.among!(',', ':', '?', '[', ']', '{', '}')))
+                       (flowLevel_ > 0 && c == ':' && (cNext.isWhiteSpace || cNext.among!(',', '[', ']', '{', '}'))) ||
+                       (flowLevel_ > 0 && c.among!(',', '[', ']', '{', '}')))
                     {
                         break;
                     }
@@ -1566,37 +1541,25 @@ struct Scanner
                     c = cNext;
                 }
 
-                // It's not clear what we should do with ':' in the flow context.
-                enforce(flowLevel_ == 0 || c != ':' ||
-                   reader_.peek(length + 1).isWhiteSpace ||
-                   reader_.peek(length + 1).among!(',', '[', ']', '{', '}'),
-                    new ScannerException("While scanning a plain scalar", startMark,
-                        "found unexpected ':' . Please check " ~
-                        "http://pyyaml.org/wiki/YAMLColonInFlowContext for details.",
-                        reader_.mark));
-
                 if(length == 0) { break; }
 
                 allowSimpleKey_ = false;
 
-                reader_.sliceBuilder.write(reader_.get(length));
+                newSpacesSlice ~= reader_.get(length);
 
                 endMark = reader_.mark;
 
-                spacesTransaction.commit();
-                spacesTransaction = Transaction(&reader_.sliceBuilder);
+                slice ~= newSpacesSlice;
+                newSpacesSlice = [];
 
-                const startLength = reader_.sliceBuilder.length;
-                scanPlainSpacesToSlice();
-                if(startLength == reader_.sliceBuilder.length ||
+                const startLength = slice.length;
+                scanPlainSpacesToSlice(newSpacesSlice);
+                if(startLength == slice.length + newSpacesSlice.length ||
                    (flowLevel_ == 0 && reader_.column < indent))
                 {
                     break;
                 }
             }
-
-            spacesTransaction.end();
-            char[] slice = reader_.sliceBuilder.finish();
 
             return scalarToken(startMark, endMark, slice, ScalarStyle.plain);
         }
@@ -1605,7 +1568,7 @@ struct Scanner
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the spaces
         /// into that slice.
-        void scanPlainSpacesToSlice() @safe
+        void scanPlainSpacesToSlice(ref char[] slice) @trusted
         {
             // The specification is really confusing about tabs in plain scalars.
             // We just forbid them completely. Do not use tabs in YAML!
@@ -1620,7 +1583,7 @@ struct Scanner
             if(!c.isNSChar)
             {
                 // We have spaces, but no newline.
-                if(whitespaces.length > 0) { reader_.sliceBuilder.write(whitespaces); }
+                if(whitespaces.length > 0) { slice ~= whitespaces; }
                 return;
             }
 
@@ -1639,9 +1602,8 @@ struct Scanner
 
             bool extraBreaks;
 
-            alias Transaction = SliceBuilder.Transaction;
-            auto transaction = Transaction(&reader_.sliceBuilder);
-            if(lineBreak != '\n') { reader_.sliceBuilder.write(lineBreak); }
+            char[] newSlice;
+            if(lineBreak != '\n') { newSlice ~= lineBreak; }
             while(reader_.peek().isNSChar)
             {
                 if(reader_.peekByte() == ' ') { reader_.forward(); }
@@ -1649,27 +1611,28 @@ struct Scanner
                 {
                     const lBreak = scanLineBreak();
                     extraBreaks  = true;
-                    reader_.sliceBuilder.write(lBreak);
+                    newSlice ~= lBreak;
 
                     if(end(reader_)) { return; }
                 }
             }
-            transaction.commit();
+            slice ~= newSlice;
 
             // No line breaks, only a space.
-            if(lineBreak == '\n' && !extraBreaks) { reader_.sliceBuilder.write(' '); }
+            if(lineBreak == '\n' && !extraBreaks) { slice ~= ' '; }
         }
 
         /// Scan handle of a tag token.
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanTagHandleToSlice(string name)(const Mark startMark)
+        void scanTagHandleToSlice(string name)(ref char[] slice, const Mark startMark)
         {
             dchar c = reader_.peek();
-            enum contextMsg = "While scanning a " ~ name;
+            enum contextMsg = "While scanning a " ~ name ~ ", expected a !";
+            // should this be an assert?
             enforce(c == '!',
-                new ScannerException(contextMsg, startMark, expected("'!'", c), reader_.mark));
+                new ScannerException(expected(contextMsg, c), reader_.mark, "tag started here", startMark));
 
             uint length = 1;
             c = reader_.peek(length);
@@ -1681,22 +1644,22 @@ struct Scanner
                     c = reader_.peek(length);
                 }
                 enforce(c == '!',
-                    new ScannerException(contextMsg, startMark, expected("'!'", c), reader_.mark));
+                    new ScannerException(expected(contextMsg, c), reader_.mark(length), "tag started here", startMark));
                 ++length;
             }
 
-            reader_.sliceBuilder.write(reader_.get(length));
+            slice ~= reader_.get(length);
         }
 
         /// Scan URI in a tag token.
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanTagURIToSlice(string name)(const Mark startMark)
+        void scanTagURIToSlice(string name)(ref char[] slice, const Mark startMark)
         {
             // Note: we do not check if URI is well-formed.
             dchar c = reader_.peek();
-            const startLen = reader_.sliceBuilder.length;
+            const startLen = slice.length;
             {
                 uint length;
                 while(c.isAlphaNum || c.isURIChar)
@@ -1704,9 +1667,9 @@ struct Scanner
                     if(c == '%')
                     {
                         auto chars = reader_.get(length);
-                        reader_.sliceBuilder.write(chars);
+                        slice ~= chars;
                         length = 0;
-                        scanURIEscapesToSlice!name(startMark);
+                        scanURIEscapesToSlice!name(slice, startMark);
                     }
                     else { ++length; }
                     c = reader_.peek(length);
@@ -1714,14 +1677,14 @@ struct Scanner
                 if(length > 0)
                 {
                     auto chars = reader_.get(length);
-                    reader_.sliceBuilder.write(chars);
+                    slice ~= chars;
                     length = 0;
                 }
             }
             // OK if we scanned something, error otherwise.
-            enum contextMsg = "While parsing a " ~ name;
-            enforce(reader_.sliceBuilder.length > startLen,
-                new ScannerException(contextMsg, startMark, expected("URI", c), reader_.mark));
+            enum contextMsg = "While parsing a " ~ name ~ ", expected a URI";
+            enforce(slice.length > startLen,
+                new ScannerException(expected(contextMsg, c), reader_.mark, "tag started here", startMark));
         }
 
         // Not @nogc yet because std.utf.decode is not @nogc
@@ -1729,7 +1692,7 @@ struct Scanner
         ///
         /// Assumes that the caller is building a slice in Reader, and puts the scanned
         /// characters into that slice.
-        void scanURIEscapesToSlice(string name)(const Mark startMark)
+        void scanURIEscapesToSlice(string name)(ref char[] slice, const Mark startMark)
         {
             import core.exception : UnicodeException;
             // URI escapes encode a UTF-8 string. We store UTF-8 code units here for
@@ -1744,9 +1707,8 @@ struct Scanner
                 char[2] nextByte = [reader_.peekByte(), reader_.peekByte(1)];
 
                 enforce(nextByte[0].isHexDigit && nextByte[1].isHexDigit,
-                    new ScannerException(contextMsg, startMark,
-                        expected("URI escape sequence of 2 hexadecimal " ~
-                            "numbers", nextByte), reader_.mark));
+                    new ScannerException(expected(contextMsg ~ ", expected a URI escape sequence of 2 hexadecimal numbers", nextByte),
+                        reader_.mark, "tag started here", startMark));
 
                 buffer ~= nextByte[].to!ubyte(16);
 
@@ -1756,14 +1718,13 @@ struct Scanner
             {
                 foreach (dchar chr; buffer.data)
                 {
-                    reader_.sliceBuilder.write(chr);
+                    slice ~= chr;
                 }
             }
             catch (UnicodeException)
             {
-                throw new ScannerException(contextMsg, startMark,
-                        "Invalid UTF-8 data encoded in URI escape sequence",
-                        reader_.mark);
+                throw new ScannerException(contextMsg ~ ", found invalid UTF-8 data encoded in URI escape sequence",
+                    reader_.mark, "tag started here", startMark);
             }
         }
 
@@ -1806,4 +1767,380 @@ struct Scanner
             }
             return '\0';
         }
+}
+
+// Issue 309 - https://github.com/dlang-community/D-YAML/issues/309
+@safe unittest
+{
+    enum str = q"EOS
+exp: |
+  foobar
+EOS".chomp;
+
+    auto r = Reader(cast(ubyte[])str.dup);
+    auto s = Scanner(r);
+    auto elems = s.map!"a.value".filter!"a.length > 0".array;
+    assert(elems[1] == "foobar");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `test: key: value`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: Mapping values are not allowed here\n" ~
+       "<unknown>:1,10");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `test: ? foo
+      : bar`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: Mapping keys are not allowed here\n" ~
+       "<unknown>:1,7");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `@`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning for the next token, found character '@', index 64 that cannot start any token\n" ~
+       "<unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `foo: bar
+meh`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a simple key, could not find expected ':'\n" ~
+       "<unknown>:2,4\nkey started here: <unknown>:2,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `foo: &A bar
+*A ]`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a simple key, could not find expected ':'\n" ~
+       "<unknown>:2,4\nkey started here: <unknown>:2,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `foo: &[`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning an anchor or alias, expected a printable character besides '[', ']', '{', '}' and ',', but found [\n" ~
+       "<unknown>:1,7\nstarted here: <unknown>:1,6");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `%?`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a directive, expected alphanumeric, '-' or '_', but found ?\n" ~
+       "<unknown>:1,2\ndirective started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `%b?`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a directive, expected alphanumeric, '-' or '_', but found ?\n" ~
+       "<unknown>:1,3\ndirective started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `%YAML 1?`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a directive, expected digit or '.', but found ?\n" ~
+       "<unknown>:1,8\ndirective started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `%YAML 1.1?`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a directive, expected digit or '.', but found ?\n" ~
+       "<unknown>:1,10\ndirective started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `%YAML ?`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a directive, expected a digit, but found ?\n" ~
+       "<unknown>:1,7\ndirective started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `%TAG !a!<`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a directive handle, expected ' ', but found <\n" ~
+       "<unknown>:1,9\ndirective started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `%TAG !a! !>`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a directive prefix, expected ' ', but found >\n" ~
+       "<unknown>:1,11\ndirective started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `%YAML 1.0 ?`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a directive, expected a comment or a line break, but found ?\n" ~
+       "<unknown>:1,11\ndirective started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `foo: !<a#`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a tag, expected a '>', but found #\n" ~
+       "<unknown>:1,9\ntag started here: <unknown>:1,6");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `foo: !<a>#`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a tag, expected a ' ', but found #\n" ~
+       "<unknown>:1,10\ntag started here: <unknown>:1,6");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `foo: !<#`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While parsing a tag, expected a URI, but found #\n" ~
+       "<unknown>:1,8\ntag started here: <unknown>:1,6");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `foo: |b`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a block scalar, expected a chomping or indentation indicator, but found b\n" ~
+       "<unknown>:1,7\nscalar started here: <unknown>:1,6");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `foo: |0`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a block scalar, expected an indentation indicator in range 1-9, but found 0\n" ~
+       "<unknown>:1,7\nscalar started here: <unknown>:1,6");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `"\x"`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a double quoted scalar, expected an escape sequence of hexadecimal numbers, but found \"\n" ~
+       "<unknown>:1,4\nscalar started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `"\:"`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a double quoted scalar, found unsupported escape character :\n" ~
+       "<unknown>:1,3\nscalar started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `"an unfinished scal`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a quoted scalar, found unexpected end of buffer\n" ~
+       "<unknown>:1,20\nscalar started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `"an unfinished scal
+---`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a quoted scalar, found unexpected document separator\n" ~
+       "<unknown>:2,1\nscalar started here: <unknown>:1,1");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `Error: !a:!`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a tag, expected a !, but found :\n" ~
+       "<unknown>:1,10\ntag started here: <unknown>:1,8");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `Error: !e!tag%:)`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a tag, expected a URI escape sequence of 2 hexadecimal numbers, but found :)\n" ~
+       "<unknown>:1,15\ntag started here: <unknown>:1,8");
+}
+
+@safe unittest
+{
+    import dub.internal.dyaml.loader : Loader;
+
+    const str = `Error: !e!tag%99%99`;
+
+    const exc = collectException!LoaderException(Loader.fromString(str).load());
+    assert(exc);
+    assert(exc.message() ==
+       "Unable to load <unknown>: While scanning a tag, found invalid UTF-8 data encoded in URI escape sequence\n" ~
+       "<unknown>:1,20\ntag started here: <unknown>:1,8");
+}
+
+private void insert(ref char[] slice, const dchar c, const size_t position) @safe pure
+in(position <= slice.length, text("Trying to insert after the end of the slice (", position, " > ", slice.length, ")"))
+{
+    const point       = position;
+    const movedLength = slice.length - point;
+
+    // Encode c into UTF-8
+    char[4] encodeBuf;
+    if(c < 0x80) { encodeBuf[0] = cast(char)c; }
+    const size_t bytes = c < 0x80 ? 1 : encode(encodeBuf, c);
+
+    slice.length += bytes;
+    if(movedLength > 0)
+    {
+        copy(slice[point..point + movedLength * char.sizeof],
+                slice[point + bytes .. point + bytes + movedLength * char.sizeof]);
+    }
+    slice[point .. point + bytes] = encodeBuf[0 .. bytes];
 }

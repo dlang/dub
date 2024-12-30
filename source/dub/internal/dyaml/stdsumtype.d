@@ -26,7 +26,7 @@ module dub.internal.dyaml.stdsumtype;
 version (D_BetterC) {} else
 @safe unittest
 {
-    import std.math : isClose;
+    import std.math.operations : isClose;
 
     struct Fahrenheit { double degrees; }
     struct Celsius { double degrees; }
@@ -93,10 +93,10 @@ version (D_BetterC) {} else
 version (D_BetterC) {} else
 @safe unittest
 {
-    import std.math : isClose;
-    import std.math : cos;
-    import std.math : PI;
-    import std.math : sqrt;
+    import std.math.operations : isClose;
+    import std.math.trigonometry : cos;
+    import std.math.constants : PI;
+    import std.math.algebraic : sqrt;
 
     struct Rectangular { double x, y; }
     struct Polar { double r, theta; }
@@ -232,12 +232,12 @@ version (D_BetterC) {} else
     assert(pprint(*myExpr) == "(a + (2 * b))");
 }
 
-import std.format : FormatSpec, singleSpec;
+import std.format.spec : FormatSpec, singleSpec;
 import std.meta : AliasSeq, Filter, IndexOf = staticIndexOf, Map = staticMap;
 import std.meta : NoDuplicates;
 import std.meta : anySatisfy, allSatisfy;
 import std.traits : hasElaborateCopyConstructor, hasElaborateDestructor;
-import std.traits : isAssignable, isCopyable, isStaticArray;
+import std.traits : isAssignable, isCopyable, isStaticArray, isRvalueAssignable;
 import std.traits : ConstOf, ImmutableOf, InoutOf, TemplateArgsOf;
 
 // FIXME: std.sumtype : `std.traits : DeducedParameterType` and `std.conv : toCtString`
@@ -250,12 +250,6 @@ private template DeducedParameterType(T)
     else
         alias DeducedParameterType = T;
 }
-
-/// Compatibility with < v2.095.0
-private struct __InoutWorkaroundStruct{}
-private @property T rvalueOf(T)(inout __InoutWorkaroundStruct = __InoutWorkaroundStruct.init);
-private @property ref T lvalueOf(T)(inout __InoutWorkaroundStruct = __InoutWorkaroundStruct.init);
-private enum isRvalueAssignable(Lhs, Rhs = Lhs) = __traits(compiles, { lvalueOf!Lhs = rvalueOf!Rhs; });
 
 import std.typecons : ReplaceTypeUnless;
 import std.typecons : Flag;
@@ -388,10 +382,7 @@ public:
             static if (isCopyable!T)
             {
                 // Workaround for https://issues.dlang.org/show_bug.cgi?id=21542
-                if (__ctfe)
-                    __traits(getMember, storage, Storage.memberName!T) = value;
-                else
-                    __traits(getMember, storage, Storage.memberName!T) = forward!value;
+                __traits(getMember, storage, Storage.memberName!T) = __ctfe ? value : forward!value;
             }
             else
             {
@@ -401,45 +392,38 @@ public:
             tag = tid;
         }
 
-        // DUB: Those traits compile work around bugs in < v2.098
-        static if (!__traits(compiles, { T c = const(T).init; }))
+        static if (isCopyable!(const(T)))
         {
-            static if (isCopyable!(const(T)))
+            static if (IndexOf!(const(T), Map!(ConstOf, Types)) == tid)
             {
-                static if (IndexOf!(const(T), Map!(ConstOf, Types)) == tid)
+                /// ditto
+                this(const(T) value) const
                 {
-                    /// ditto
-                    this(const(T) value) const
-                    {
-                        __traits(getMember, storage, Storage.memberName!T) = value;
-                        tag = tid;
-                    }
+                    __traits(getMember, storage, Storage.memberName!T) = value;
+                    tag = tid;
                 }
-            }
-            else
-            {
-                @disable this(const(T) value) const;
             }
         }
-
-        static if (!__traits(compiles, { T c = immutable(T).init; }))
+        else
         {
-            static if (isCopyable!(immutable(T)))
+            @disable this(const(T) value) const;
+        }
+
+        static if (isCopyable!(immutable(T)))
+        {
+            static if (IndexOf!(immutable(T), Map!(ImmutableOf, Types)) == tid)
             {
-                static if (IndexOf!(immutable(T), Map!(ImmutableOf, Types)) == tid)
+                /// ditto
+                this(immutable(T) value) immutable
                 {
-                    /// ditto
-                    this(immutable(T) value) immutable
-                    {
-                        __traits(getMember, storage, Storage.memberName!T) = value;
-                        tag = tid;
-                    }
+                    __traits(getMember, storage, Storage.memberName!T) = value;
+                    tag = tid;
                 }
             }
-            else
-            {
-                @disable this(immutable(T) value) immutable;
-            }
+        }
+        else
+        {
+            @disable this(immutable(T) value) immutable;
         }
 
         static if (isCopyable!(inout(T)))
@@ -854,7 +838,7 @@ public:
      */
     void toString(this This, Sink, Char)(ref Sink sink, const ref FormatSpec!Char fmt)
     {
-        import std.format : formatValue;
+        import std.format.write : formatValue;
 
         this.match!((ref value) {
             formatValue(sink, value, fmt);
@@ -2265,7 +2249,7 @@ version (unittest)
     }
     else
     {
-        import std.math : isClose;
+        import std.math.operations : isClose;
     }
 }
 
