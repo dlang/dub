@@ -65,6 +65,7 @@ jobs:
           - dmd-2.099.1
           - dmd-2.102.2
           - dmd-2.105.3
+          - dmd-2.108.1
         include:
           - { do_test: false }
           - { dc: dmd-latest, do_test: true }
