@@ -88,7 +88,7 @@ jobs:
       run: |
         # We need to install GNU utils as the test-suite scripts expect it.
         # Without them we may get slightly different behavior in tests and hard-to-track failures
-        brew install pkg-config coreutils diffutils
+        brew install coreutils diffutils
         echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig/" >> $GITHUB_ENV
 
     - name: '[Linux] Install dependencies'
