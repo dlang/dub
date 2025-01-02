@@ -184,7 +184,7 @@ int main(string[] args)
 		writeln(line);
 	auto errCnt = logLines.count!(a => a.startsWith("[ERROR]"));
 	auto passCnt = logLines.count!(a => a.startsWith("[INFO]") && a.endsWith("status: Ok"));
-	writeln(passCnt , "/", errCnt + passCnt, " tests were successed.");
+	writeln(passCnt , "/", errCnt + passCnt, " tests succeeded.");
 
 	return any_errors;
 }
