@@ -438,7 +438,8 @@ public class FSEntry
     public FSEntry mkdir (in NativePath path) scope
     {
         assert(!path.absolute() || this.parent is null,
-                `FSEntry.mkdir needs to be called with a relative path`);
+            `FSEntry(%s).mkdir(%s): needs to be called with a relative path`
+            .format(this.path, path));
         // Check if the child already exists
         auto segments = path.bySegment;
         auto child = this.lookup(segments.front.name);
