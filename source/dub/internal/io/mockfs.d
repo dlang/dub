@@ -333,6 +333,10 @@ public class FSEntry
         import std.datetime.date;
         SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
 
+        assert(n.length > 0,
+            "FSentry.this(%s, %s, %s) called with empty name"
+            .format(p.path(), t, n));
+
         this.attributes.type = t;
         this.parent = p;
         this.name = n;
