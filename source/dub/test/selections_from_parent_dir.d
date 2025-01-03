@@ -47,7 +47,8 @@ dependency "pkg1" version="*"`);
     dub.loadPackage();
     assert(dub.project.hasAllDependencies());
     // the relative path should have been adjusted (`pkg1` => `../pkg1`)
-    assert(dub.project.selections.getSelectedVersion(PackageName("pkg1")).path == NativePath("../pkg1"));
+    assert(dub.project.selections.getSelectedVersion(PackageName("pkg1")).path == NativePath("../pkg1"),
+            dub.project.selections.getSelectedVersion(PackageName("pkg1")).path.toString());
 
     // invoking `dub upgrade` for the pkg2 root package should generate a local dub.selections.json,
     // leaving the inherited one untouched

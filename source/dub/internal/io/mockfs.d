@@ -520,7 +520,7 @@ unittest {
     version (Windows) immutable NativePath root = NativePath(`C:\`);
     else              immutable NativePath root = NativePath(`/`);
 
-    assert(fs.getcwd == root);
+    assert(fs.getcwd == root, fs.getcwd.toString());
     // We shouldn't be able to chdir into a non-existent directory
     assertThrown(fs.chdir(P("foo/bar")));
     // Even with an absolute path

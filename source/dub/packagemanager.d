@@ -894,12 +894,17 @@ class PackageManager {
 		alias PSegment = typeof(NativePath.init.head);
 		PSegment[] zip_prefix;
 		outer: foreach(ArchiveMember am; archive.directory) {
-			auto path = NativePath(am.name).bySegment.array;
-			foreach (fil; packageInfoFiles)
-				if (path.length == 2 && path[$-1].name == fil.filename) {
-					zip_prefix = path[0 .. $-1];
-					break outer;
-				}
+            try {
+                auto path = NativePath(am.name).bySegment.array;
+                foreach (fil; packageInfoFiles)
+                    if (path.length == 2 && path[$-1].name == fil.filename) {
+                        zip_prefix = path[0 .. $-1];
+                        break outer;
+                    }
+            } catch (Exception exc) {
+                logError("Error on: %s => %s", am.name, exc);
+                assert(0, exc.message);
+            }
 		}
 
 		logDebug("zip root folder: %s", zip_prefix);
