@@ -47,8 +47,12 @@ public final class MockFS : Filesystem {
         import std.algorithm.iteration : reduce;
 
         const abs = path.absolute();
+        auto segments = path.bySegment;
+        // `library-nonet` (using vibe.d) has an empty front for absolute path,
+        // while our built-in module (in vibecompat) does not.
+        if (abs && segments.front.name.length == 0) segments.popFront();
         reduce!((FSEntry dir, segment) => dir.mkdir(segment.name))(
-            (abs ? this.root : this.cwd), path.bySegment);
+            (abs ? this.root : this.cwd), segments);
     }
 
     /// Ditto
@@ -276,11 +280,15 @@ public final class MockFS : Filesystem {
         import std.algorithm.iteration : reduce;
 
         const abs = path.absolute();
+        auto segments = path.bySegment;
+        // `library-nonet` (using vibe.d) has an empty front for absolute path,
+        // while our built-in module (in vibecompat) does not.
+        if (abs && segments.front.name.length == 0) segments.popFront();
         // Casting away constness because no good way to do this with `inout`,
         // but `FSEntry.lookup` is `inout` too.
         return cast(inout(FSEntry)) reduce!(
             (FSEntry dir, segment) => dir ? dir.lookup(segment.name) : null)
-            (cast() (abs ? this.root : this.cwd), path.bySegment);
+            (cast() (abs ? this.root : this.cwd), segments);
     }
 }
 
@@ -332,6 +340,10 @@ public class FSEntry
         // Avoid 'DOS File Times cannot hold dates prior to 1980.' exception
         import std.datetime.date;
         SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
+
+        assert(n.length > 0,
+            "FSentry.this(%s, %s, %s) called with empty name"
+            .format(p.path(), t, n));
 
         this.attributes.type = t;
         this.parent = p;
