@@ -44,10 +44,11 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override void mkdir (in NativePath path) scope
     {
-        if (path.absolute())
-            this.root.mkdir(path);
-        else
-            this.cwd.mkdir(path);
+        import std.algorithm.iteration : reduce;
+
+        const abs = path.absolute();
+        reduce!((FSEntry dir, segment) => dir.mkdir(segment.name))(
+            (abs ? this.root : this.cwd), path.bySegment);
     }
 
     /// Ditto
@@ -272,10 +273,14 @@ public final class MockFS : Filesystem {
     /// Get an arbitrarily nested children node
     protected inout(FSEntry) lookup(NativePath path) inout return scope
     {
-        // The following does not work due to `inout` / `const`:
-        // return reduce!((base, segment) => base.lookup(segment))(b, path.bySegment);
-        // So we have to resort to a member function added to `FSEntry`
-        return path.absolute ? this.root.lookup(path) : this.cwd.lookup(path);
+        import std.algorithm.iteration : reduce;
+
+        const abs = path.absolute();
+        // Casting away constness because no good way to do this with `inout`,
+        // but `FSEntry.lookup` is `inout` too.
+        return cast(inout(FSEntry)) reduce!(
+            (FSEntry dir, segment) => dir ? dir.lookup(segment.name) : null)
+            (cast() (abs ? this.root : this.cwd), path.bySegment);
     }
 }
 
@@ -358,20 +363,6 @@ public class FSEntry
         return null;
     }
 
-    /// Get an arbitrarily nested children node
-    protected inout(FSEntry) lookup(in NativePath path) inout return scope
-    {
-        assert(!path.absolute() || this.parent is null,
-                `FSEntry.lookup should not be called with absolute paths`);
-        auto segments = path.bySegment;
-        if (segments.empty) return this;
-        if (auto next = this.lookup(segments.front.name)) {
-            segments.popFront();
-            return next.lookup(NativePath(segments));
-        }
-        return null;
-    }
-
     /*+*************************************************************************
 
         Utility function
@@ -435,20 +426,14 @@ public class FSEntry
     }
 
     /// Implements `mkdir -p`, returns the created directory
-    public FSEntry mkdir (in NativePath path) scope
+    public FSEntry mkdir (string name) scope
     {
-        assert(!path.absolute() || this.parent is null,
-                `FSEntry.mkdir needs to be called with a relative path`);
         // Check if the child already exists
-        auto segments = path.bySegment;
-        auto child = this.lookup(segments.front.name);
-        if (child is null) {
-            child = new FSEntry(this, Type.Directory, segments.front.name);
-            this.children ~= child;
-        }
-        // Recurse if needed
-        segments.popFront();
-        return !segments.empty ? child.mkdir(NativePath(segments)) : child;
+        if (auto child = this.lookup(name))
+            return child;
+
+        this.children ~= new FSEntry(this, Type.Directory, name);
+        return this.children[$-1];
     }
 
     ///
