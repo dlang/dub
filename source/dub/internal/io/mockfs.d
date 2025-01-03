@@ -508,7 +508,7 @@ unittest {
     alias P = NativePath;
     scope fs = new MockFS();
 
-    version (Windows) immutable NativePath root = NativePath(`C:\`);
+    version (Windows) immutable NativePath root = NativePath(`C:`);
     else              immutable NativePath root = NativePath(`/`);
 
     assert(fs.getcwd == root, fs.getcwd.toString());
