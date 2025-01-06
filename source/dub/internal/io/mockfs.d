@@ -55,7 +55,7 @@ public final class MockFS : Filesystem {
 
     public override void chdir (in NativePath path) scope
     {
-        auto tmp = this.lookup(path);
+        auto tmp = this.lookup(path, true);
         enforce(tmp !is null, "No such directory: " ~ path.toNativeString());
         enforce(tmp.isDirectory(), "Cannot chdir into non-directory: " ~ path.toNativeString());
         this.cwd = tmp;
@@ -302,7 +302,7 @@ public final class MockFS : Filesystem {
     }
 
     /// Get an arbitrarily nested children node
-    protected inout(FSEntry) lookup(NativePath path) inout return scope
+    protected inout(FSEntry) lookup(NativePath path, bool dbg = false) inout return scope
     {
         import std.algorithm.iteration : reduce;
 
@@ -310,6 +310,10 @@ public final class MockFS : Filesystem {
         auto segments = path.bySegment;
         // `library-nonet` (using vibe.d) has an empty front for absolute path,
         // while our built-in module (in vibecompat) does not.
+        if (dbg) {
+            import std.stdio;
+            writeln("lookup: ", path, ", abs: ", abs, ", bySegment: ", path.bySegment);
+        }
         if (abs && segments.front.name.length == 0) segments.popFront();
         // Casting away constness because no good way to do this with `inout`,
         // but `FSEntry.lookup` is `inout` too.
