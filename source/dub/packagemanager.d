@@ -908,7 +908,7 @@ class PackageManager {
 			auto path = PosixPath(fileName);
 			if (zip_prefix.length && !path.bySegment.startsWith(zip_prefix)) return PosixPath.init;
 			static if (is(typeof(path[0 .. 1]))) return path[zip_prefix.length .. $];
-			else return NativePath(path.bySegment.array[zip_prefix.length .. $]);
+			else return PosixPath(path.bySegment.array[zip_prefix.length .. $]);
 		}
 
 		void setAttributes(NativePath path, ArchiveMember am)
