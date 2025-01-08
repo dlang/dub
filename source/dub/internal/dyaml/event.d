@@ -68,17 +68,14 @@ struct Event
     EventID id = EventID.invalid;
     ///Style of scalar event, if this is a scalar event.
     ScalarStyle scalarStyle = ScalarStyle.invalid;
-    union
-    {
-        ///Should the tag be implicitly resolved?
-        bool implicit;
-        /**
-         * Is this document event explicit?
-         *
-         * Used if this is a DocumentStart or DocumentEnd.
-         */
-        bool explicitDocument;
-    }
+    ///Should the tag be implicitly resolved?
+    bool implicit;
+    /**
+     * Is this document event explicit?
+     *
+     * Used if this is a DocumentStart or DocumentEnd.
+     */
+    alias explicitDocument = implicit;
     ///Collection style, if this is a SequenceStart or MappingStart.
     CollectionStyle collectionStyle = CollectionStyle.invalid;
 
@@ -101,6 +98,117 @@ struct Event
     auto ref tagDirectives() inout @trusted pure {
         assert(id == EventID.documentStart, "Only DocumentStart events have tag directives.");
         return _tagDirectives;
+    }
+    void toString(W)(ref W writer) const
+    {
+        import std.algorithm.iteration : substitute;
+        import std.format : formattedWrite;
+        import std.range : put;
+        final switch (id)
+        {
+            case EventID.scalar:
+                put(writer, "=VAL ");
+                if (anchor != "")
+                {
+                    writer.formattedWrite!"&%s " (anchor);
+                }
+                if (tag != "")
+                {
+                    writer.formattedWrite!"<%s> " (tag);
+                }
+                final switch(scalarStyle)
+                {
+                    case ScalarStyle.singleQuoted:
+                        put(writer, "'");
+                        break;
+                    case ScalarStyle.doubleQuoted:
+                        put(writer, "\"");
+                        break;
+                    case ScalarStyle.literal:
+                        put(writer, "|");
+                        break;
+                    case ScalarStyle.folded:
+                        put(writer, ">");
+                        break;
+                    case ScalarStyle.invalid: //default to plain
+                    case ScalarStyle.plain:
+                        put(writer, ":");
+                        break;
+                }
+                if (value != "")
+                {
+                    writer.formattedWrite!"%s"(value.substitute("\n", "\\n", `\`, `\\`, "\r", "\\r", "\t", "\\t", "\b", "\\b"));
+                }
+                break;
+            case EventID.streamStart:
+                put(writer, "+STR");
+                break;
+            case EventID.documentStart:
+                put(writer, "+DOC");
+                if (explicitDocument)
+                {
+                    put(writer, " ---");
+                }
+                break;
+            case EventID.mappingStart:
+                put(writer, "+MAP");
+                if (collectionStyle == CollectionStyle.flow)
+                {
+                    put(writer, " {}");
+                }
+                if (anchor != "")
+                {
+                    put(writer, " &");
+                    put(writer, anchor);
+                }
+                if (tag != "")
+                {
+                    put(writer, " <");
+                    put(writer, tag);
+                    put(writer, ">");
+                }
+                break;
+            case EventID.sequenceStart:
+                put(writer, "+SEQ");
+                if (collectionStyle == CollectionStyle.flow)
+                {
+                    put(writer, " []");
+                }
+                if (anchor != "")
+                {
+                    put(writer, " &");
+                    put(writer, anchor);
+                }
+                if (tag != "")
+                {
+                    put(writer, " <");
+                    put(writer, tag);
+                    put(writer, ">");
+                }
+                break;
+            case EventID.streamEnd:
+                put(writer, "-STR");
+                break;
+            case EventID.documentEnd:
+                put(writer, "-DOC");
+                if (explicitDocument)
+                {
+                    put(writer, " ...");
+                }
+                break;
+            case EventID.mappingEnd:
+                put(writer, "-MAP");
+                break;
+            case EventID.sequenceEnd:
+                put(writer, "-SEQ");
+                break;
+            case EventID.alias_:
+                put(writer, "=ALI *");
+                put(writer, anchor);
+                break;
+            case EventID.invalid:
+                assert(0, "Invalid EventID produced");
+        }
     }
 }
 

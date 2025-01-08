@@ -38,3 +38,20 @@ unittest
 
     assert(!dub.packageManager().getPackage(PackageName("b:b"), Version("1.1.0")));
 }
+
+// https://github.com/dlang/dub/issues/2973
+unittest
+{
+    scope dub = new TestDub((scope Filesystem root) {
+        root.writeFile(TestDub.ProjectPath ~ "dub.json",
+            `{ "name": "a", "dependencies": { "b:a": "~>1.0" } }`);
+        root.writeFile(TestDub.ProjectPath ~ "dub.selections.json",
+            `{ "fileVersion": 1, "versions": { "b": "1.0.0" } }`);
+        root.writePackageFile("b", "1.0.0",
+            `{ "name": "b", "version": "1.0.0", "subPackages": [ { "name": "a" } ] }`);
+    });
+    dub.loadPackage();
+
+    assert(dub.project.hasAllDependencies(), "project has missing dependencies");
+    assert(dub.project.getDependency("b:a", true), "Missing 'b:a' dependency");
+}

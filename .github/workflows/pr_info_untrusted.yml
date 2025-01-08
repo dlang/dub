@@ -20,7 +20,7 @@ jobs:
     - name: '[Linux] Install dependencies'
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev netcat
+        sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
 
     # Compiler to test with
     - name: Prepare compiler
@@ -62,7 +62,7 @@ jobs:
         echo ${{ github.event.number }} > ./pr/NR
 
     - name: upload comment to high-trust action making the comment
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: pr
         path: pr/

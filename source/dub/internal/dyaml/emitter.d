@@ -775,7 +775,7 @@ struct Emitter(Range, CharType) if (isOutputRange!(Range, CharType))
             {
                 if(style_ == ScalarStyle.invalid){style_ = chooseScalarStyle();}
                 if((!canonical_ || (tag is null)) &&
-                   ((tag == "tag:yaml.org,2002:str") || (style_ == ScalarStyle.plain ? event_.implicit : !event_.implicit && (tag is null))))
+                   (((tag == "tag:yaml.org,2002:str") && event_.implicit) || (style_ == ScalarStyle.plain ? event_.implicit : !event_.implicit && (tag is null))))
                 {
                     preparedTag_ = null;
                     return;

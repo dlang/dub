@@ -30,26 +30,10 @@ import dub.internal.dyaml.style;
 
 package:
 
-// Exception thrown at constructor errors.
-class ConstructorException : YAMLException
-{
-    /// Construct a ConstructorException.
-    ///
-    /// Params:  msg   = Error message.
-    ///          start = Start position of the error context.
-    ///          end   = End position of the error context.
-    this(string msg, Mark start, Mark end, string file = __FILE__, size_t line = __LINE__)
-        @safe pure nothrow
-    {
-        super(msg ~ "\nstart: " ~ start.toString() ~ "\nend: " ~ end.toString(),
-              file, line);
-    }
-}
-
 /** Constructs YAML values.
  *
  * Each YAML scalar, sequence or mapping has a tag specifying its data type.
- * Constructor uses user-specifiable functions to create a node of desired
+ * Constructor uses user-specifyable functions to create a node of desired
  * data type from a scalar, sequence or mapping.
  *
  *
@@ -76,109 +60,106 @@ Node constructNode(T)(const Mark start, const Mark end, const string tag,
     if((is(T : string) || is(T == Node[]) || is(T == Node.Pair[])))
 {
     Node newNode;
-    try
+    noreturn error(string a, string b)()
     {
-        switch(tag)
-        {
-            case "tag:yaml.org,2002:null":
-                newNode = Node(YAMLNull(), tag);
-                break;
-            case "tag:yaml.org,2002:bool":
-                static if(is(T == string))
-                {
-                    newNode = Node(constructBool(value), tag);
-                    break;
-                }
-                else throw new Exception("Only scalars can be bools");
-            case "tag:yaml.org,2002:int":
-                static if(is(T == string))
-                {
-                    newNode = Node(constructLong(value), tag);
-                    break;
-                }
-                else throw new Exception("Only scalars can be ints");
-            case "tag:yaml.org,2002:float":
-                static if(is(T == string))
-                {
-                    newNode = Node(constructReal(value), tag);
-                    break;
-                }
-                else throw new Exception("Only scalars can be floats");
-            case "tag:yaml.org,2002:binary":
-                static if(is(T == string))
-                {
-                    newNode = Node(constructBinary(value), tag);
-                    break;
-                }
-                else throw new Exception("Only scalars can be binary data");
-            case "tag:yaml.org,2002:timestamp":
-                static if(is(T == string))
-                {
-                    newNode = Node(constructTimestamp(value), tag);
-                    break;
-                }
-                else throw new Exception("Only scalars can be timestamps");
-            case "tag:yaml.org,2002:str":
-                static if(is(T == string))
-                {
-                    newNode = Node(constructString(value), tag);
-                    break;
-                }
-                else throw new Exception("Only scalars can be strings");
-            case "tag:yaml.org,2002:value":
-                static if(is(T == string))
-                {
-                    newNode = Node(constructString(value), tag);
-                    break;
-                }
-                else throw new Exception("Only scalars can be values");
-            case "tag:yaml.org,2002:omap":
-                static if(is(T == Node[]))
-                {
-                    newNode = Node(constructOrderedMap(value), tag);
-                    break;
-                }
-                else throw new Exception("Only sequences can be ordered maps");
-            case "tag:yaml.org,2002:pairs":
-                static if(is(T == Node[]))
-                {
-                    newNode = Node(constructPairs(value), tag);
-                    break;
-                }
-                else throw new Exception("Only sequences can be pairs");
-            case "tag:yaml.org,2002:set":
-                static if(is(T == Node.Pair[]))
-                {
-                    newNode = Node(constructSet(value), tag);
-                    break;
-                }
-                else throw new Exception("Only mappings can be sets");
-            case "tag:yaml.org,2002:seq":
-                static if(is(T == Node[]))
-                {
-                    newNode = Node(constructSequence(value), tag);
-                    break;
-                }
-                else throw new Exception("Only sequences can be sequences");
-            case "tag:yaml.org,2002:map":
-                static if(is(T == Node.Pair[]))
-                {
-                    newNode = Node(constructMap(value), tag);
-                    break;
-                }
-                else throw new Exception("Only mappings can be maps");
-            case "tag:yaml.org,2002:merge":
-                newNode = Node(YAMLMerge(), tag);
-                break;
-            default:
-                newNode = Node(value, tag);
-                break;
-        }
+        enum msg = "Error constructing " ~ T.stringof ~ ": Only " ~ a ~ " can be " ~ b;
+        throw new ConstructorException(msg, start, "end", end);
     }
-    catch(Exception e)
+    switch(tag)
     {
-        throw new ConstructorException("Error constructing " ~ typeid(T).toString()
-                        ~ ":\n" ~ e.msg, start, end);
+        case "tag:yaml.org,2002:null":
+            newNode = Node(YAMLNull(), tag);
+            break;
+        case "tag:yaml.org,2002:bool":
+            static if(is(T == string))
+            {
+                newNode = Node(constructBool(value, start, end), tag);
+                break;
+            }
+            else error!("scalars", "bools");
+        case "tag:yaml.org,2002:int":
+            static if(is(T == string))
+            {
+                newNode = Node(constructLong(value, start, end), tag);
+                break;
+            }
+            else error!("scalars", "ints");
+        case "tag:yaml.org,2002:float":
+            static if(is(T == string))
+            {
+                newNode = Node(constructReal(value, start, end), tag);
+                break;
+            }
+            else error!("scalars", "floats");
+        case "tag:yaml.org,2002:binary":
+            static if(is(T == string))
+            {
+                newNode = Node(constructBinary(value, start, end), tag);
+                break;
+            }
+            else error!("scalars", "binary data");
+        case "tag:yaml.org,2002:timestamp":
+            static if(is(T == string))
+            {
+                newNode = Node(constructTimestamp(value, start, end), tag);
+                break;
+            }
+            else error!("scalars", "timestamps");
+        case "tag:yaml.org,2002:str":
+            static if(is(T == string))
+            {
+                newNode = Node(constructString(value, start, end), tag);
+                break;
+            }
+            else error!("scalars", "strings");
+        case "tag:yaml.org,2002:value":
+            static if(is(T == string))
+            {
+                newNode = Node(constructString(value, start, end), tag);
+                break;
+            }
+            else error!("scalars", "values");
+        case "tag:yaml.org,2002:omap":
+            static if(is(T == Node[]))
+            {
+                newNode = Node(constructOrderedMap(value, start, end), tag);
+                break;
+            }
+            else error!("sequences", "ordered maps");
+        case "tag:yaml.org,2002:pairs":
+            static if(is(T == Node[]))
+            {
+                newNode = Node(constructPairs(value, start, end), tag);
+                break;
+            }
+            else error!("sequences", "pairs");
+        case "tag:yaml.org,2002:set":
+            static if(is(T == Node.Pair[]))
+            {
+                newNode = Node(constructSet(value, start, end), tag);
+                break;
+            }
+            else error!("mappings", "sets");
+        case "tag:yaml.org,2002:seq":
+            static if(is(T == Node[]))
+            {
+                newNode = Node(constructSequence(value, start, end), tag);
+                break;
+            }
+            else error!("sequences", "sequences");
+        case "tag:yaml.org,2002:map":
+            static if(is(T == Node.Pair[]))
+            {
+                newNode = Node(constructMap(value, start, end), tag);
+                break;
+            }
+            else error!("mappings", "maps");
+        case "tag:yaml.org,2002:merge":
+            newNode = Node(YAMLMerge(), tag);
+            break;
+        default:
+            newNode = Node(value, tag);
+            break;
     }
 
     newNode.startMark_ = start;
@@ -188,16 +169,21 @@ Node constructNode(T)(const Mark start, const Mark end, const string tag,
 
 private:
 // Construct a boolean _node.
-bool constructBool(const string str) @safe
+bool constructBool(const string str, const Mark start, const Mark end) @safe
 {
     string value = str.toLower();
     if(value.among!("yes", "true", "on")){return true;}
     if(value.among!("no", "false", "off")){return false;}
-    throw new Exception("Unable to parse boolean value: " ~ value);
+    throw new ConstructorException("Invalid boolean value: " ~ str, start, "ending at", end);
+}
+
+@safe unittest
+{
+    assert(collectException!ConstructorException(constructBool("foo", Mark("unittest", 1, 0), Mark("unittest", 1, 3))).msg == "Invalid boolean value: foo");
 }
 
 // Construct an integer (long) _node.
-long constructLong(const string str) @safe
+long constructLong(const string str, const Mark start, const Mark end) @safe
 {
     string value = str.replace("_", "");
     const char c = value[0];
@@ -207,7 +193,7 @@ long constructLong(const string str) @safe
         value = value[1 .. $];
     }
 
-    enforce(value != "", new Exception("Unable to parse float value: " ~ value));
+    enforce(value != "", new ConstructorException("Unable to parse integer value: " ~ str, start, "ending at", end));
 
     long result;
     try
@@ -237,7 +223,7 @@ long constructLong(const string str) @safe
     }
     catch(ConvException e)
     {
-        throw new Exception("Unable to parse integer value: " ~ value);
+        throw new ConstructorException("Unable to parse integer value: " ~ str, start, "ending at", end);
     }
 
     return result;
@@ -251,16 +237,18 @@ long constructLong(const string str) @safe
     string binary      = "0b1010_0111_0100_1010_1110";
     string sexagesimal = "190:20:30";
 
-    assert(685230 == constructLong(canonical));
-    assert(685230 == constructLong(decimal));
-    assert(685230 == constructLong(octal));
-    assert(685230 == constructLong(hexadecimal));
-    assert(685230 == constructLong(binary));
-    assert(685230 == constructLong(sexagesimal));
+    assert(685230 == constructLong(canonical, Mark.init, Mark.init));
+    assert(685230 == constructLong(decimal, Mark.init, Mark.init));
+    assert(685230 == constructLong(octal, Mark.init, Mark.init));
+    assert(685230 == constructLong(hexadecimal, Mark.init, Mark.init));
+    assert(685230 == constructLong(binary, Mark.init, Mark.init));
+    assert(685230 == constructLong(sexagesimal, Mark.init, Mark.init));
+    assert(collectException!ConstructorException(constructLong("+", Mark.init, Mark.init)).msg == "Unable to parse integer value: +");
+    assert(collectException!ConstructorException(constructLong("0xINVALID", Mark.init, Mark.init)).msg == "Unable to parse integer value: 0xINVALID");
 }
 
 // Construct a floating point (real) _node.
-real constructReal(const string str) @safe
+real constructReal(const string str, const Mark start, const Mark end) @safe
 {
     string value = str.replace("_", "").toLower();
     const char c = value[0];
@@ -271,7 +259,7 @@ real constructReal(const string str) @safe
     }
 
     enforce(value != "" && value != "nan" && value != "inf" && value != "-inf",
-            new Exception("Unable to parse float value: " ~ value));
+            new ConstructorException("Unable to parse float value: \"" ~ str ~ "\"", start, "ending at", end));
 
     real result;
     try
@@ -297,7 +285,7 @@ real constructReal(const string str) @safe
     }
     catch(ConvException e)
     {
-        throw new Exception("Unable to parse float value: \"" ~ value ~ "\"");
+        throw new ConstructorException("Unable to parse float value: \"" ~ str ~ "\"", start, "ending at", end);
     }
 
     return result;
@@ -316,16 +304,18 @@ real constructReal(const string str) @safe
     string negativeInf = "-.inf";
     string NaN         = ".NaN";
 
-    assert(eq(685230.15, constructReal(canonical)));
-    assert(eq(685230.15, constructReal(exponential)));
-    assert(eq(685230.15, constructReal(fixed)));
-    assert(eq(685230.15, constructReal(sexagesimal)));
-    assert(eq(-real.infinity, constructReal(negativeInf)));
-    assert(to!string(constructReal(NaN)) == "nan");
+    assert(eq(685230.15, constructReal(canonical, Mark.init, Mark.init)));
+    assert(eq(685230.15, constructReal(exponential, Mark.init, Mark.init)));
+    assert(eq(685230.15, constructReal(fixed, Mark.init, Mark.init)));
+    assert(eq(685230.15, constructReal(sexagesimal, Mark.init, Mark.init)));
+    assert(eq(-real.infinity, constructReal(negativeInf, Mark.init, Mark.init)));
+    assert(to!string(constructReal(NaN, Mark.init, Mark.init)) == "nan");
+    assert(collectException!ConstructorException(constructReal("+", Mark.init, Mark.init)).msg == "Unable to parse float value: \"+\"");
+    assert(collectException!ConstructorException(constructReal("74.invalid", Mark.init, Mark.init)).msg == "Unable to parse float value: \"74.invalid\"");
 }
 
 // Construct a binary (base64) _node.
-ubyte[] constructBinary(const string value) @safe
+ubyte[] constructBinary(const string value, const Mark start, const Mark end) @safe
 {
     import std.ascii : newline;
     import std.array : array;
@@ -337,7 +327,7 @@ ubyte[] constructBinary(const string value) @safe
     }
     catch(Base64Exception e)
     {
-        throw new Exception("Unable to decode base64 value: " ~ e.msg);
+        throw new ConstructorException("Unable to decode base64 value: " ~ e.msg, start, "ending at", end);
     }
 }
 
@@ -347,13 +337,13 @@ ubyte[] constructBinary(const string value) @safe
     char[] buffer;
     buffer.length = 256;
     string input = Base64.encode(test, buffer).idup;
-    const value = constructBinary(input);
+    const value = constructBinary(input, Mark.init, Mark.init);
     assert(value == test);
     assert(value == [84, 104, 101, 32, 65, 110, 115, 119, 101, 114, 58, 32, 52, 50]);
 }
 
 // Construct a timestamp (SysTime) _node.
-SysTime constructTimestamp(const string str) @safe
+SysTime constructTimestamp(const string str, const Mark start, const Mark end) @safe
 {
     string value = str;
 
@@ -429,7 +419,7 @@ SysTime constructTimestamp(const string str) @safe
 {
     string timestamp(string value)
     {
-        return constructTimestamp(value).toISOString();
+        return constructTimestamp(value, Mark.init, Mark.init).toISOString();
     }
 
     string canonical      = "2001-12-15T02:59:43.1Z";
@@ -452,21 +442,21 @@ SysTime constructTimestamp(const string str) @safe
 }
 
 // Construct a string _node.
-string constructString(const string str) @safe
+string constructString(const string str, const Mark start, const Mark end) @safe
 {
     return str;
 }
 
 // Convert a sequence of single-element mappings into a sequence of pairs.
-Node.Pair[] getPairs(string type, const Node[] nodes) @safe
+Node.Pair[] getPairs(string type)(const Node[] nodes) @safe
 {
+    enum msg = "While constructing " ~ type ~ ", expected a mapping with single element";
     Node.Pair[] pairs;
     pairs.reserve(nodes.length);
     foreach(node; nodes)
     {
         enforce(node.nodeID == NodeID.mapping && node.length == 1,
-                new Exception("While constructing " ~ type ~
-                              ", expected a mapping with single element"));
+                new ConstructorException(msg, node.startMark));
 
         pairs ~= node.as!(Node.Pair[]);
     }
@@ -475,30 +465,33 @@ Node.Pair[] getPairs(string type, const Node[] nodes) @safe
 }
 
 // Construct an ordered map (ordered sequence of key:value pairs without duplicates) _node.
-Node.Pair[] constructOrderedMap(const Node[] nodes) @safe
+Node.Pair[] constructOrderedMap(const Node[] nodes, const Mark start, const Mark end) @safe
 {
-    auto pairs = getPairs("ordered map", nodes);
+    auto pairs = getPairs!"an ordered map"(nodes);
 
     //Detect duplicates.
     //TODO this should be replaced by something with deterministic memory allocation.
     auto keys = new RedBlackTree!Node();
     foreach(ref pair; pairs)
     {
-        enforce(!(pair.key in keys),
-                new Exception("Duplicate entry in an ordered map: "
-                              ~ pair.key.debugString()));
+        auto foundMatch = keys.equalRange(pair.key);
+        enforce(foundMatch.empty, new ConstructorException(
+            "Duplicate entry in an ordered map", pair.key.startMark,
+            "first occurrence here", foundMatch.front.startMark));
         keys.insert(pair.key);
     }
     return pairs;
 }
 @safe unittest
 {
+    uint lines;
     Node[] alternateTypes(uint length) @safe
     {
         Node[] pairs;
         foreach(long i; 0 .. length)
         {
             auto pair = (i % 2) ? Node.Pair(i.to!string, i) : Node.Pair(i, i.to!string);
+            pair.key.startMark_ = Mark("unittest", lines++, 0);
             pairs ~= Node([pair]);
         }
         return pairs;
@@ -510,27 +503,29 @@ Node.Pair[] constructOrderedMap(const Node[] nodes) @safe
         foreach(long i; 0 .. length)
         {
             auto pair = Node.Pair(i.to!string, i);
+            pair.key.startMark_ = Mark("unittest", lines++, 0);
             pairs ~= Node([pair]);
         }
         return pairs;
     }
 
-    assertThrown(constructOrderedMap(alternateTypes(8) ~ alternateTypes(2)));
-    assertNotThrown(constructOrderedMap(alternateTypes(8)));
-    assertThrown(constructOrderedMap(sameType(64) ~ sameType(16)));
-    assertThrown(constructOrderedMap(alternateTypes(64) ~ alternateTypes(16)));
-    assertNotThrown(constructOrderedMap(sameType(64)));
-    assertNotThrown(constructOrderedMap(alternateTypes(64)));
+    assert(collectException!ConstructorException(constructOrderedMap(alternateTypes(8) ~ alternateTypes(2), Mark.init, Mark.init)).message == "Duplicate entry in an ordered map\nunittest:9,1\nfirst occurrence here: unittest:1,1");
+    assertNotThrown(constructOrderedMap(alternateTypes(8), Mark.init, Mark.init));
+    assert(collectException!ConstructorException(constructOrderedMap(sameType(64) ~ sameType(16), Mark.init, Mark.init)).message == "Duplicate entry in an ordered map\nunittest:83,1\nfirst occurrence here: unittest:19,1");
+    assert(collectException!ConstructorException(constructOrderedMap(alternateTypes(64) ~ alternateTypes(16), Mark.init, Mark.init)).message == "Duplicate entry in an ordered map\nunittest:163,1\nfirst occurrence here: unittest:99,1");
+    assertNotThrown(constructOrderedMap(sameType(64), Mark.init, Mark.init));
+    assertNotThrown(constructOrderedMap(alternateTypes(64), Mark.init, Mark.init));
+    assert(collectException!ConstructorException(constructOrderedMap([Node([Node(1), Node(2)])], Mark.init, Mark.init)).message == "While constructing an ordered map, expected a mapping with single element\n<unknown>:1,1");
 }
 
 // Construct a pairs (ordered sequence of key: value pairs allowing duplicates) _node.
-Node.Pair[] constructPairs(const Node[] nodes) @safe
+Node.Pair[] constructPairs(const Node[] nodes, const Mark start, const Mark end) @safe
 {
-    return getPairs("pairs", nodes);
+    return getPairs!"pairs"(nodes);
 }
 
 // Construct a set _node.
-Node[] constructSet(const Node.Pair[] pairs) @safe
+Node[] constructSet(const Node.Pair[] pairs, const Mark start, const Mark end) @safe
 {
     // In future, the map here should be replaced with something with deterministic
     // memory allocation if possible.
@@ -583,20 +578,20 @@ Node[] constructSet(const Node.Pair[] pairs) @safe
     auto nodeDuplicatesLong    = DuplicatesLong.dup;
     auto nodeNoDuplicatesLong  = noDuplicatesLong.dup;
 
-    assertThrown(constructSet(nodeDuplicatesShort));
-    assertNotThrown(constructSet(nodeNoDuplicatesShort));
-    assertThrown(constructSet(nodeDuplicatesLong));
-    assertNotThrown(constructSet(nodeNoDuplicatesLong));
+    assertThrown(constructSet(nodeDuplicatesShort, Mark.init, Mark.init));
+    assertNotThrown(constructSet(nodeNoDuplicatesShort, Mark.init, Mark.init));
+    assertThrown(constructSet(nodeDuplicatesLong, Mark.init, Mark.init));
+    assertNotThrown(constructSet(nodeNoDuplicatesLong, Mark.init, Mark.init));
 }
 
 // Construct a sequence (array) _node.
-Node[] constructSequence(Node[] nodes) @safe
+Node[] constructSequence(Node[] nodes, const Mark start, const Mark end) @safe
 {
     return nodes;
 }
 
 // Construct an unordered map (unordered set of key:value _pairs without duplicates) _node.
-Node.Pair[] constructMap(Node.Pair[] pairs) @safe
+Node.Pair[] constructMap(Node.Pair[] pairs, const Mark start, const Mark end) @safe
 {
     //Detect duplicates.
     //TODO this should be replaced by something with deterministic memory allocation.

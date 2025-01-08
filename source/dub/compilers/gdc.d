@@ -76,13 +76,15 @@ class GDCCompiler : Compiler {
 			case "x86": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
 		}
-		settings.addDFlags(arch_flags);
 
-		return probePlatform(
-			compiler_binary,
-			arch_flags ~ ["-fsyntax-only", "-v"],
-			arch_override
-		);
+		auto bp = probePlatform(compiler_binary, arch_flags);
+
+		bool keep_arch;
+		if (arch_flags.length)
+			keep_arch = bp.architecture != probePlatform(compiler_binary, []).architecture;
+		settings.maybeAddArchFlags(keep_arch, arch_flags, arch_override);
+
+		return bp;
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
@@ -265,6 +267,10 @@ class GDCCompiler : Compiler {
 		}
 
 		return  dflags;
+	}
+
+	protected string[] defaultProbeArgs () const {
+		return ["-fsyntax-only", "-v"];
 	}
 }
 

@@ -28,7 +28,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		import std.conv : to;
 		import dub.semver : isValidVersion;
 		Version[] ret;
-        const zipFileGlob = name.main.toString() ~ "*.zip";
+        const zipFileGlob = name.main.toString() ~ "?*.zip";
 		foreach (DirEntry d; dirEntries(m_path.toNativeString(), zipFileGlob, SpanMode.shallow)) {
 			NativePath p = NativePath(d.name);
 			auto vers = p.head.name[name.main.toString().length+1..$-4];

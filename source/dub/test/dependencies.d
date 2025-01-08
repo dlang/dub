@@ -98,7 +98,7 @@ version "1.0.0"`, PackageFormat.sdl);
     assert(dub.project.hasAllDependencies(), "project has missing dependencies");
     assert(dub.project.getDependency("b", true), "Missing 'b' dependency");
     assert(dub.project.getDependency("c", true), "Missing 'c' dependency");
-    assert(dub.project.getDependency("c", true), "Missing 'd' dependency");
+    assert(dub.project.getDependency("d", true), "Missing 'd' dependency");
     assert(dub.project.getDependency("no", true) is null, "Returned unexpected dependency");
 }
 
@@ -128,4 +128,52 @@ version "1.0.0"`, PackageFormat.sdl);
     assert(dub.project.hasAllDependencies(), "project have missing dependencies");
     assert(dub.project.getDependency("b", true), "Missing 'b' dependency");
     assert(dub.project.getDependency("no", true) is null, "Returned unexpected dependency");
+}
+
+// Issue 2695 - Nonsensical dependencies
+// Dependencies should resolve versions correctly regardless of the order they get requested
+unittest
+{
+    scope dub = new TestDub((scope Filesystem root) {
+            root.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "main"
+dependency "a" version="*"
+dependency "b" version="*"`);
+            root.writePackageFile("a", "0.0.0", `name "a"
+dependency "c" version="~>0.0.0"`, PackageFormat.sdl);
+            root.writePackageFile("b", "0.0.0", `name "b"
+dependency "c" version="0.0.0"`, PackageFormat.sdl);
+            root.writePackageFile("c", "0.0.0", `name "c"
+version "0.0.0"`, PackageFormat.sdl);
+            root.writePackageFile("c", "0.0.1", `name "c"
+version "0.0.1"`, PackageFormat.sdl);
+    });
+    dub.loadPackage();
+
+    dub.upgrade(UpgradeOptions.select);
+
+    assert(dub.project.hasAllDependencies(), "project have missing dependencies");
+    assert(dub.project.getDependency("c", true).version_ == Version("0.0.0"));
+}
+
+unittest
+{
+    scope dub = new TestDub((scope Filesystem root) {
+            root.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "main"
+dependency "a" version="*"
+dependency "b" version="*"`);
+            root.writePackageFile("a", "1.0.0", `name "a"
+dependency "c" version="0.0.0"`, PackageFormat.sdl);
+            root.writePackageFile("b", "1.0.0", `name "b"
+dependency "c" version="~>0.0.0"`, PackageFormat.sdl);
+            root.writePackageFile("c", "0.0.0", `name "c"
+version "0.0.0"`, PackageFormat.sdl);
+            root.writePackageFile("c", "0.0.1", `name "c"
+version "0.0.1"`, PackageFormat.sdl);
+    });
+    dub.loadPackage();
+
+    dub.upgrade(UpgradeOptions.select);
+
+    assert(dub.project.hasAllDependencies(), "project have missing dependencies");
+    assert(dub.project.getDependency("c", true).version_ == Version("0.0.0"));
 }

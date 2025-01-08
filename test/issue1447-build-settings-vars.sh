@@ -3,10 +3,14 @@ set -e
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 
-if [[ `uname -m` == "x86_64" ]]; then
-    ARCH=x86_64
-else
+if [[ `uname -m` == "i386" ]]; then
     ARCH=x86
+elif [[ `uname -m` == "i686" ]]; then
+    ARCH=x86
+elif [[ `uname -m` == "arm64" ]]; then
+    ARCH="aarch64"
+else
+    ARCH=$(uname -m)
 fi
 
 rm -rf ${CURR_DIR}/issue1447-build-settings-vars/.dub
