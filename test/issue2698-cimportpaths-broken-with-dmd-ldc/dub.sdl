@@ -1,0 +1,5 @@
+name "issue2698-cimportpaths-broken-with-dmd-ldc"
+description "test issue 2698"
+authors "alexander bryan"
+cSourcePaths "source"
+cImportPaths "c_headers"
