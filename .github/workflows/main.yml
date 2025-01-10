@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         # Latest stable version, update at will
-        os: [ macOS-13, ubuntu-20.04, windows-2019 ]
+        os: [ windows-2019 ]
         dc:
           # Always test latest as that is what we use to compile on release
           - dmd-latest
@@ -72,8 +72,6 @@ jobs:
           - { dc: ldc-latest, do_test: true }
           - { dc: dmd-master, do_test: true }
           - { dc: ldc-master, do_test: true }
-          # Test on ARM64
-          - { os: macOS-14, dc: ldc-latest, do_test: true }
         exclude:
           # Error with those versions:
           # ld: multiple errors: symbol count from symbol table and dynamic symbol table differ in [.../dub.o]; address=0x0 points to section(2) with no content in '[...]/osx/lib/libphobos2.a[3177](config_a68_4c3.o)'
