@@ -1,0 +1,6 @@
+name "runtest-testcase-03"
+description "Test case 03 of runtests command."
+
+dependency "runtests" path="../.."
+subConfiguration "runtests" "lib"
+

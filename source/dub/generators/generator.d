@@ -160,6 +160,8 @@ class ProjectGenerator
 		{
 			BuildSettings bs;
 			if (settings.buildSettings.options & BuildOption.lowmem) bs.options |= BuildOption.lowmem;
+			if (settings.buildSettings.workingDirectory.length > 0 && bs.workingDirectory.length == 0)
+				bs.workingDirectory = settings.buildSettings.workingDirectory;
 			BuildSettings srcbs = src.dup;
 			envs[pack.name].updateBuildSettings(srcbs);
 			bs.processVars(m_project, pack, srcbs, settings, true);
