@@ -1,0 +1,4 @@
+name "issue2229-sourcelib-packagedir"
+preBuildCommands "echo 'main $PACKAGE_DIR' >> package.txt"
+
+dependency "sourcelib" path="sourcelib"
