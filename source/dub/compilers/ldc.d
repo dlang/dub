@@ -296,10 +296,17 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		import std.string;
 		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
 		auto args = ["-of"~tpath.toNativeString()];
+		const p = platform.platform;
+
 		args ~= objects;
 		args ~= settings.sourceFiles;
-		if (platform.platform.canFind("linux"))
-			args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
+
+		// Avoids linker errors due to libraries being specified in the wrong order.
+		// However, the wasm-ld linker does not have --no-as-needed and emscripten is
+		// implicitly treated as a "linux" platform.
+		if (p.canFind("linux") && !p.canFind("emscripten"))
+			args ~= "-L--no-as-needed"; 
+		
 		args ~= lflagsToDFlags(settings.lflags);
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
