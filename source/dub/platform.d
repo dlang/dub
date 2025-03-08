@@ -47,6 +47,7 @@ enum string platformCheck = q{
 	version(MinGW) ret ~= "mingw";
 	version(PlayStation4) ret ~= "playstation4";
 	version(WebAssembly) ret ~= "wasm";
+	version(Emscripten) ret ~= "emscripten";
 	return ret;
 };
 
@@ -102,6 +103,8 @@ enum string archCheck = q{
 	version(LoongArch64) ret ~= "loongarch64";
 	version(LoongArch_SoftFloat) ret ~= "loongarch_softfloat";
 	version(LoongArch_HardFloat) ret ~= "loongarch_hardfloat";
+	version(WebAssembly) ret ~= "wasm32";
+	version(WebAssembly) ret ~= "wasm64";
 	return ret;
 };
 
