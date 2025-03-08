@@ -103,8 +103,10 @@ enum string archCheck = q{
 	version(LoongArch64) ret ~= "loongarch64";
 	version(LoongArch_SoftFloat) ret ~= "loongarch_softfloat";
 	version(LoongArch_HardFloat) ret ~= "loongarch_hardfloat";
-	version(WebAssembly) ret ~= "wasm32";
-	version(WebAssembly) ret ~= "wasm64";
+	version(WebAssembly) {
+		version(D_X32) ret ~= "wasm64";
+		else ret ~= "wasm32"; // Neither D_LP64 or D_X32 are defined in wasm32.
+	}
 	return ret;
 };
 
