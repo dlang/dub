@@ -110,6 +110,14 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		ulong loop_counter = this.loop_limit;
 		constrain(root, context, loop_counter);
 
+		// Get best available results
+		foreach (base; context.configs.keys)
+			foreach (j, ref sc; context.configs[base])
+				if (sc.included){
+					context.result[base] = sc.config;
+					break;
+				}
+
 		// remove any non-default optional dependencies
 		purgeOptionalDependencies(root, context.result);
 
@@ -176,9 +184,6 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		assert(base in context.configs);
 		if (context.isVisited(n.pack)) return;
 		context.setVisited(n.pack);
-		context.result[base] = n.config;
-		foreach (j, ref sc; context.configs[base])
-			sc.included = sc.config == n.config;
 
 		auto dependencies = getChildren(n);
 
@@ -316,10 +321,19 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 			auto failbase = failedNode.main;
 
+			// Get partial results
+			CONFIG[PackageName] partial_result;
+			foreach (base; context.configs.keys)
+				foreach (j, ref sc; context.configs[base])
+					if (sc.included){
+						partial_result[base] = sc.config;
+						break;
+					}
+
 			// get the list of all dependencies to the failed package
 			auto deps = context.visited.byKey
-				.filter!(p => !!(p.main in context.result))
-				.map!(p => TreeNode(p, context.result[p.main]))
+				.filter!(p => !!(p.main in partial_result))
+				.map!(p => TreeNode(p, partial_result[p.main]))
 				.map!(n => getChildren(n)
 					.filter!(d => d.pack.main == failbase)
 					.map!(d => tuple(n, d))

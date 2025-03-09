@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ macOS-12, ubuntu-20.04, windows-2019 ]
+        os: [ macOS-13, ubuntu-22.04, windows-2019 ]
         arch: [ x86_64 ]
         include:
           - { os: windows-2019, arch: i686 }

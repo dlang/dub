@@ -21,9 +21,12 @@ public final class MockFS : Filesystem {
     private FSEntry cwd;
 
     ///
+    private FSEntry root;
+
+    ///
     public this () scope
     {
-        this.cwd = new FSEntry();
+        this.root = this.cwd = new FSEntry();
     }
 
     public override NativePath getcwd () const scope
@@ -34,20 +37,28 @@ public final class MockFS : Filesystem {
     ///
     public override bool existsDirectory (in NativePath path) const scope
     {
-        auto entry = this.cwd.lookup(path);
+        auto entry = this.lookup(path);
         return entry !is null && entry.isDirectory();
     }
 
     /// Ditto
     public override void mkdir (in NativePath path) scope
     {
-        this.cwd.mkdir(path);
+        import std.algorithm.iteration : reduce;
+
+        const abs = path.absolute();
+        auto segments = path.bySegment;
+        // `library-nonet` (using vibe.d) has an empty front for absolute path,
+        // while our built-in module (in vibecompat) does not.
+        if (abs && segments.front.name.length == 0) segments.popFront();
+        reduce!((FSEntry dir, segment) => dir.mkdir(segment.name))(
+            (abs ? this.root : this.cwd), segments);
     }
 
     /// Ditto
     public override bool existsFile (in NativePath path) const scope
     {
-        auto entry = this.cwd.lookup(path);
+        auto entry = this.lookup(path);
         return entry !is null && entry.isFile();
     }
 
@@ -55,19 +66,45 @@ public final class MockFS : Filesystem {
     public override void writeFile (in NativePath path, const(ubyte)[] data)
         scope
     {
-        return this.cwd.writeFile(path, data);
+        enforce(!path.endsWithSlash(),
+            "Cannot write to directory: " ~ path.toNativeString());
+        if (auto file = this.lookup(path)) {
+            // If the file already exists, override it
+            enforce(file.isFile(),
+                "Trying to write to directory: " ~ path.toNativeString());
+            file.content = data.dup;
+        } else {
+            auto p = this.getParent(path);
+            auto file = new FSEntry(p, FSEntry.Type.File, path.head.name());
+            file.content = data.dup;
+            p.children ~= file;
+        }
     }
 
     /// Reads a file, returns the content as `ubyte[]`
     public override ubyte[] readFile (in NativePath path) const scope
     {
-        return this.cwd.readFile(path);
+        auto entry = this.lookup(path);
+        enforce(entry !is null, "No such file: " ~ path.toNativeString());
+        enforce(entry.isFile(), "Trying to read a directory");
+        // This is a hack to make poisoning a file possible.
+        // However, it is rather crude and doesn't allow to poison directory.
+        // Consider introducing a derived type to allow it.
+        assert(entry.content != "poison".representation,
+            "Trying to access poisoned path: " ~ path.toNativeString());
+        return entry.content.dup;
     }
 
-    /// Ditto
+    /// Reads a file, returns the content as text
     public override string readText (in NativePath path) const scope
     {
-        return this.cwd.readText(path);
+        import std.utf : validate;
+
+        const content = this.readFile(path);
+        // Ignore BOM: If it's needed for a test, add support for it.
+        validate(cast(const(char[])) content);
+        // `readFile` just `dup` the content, so it's safe to cast.
+        return cast(string) content;
     }
 
     /// Ditto
@@ -75,7 +112,7 @@ public final class MockFS : Filesystem {
     {
         enforce(this.existsDirectory(path),
             path.toNativeString() ~ " does not exists or is not a directory");
-        auto dir = this.cwd.lookup(path);
+        auto dir = this.lookup(path);
         int iterator(scope int delegate(ref dub.internal.vibecompat.core.file.FileInfo) del) {
             foreach (c; dir.children) {
                 dub.internal.vibecompat.core.file.FileInfo fi;
@@ -97,23 +134,71 @@ public final class MockFS : Filesystem {
         return &iterator;
     }
 
-    /// Ditto
-    public override void removeFile (in NativePath path, bool force = false) scope
+    /** Remove a file
+     *
+     * Always error if the target is a directory.
+     * Does not error if the target does not exists
+     * and `force` is set to `true`.
+     *
+     * Params:
+     *   path = Path to the file to remove
+     *   force = Whether to ignore non-existing file,
+     *           default to `false`.
+     */
+    public override void removeFile (in NativePath path, bool force = false)
     {
-        return this.cwd.removeFile(path);
+        import std.algorithm.searching : countUntil;
+
+        assert(!path.empty, "Empty path provided to `removeFile`");
+        enforce(!path.endsWithSlash(),
+            "Cannot remove file with directory path: " ~ path.toNativeString());
+        auto p = this.getParent(path, force);
+        const idx = p.children.countUntil!(e => e.name == path.head.name());
+        if (idx < 0) {
+            enforce(force,
+                "removeFile: No such file: " ~ path.toNativeString());
+        } else {
+            enforce(p.children[idx].attributes.type == FSEntry.Type.File,
+                "removeFile called on a directory: " ~ path.toNativeString());
+            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
+        }
     }
 
-    ///
+    /** Remove a directory
+     *
+     * Remove an existing empty directory.
+     * If `force` is set to `true`, no error will be thrown
+     * if the directory is empty or non-existing.
+     *
+     * Params:
+     *   path = Path to the directory to remove
+     *   force = Whether to ignore non-existing / non-empty directories,
+     *           default to `false`.
+     */
     public override void removeDir (in NativePath path, bool force = false)
     {
-        this.cwd.removeDir(path, force);
+        import std.algorithm.searching : countUntil;
+
+        assert(!path.empty, "Empty path provided to `removeFile`");
+        auto p = this.getParent(path, force);
+        const idx = p.children.countUntil!(e => e.name == path.head.name());
+        if (idx < 0) {
+            enforce(force,
+                "removeDir: No such directory: " ~ path.toNativeString());
+        } else {
+            enforce(p.children[idx].attributes.type == FSEntry.Type.Directory,
+                "removeDir called on a file: " ~ path.toNativeString());
+            enforce(force || p.children[idx].children.length == 0,
+                "removeDir called on non-empty directory: " ~ path.toNativeString());
+            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
+        }
     }
 
     /// Ditto
     public override void setTimes (in NativePath path, in SysTime accessTime,
         in SysTime modificationTime)
     {
-        auto e = this.cwd.lookup(path);
+        auto e = this.lookup(path);
         enforce(e !is null,
             "setTimes: No such file or directory: " ~ path.toNativeString());
         e.setTimes(accessTime, modificationTime);
@@ -122,7 +207,7 @@ public final class MockFS : Filesystem {
     /// Ditto
     public override void setAttributes (in NativePath path, uint attributes)
     {
-        auto e = this.cwd.lookup(path);
+        auto e = this.lookup(path);
         enforce(e !is null,
             "setAttributes: No such file or directory: " ~ path.toNativeString());
         e.setAttributes(attributes);
@@ -160,9 +245,62 @@ public final class MockFS : Filesystem {
         addToZip(rootPath, this.cwd);
         return cast(ubyte[]) z.build();
     }
+
+    /** Get the parent `FSEntry` of a `NativePath`
+     *
+     * If the parent doesn't exist, an `Exception` will be thrown
+     * unless `silent` is provided. If the parent path is a file,
+     * an `Exception` will be thrown regardless of `silent`.
+     *
+     * Params:
+     *   path = The path to look up the parent for
+     *   silent = Whether to error on non-existing parent,
+     *            default to `false`.
+     */
+    protected inout(FSEntry) getParent(NativePath path, bool silent = false)
+        inout return scope
+    {
+        // Relative path in the current directory
+        if (!path.hasParentPath())
+            return this.cwd;
+
+        // If we're not in the right `FSEntry`, recurse
+        const parentPath = path.parentPath();
+        auto p = this.lookup(parentPath);
+        enforce(silent || p !is null,
+            "No such directory: " ~ parentPath.toNativeString());
+        enforce(p is null || p.attributes.type == FSEntry.Type.Directory,
+            "Parent path is not a directory: " ~ parentPath.toNativeString());
+        return p;
+    }
+
+    /// Get an arbitrarily nested children node
+    protected inout(FSEntry) lookup(NativePath path) inout return scope
+    {
+        import std.algorithm.iteration : reduce;
+
+        const abs = path.absolute();
+        auto segments = path.bySegment;
+        // `library-nonet` (using vibe.d) has an empty front for absolute path,
+        // while our built-in module (in vibecompat) does not.
+        if (abs && segments.front.name.length == 0) segments.popFront();
+        // Casting away constness because no good way to do this with `inout`,
+        // but `FSEntry.lookup` is `inout` too.
+        return cast(inout(FSEntry)) reduce!(
+            (FSEntry dir, segment) => dir ? dir.lookup(segment.name) : null)
+            (cast() (abs ? this.root : this.cwd), segments);
+    }
 }
 
-/// The backing logic behind `MockFS`
+/*******************************************************************************
+
+    Represents a node on the filesystem
+
+    This class encapsulates operations which are node specific, such as looking
+    up a child node, adding one, or setting properties.
+
+*******************************************************************************/
+
 public class FSEntry
 {
     /// Type of file system entry
@@ -203,6 +341,10 @@ public class FSEntry
         import std.datetime.date;
         SysTime DefaultTime = SysTime(DateTime(2020, 01, 01));
 
+        assert(n.length > 0,
+            "FSentry.this(%s, %s, %s) called with empty name"
+            .format(p.path(), t, n));
+
         this.attributes.type = t;
         this.parent = p;
         this.name = n;
@@ -225,61 +367,12 @@ public class FSEntry
     protected inout(FSEntry) lookup(string name) inout return scope
     {
         assert(!name.canFind('/'));
+        if (name == ".")  return this;
+        if (name == "..") return this.parent;
         foreach (c; this.children)
             if (c.name == name)
                 return c;
         return null;
-    }
-
-    /// Get an arbitrarily nested children node
-    protected inout(FSEntry) lookup(NativePath path) inout return scope
-    {
-        auto relp = this.relativePath(path);
-        relp.normalize(); // try to get rid of `..`
-        if (relp.empty)
-            return this;
-        auto segments = relp.bySegment;
-        if (auto c = this.lookup(segments.front.name)) {
-            segments.popFront();
-            return !segments.empty ? c.lookup(NativePath(segments)) : c;
-        }
-        return null;
-    }
-
-    /** Get the parent `FSEntry` of a `NativePath`
-     *
-     * If the parent doesn't exist, an `Exception` will be thrown
-     * unless `silent` is provided. If the parent path is a file,
-     * an `Exception` will be thrown regardless of `silent`.
-     *
-     * Params:
-     *   path = The path to look up the parent for
-     *   silent = Whether to error on non-existing parent,
-     *            default to `false`.
-     */
-    protected inout(FSEntry) getParent(NativePath path, bool silent = false)
-        inout return scope
-    {
-        // Relative path in the current directory
-        if (!path.hasParentPath())
-            return this;
-
-        // If we're not in the right `FSEntry`, recurse
-        const parentPath = path.parentPath();
-        auto p = this.lookup(parentPath);
-        enforce(silent || p !is null,
-            "No such directory: " ~ parentPath.toNativeString());
-        enforce(p is null || p.attributes.type == Type.Directory,
-            "Parent path is not a directory: " ~ parentPath.toNativeString());
-        return p;
-    }
-
-    /// Returns: A path relative to `this.path`
-    protected NativePath relativePath(NativePath path) const scope
-    {
-        assert(!path.absolute() || path.startsWith(this.path),
-               "Calling relativePath with a differently rooted path");
-        return path.absolute() ? path.relativeTo(this.path) : path;
     }
 
     /*+*************************************************************************
@@ -345,19 +438,14 @@ public class FSEntry
     }
 
     /// Implements `mkdir -p`, returns the created directory
-    public FSEntry mkdir (in NativePath path) scope
+    public FSEntry mkdir (string name) scope
     {
-        auto relp = this.relativePath(path);
         // Check if the child already exists
-        auto segments = relp.bySegment;
-        auto child = this.lookup(segments.front.name);
-        if (child is null) {
-            child = new FSEntry(this, Type.Directory, segments.front.name);
-            this.children ~= child;
-        }
-        // Recurse if needed
-        segments.popFront();
-        return !segments.empty ? child.mkdir(NativePath(segments)) : child;
+        if (auto child = this.lookup(name))
+            return child;
+
+        this.children ~= new FSEntry(this, Type.Directory, name);
+        return this.children[$-1];
     }
 
     ///
@@ -370,110 +458,6 @@ public class FSEntry
     public bool isDirectory () const scope
     {
         return this.attributes.type == Type.Directory;
-    }
-
-    /// Reads a file, returns the content as `ubyte[]`
-    public ubyte[] readFile (in NativePath path) const scope
-    {
-        auto entry = this.lookup(path);
-        enforce(entry !is null, "No such file: " ~ path.toNativeString());
-        enforce(entry.attributes.type == Type.File, "Trying to read a directory");
-        // This is a hack to make poisoning a file possible.
-        // However, it is rather crude and doesn't allow to poison directory.
-        // Consider introducing a derived type to allow it.
-        assert(entry.content != "poison".representation,
-            "Trying to access poisoned path: " ~ path.toNativeString());
-        return entry.content.dup;
-    }
-
-    /// Reads a file, returns the content as text
-    public string readText (in NativePath path) const scope
-    {
-        import std.utf : validate;
-
-        const content = this.readFile(path);
-        // Ignore BOM: If it's needed for a test, add support for it.
-        validate(cast(const(char[])) content);
-        // `readFile` just `dup` the content, so it's safe to cast.
-        return cast(string) content;
-    }
-
-    /// Ditto
-    public void writeFile (in NativePath path, const(ubyte)[] data) scope
-    {
-        enforce(!path.endsWithSlash(),
-            "Cannot write to directory: " ~ path.toNativeString());
-        if (auto file = this.lookup(path)) {
-            // If the file already exists, override it
-            enforce(file.attributes.type == Type.File,
-                "Trying to write to directory: " ~ path.toNativeString());
-            file.content = data.dup;
-        } else {
-            auto p = this.getParent(path);
-            auto file = new FSEntry(p, Type.File, path.head.name());
-            file.content = data.dup;
-            p.children ~= file;
-        }
-    }
-
-    /** Remove a file
-     *
-     * Always error if the target is a directory.
-     * Does not error if the target does not exists
-     * and `force` is set to `true`.
-     *
-     * Params:
-     *   path = Path to the file to remove
-     *   force = Whether to ignore non-existing file,
-     *           default to `false`.
-     */
-    public void removeFile (in NativePath path, bool force = false)
-    {
-        import std.algorithm.searching : countUntil;
-
-        assert(!path.empty, "Empty path provided to `removeFile`");
-        enforce(!path.endsWithSlash(),
-            "Cannot remove file with directory path: " ~ path.toNativeString());
-        auto p = this.getParent(path, force);
-        const idx = p.children.countUntil!(e => e.name == path.head.name());
-        if (idx < 0) {
-            enforce(force,
-                "removeFile: No such file: " ~ path.toNativeString());
-        } else {
-            enforce(p.children[idx].attributes.type == Type.File,
-                "removeFile called on a directory: " ~ path.toNativeString());
-            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
-        }
-    }
-
-    /** Remove a directory
-     *
-     * Remove an existing empty directory.
-     * If `force` is set to `true`, no error will be thrown
-     * if the directory is empty or non-existing.
-     *
-     * Params:
-     *   path = Path to the directory to remove
-     *   force = Whether to ignore non-existing / non-empty directories,
-     *           default to `false`.
-     */
-    public void removeDir (in NativePath path, bool force = false)
-    {
-        import std.algorithm.searching : countUntil;
-
-        assert(!path.empty, "Empty path provided to `removeFile`");
-        auto p = this.getParent(path, force);
-        const idx = p.children.countUntil!(e => e.name == path.head.name());
-        if (idx < 0) {
-            enforce(force,
-                "removeDir: No such directory: " ~ path.toNativeString());
-        } else {
-            enforce(p.children[idx].attributes.type == Type.Directory,
-                "removeDir called on a file: " ~ path.toNativeString());
-            enforce(force || p.children[idx].children.length == 0,
-                "removeDir called on non-empty directory: " ~ path.toNativeString());
-            p.children = p.children[0 .. idx] ~ p.children[idx + 1 .. $];
-        }
     }
 
     /// Implement `std.file.setTimes`

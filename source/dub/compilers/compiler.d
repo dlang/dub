@@ -171,20 +171,24 @@ interface Compiler {
 			format("%s failed with exit code %s.", args[0], status));
 	}
 
+	/** Default compiler arguments for performing a probe. They should
+		be the D compiler equivalent of "don't output executables"
+	*/
+	protected string[] defaultProbeArgs() const;
+
 	/** Compiles platform probe file with the specified compiler and parses its output.
 		Params:
 			compiler_binary =	binary to invoke compiler with
-			args			=	arguments for the probe compilation
-			arch_override	=	special handler for x86_mscoff
+			arch_flags      =   compiler specific flags derived from the user's arch override
 	*/
-	protected final BuildPlatform probePlatform(string compiler_binary, string[] args, string arch_override)
+	protected final BuildPlatform probePlatform(string compiler_binary, string[] arch_flags)
 	{
 		import dub.compilers.utils : generatePlatformProbeFile, readPlatformSDLProbe;
 		import std.string : format, strip;
 
-		NativePath fil = generatePlatformProbeFile();
+		immutable fileArg = generatePlatformProbeFile().toNativeString;
 
-		auto result = execute(compiler_binary ~ args ~ fil.toNativeString());
+		auto result = execute(compiler_binary ~ defaultProbeArgs ~ arch_flags ~ fileArg);
 		enforce!CompilerInvocationException(result.status == 0,
 				format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));
@@ -200,22 +204,20 @@ interface Compiler {
 			build_platform.compilerVersion = ver;
 		}
 
-		// Skip the following check for LDC, emitting a warning if the specified `-arch`
-		// cmdline option does not lead to the same string being found among
-		// `build_platform.architecture`, as it's brittle and doesn't work with triples.
-		if (build_platform.compiler != "ldc") {
-			if (arch_override.length && !build_platform.architecture.canFind(arch_override) &&
-				!(build_platform.compiler == "dmd" && arch_override.among("x86_omf", "x86_mscoff")) // Will be fixed in determinePlatform
-			) {
-				logWarn(`Failed to apply the selected architecture %s. Got %s.`,
-					arch_override, build_platform.architecture);
-			}
-		}
-
 		return build_platform;
 	}
+
 }
 
 private {
 	Compiler[] s_compilers;
+}
+
+/// Adds the given flags to the build settings if desired, otherwise informs the user
+package void maybeAddArchFlags(ref BuildSettings settings, bool keep_arch, string[] arch_flags, string arch_override) {
+	if (keep_arch)
+		settings.addDFlags(arch_flags);
+	else if (arch_override.length) {
+		logDebug("Ignoring arch_override '%s' for better caching because it doesn't affect the build", arch_override);
+	}
 }

@@ -364,8 +364,7 @@ public T parseConfigFile (T) (in CLIArgs cmdln, StrictMode strict = StrictMode.E
 public T parseConfigString (T) (string data, string path, StrictMode strict = StrictMode.Error)
 {
     CLIArgs cmdln = { config_path: path };
-    auto loader = Loader.fromString(data);
-    loader.name = path;
+    auto loader = Loader.fromString(data, path);
     Node root = loader.load();
     return parseConfig!T(cmdln, root, strict);
 }

@@ -110,34 +110,37 @@ config    /etc/dmd.conf
 	{
 		// Set basic arch flags for the probe - might be revised based on the exact value + compiler version
 		string[] arch_flags;
-		if (arch_override.length)
-			arch_flags = [ arch_override != "x86_64" ? "-m32" : "-m64" ];
-		else
-		{
-			// Don't use Optlink by default on Windows
-			version (Windows) {
-				const is64bit = isWow64();
-				if (!is64bit.isNull)
-					arch_flags = [ is64bit.get ? "-m64" : "-m32" ];
-			}
-		}
-
-		BuildPlatform bp = probePlatform(
-			compiler_binary,
-			arch_flags ~ ["-quiet", "-c", "-o-", "-v"],
-			arch_override
-		);
-
 		switch (arch_override) {
 			default: throw new UnsupportedArchitectureException(arch_override);
-			case "": break;
+			case "":
+				// Don't use Optlink by default on Windows
+				version (Windows) {
+					const is64bit = isWow64();
+					if (!is64bit.isNull)
+						arch_flags = [ is64bit.get ? "-m64" : "-m32" ];
+				}
+				break;
 			// DMD 2.099  made MsCOFF the default, and DMD v2.109 removed OMF
 			// support. Default everything to MsCOFF, people wanting to use OMF
 			// should use an older DMD / dub.
 			case "x86", "x86_omf", "x86_mscoff": arch_flags = ["-m32"]; break;
 			case "x86_64": arch_flags = ["-m64"]; break;
 		}
-		settings.addDFlags(arch_flags);
+
+		auto bp = probePlatform(compiler_binary, arch_flags);
+
+		bool keep_arch;
+		if (arch_flags.length)
+			keep_arch = bp.architecture != probePlatform(compiler_binary, []).architecture;
+		settings.maybeAddArchFlags(keep_arch, arch_flags, arch_override);
+
+		if (arch_override.length
+			&& !bp.architecture.canFind(arch_override)
+			&& !arch_override.among("x86_omf", "x86_mscoff")
+			) {
+			logWarn(`Failed to apply the selected architecture %s. Got %s.`,
+					arch_override, bp.architecture);
+		}
 
 		return bp;
 	}
@@ -171,10 +174,20 @@ config    /etc/dmd.conf
 	version (LDC) unittest {
 		import std.conv : to;
 
+		version (ARM)
+			enum isARM = true;
+		version (AArch64)
+			enum isARM = true;
+		else
+			enum isARM = false;
+
 		BuildSettings settings;
 		auto compiler = new DMDCompiler;
 		auto bp = compiler.determinePlatform(settings, "ldmd2", "x86");
-		assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
+		static if (isARM)
+			assert(bp.architecture.canFind("arm"), bp.architecture.to!string);
+		else
+			assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
 		bp = compiler.determinePlatform(settings, "ldmd2", "");
 		version (X86) assert(bp.architecture.canFind("x86"), bp.architecture.to!string);
 		version (X86_64) assert(bp.architecture.canFind("x86_64"), bp.architecture.to!string);
@@ -212,7 +225,7 @@ config    /etc/dmd.conf
 		}
 
 		if (!(fields & BuildSetting.cImportPaths)) {
-			settings.addDFlags(settings.cImportPaths.map!(s => "-I"~s)().array());
+			settings.addDFlags(settings.cImportPaths.map!(s => "-P-I"~s)().array());
 			settings.cImportPaths = null;
 		}
 
@@ -395,5 +408,9 @@ config    /etc/dmd.conf
 				    || arg.startsWith("-Xcc=")
 				    || arg.startsWith("-defaultlib=");
 		}
+	}
+
+	protected string[] defaultProbeArgs () const {
+		return ["-quiet", "-c", "-o-", "-v"];
 	}
 }

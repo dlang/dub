@@ -9,7 +9,8 @@ module dub.internal.vibecompat.inet.url;
 
 public import dub.internal.vibecompat.inet.path;
 
-version (Have_vibe_d_inet) public import vibe.inet.url;
+version (Have_vibe_d_inet) public import vibe.inet.url; // vibe.d 0.9.x
+else version (Have_vibe_inet) public import vibe.inet.url; // vibe.d 0.10.x+
 else:
 
 import std.algorithm;

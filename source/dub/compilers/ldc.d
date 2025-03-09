@@ -79,6 +79,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
 		string[] arch_flags;
+		bool arch_override_is_triple = false;
 		switch (arch_override) {
 			case "": break;
 			case "x86": arch_flags = ["-march=x86"]; break;
@@ -87,19 +88,22 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			case "aarch64": arch_flags = ["-march=aarch64"]; break;
 			case "powerpc64": arch_flags = ["-march=powerpc64"]; break;
 			default:
-				if (arch_override.canFind('-'))
+				if (arch_override.canFind('-')) {
+					arch_override_is_triple = true;
 					arch_flags = ["-mtriple="~arch_override];
-				else
+				} else
 					throw new UnsupportedArchitectureException(arch_override);
 				break;
 		}
-		settings.addDFlags(arch_flags);
 
-		return probePlatform(
-			compiler_binary,
-			arch_flags ~ ["-c", "-o-", "-v"],
-			arch_override
-		);
+		auto bp = probePlatform(compiler_binary, arch_flags);
+
+		bool keep_arch = arch_override_is_triple;
+		if (!keep_arch && arch_flags.length)
+			keep_arch = bp.architecture != probePlatform(compiler_binary, []).architecture;
+		settings.maybeAddArchFlags(keep_arch, arch_flags, arch_override);
+
+		return bp;
 	}
 
 	void prepareBuildSettings(ref BuildSettings settings, const scope ref BuildPlatform platform, BuildSetting fields = BuildSetting.all) const
@@ -133,7 +137,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		}
 
 		if (!(fields & BuildSetting.cImportPaths)) {
-			settings.addDFlags(settings.cImportPaths.map!(s => "-I"~s)().array());
+			settings.addDFlags(settings.cImportPaths.map!(s => "-P-I"~s)().array());
 			settings.cImportPaths = null;
 		}
 
@@ -334,5 +338,9 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				    || arg.startsWith("-mscrtlib=")
 				    || arg.startsWith("-mtriple=");
 		}
+	}
+
+	protected string[] defaultProbeArgs () const {
+		return ["-c", "-o-", "-v"];
 	}
 }
