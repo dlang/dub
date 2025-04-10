@@ -305,8 +305,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		// However, the wasm-ld linker does not have --no-as-needed and emscripten is
 		// implicitly treated as a "linux" platform.
 		if (p.canFind("linux") && !p.canFind("emscripten"))
-			args ~= "-L--no-as-needed"; 
-		
+			args ~= "-L--no-as-needed";
+
 		args ~= lflagsToDFlags(settings.lflags);
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
