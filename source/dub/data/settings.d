@@ -8,7 +8,7 @@
 
 module dub.data.settings;
 
-import dub.internal.configy.Attributes;
+import dub.internal.configy.attributes;
 import dub.internal.vibecompat.inet.path;
 
 /// Determines which of the default package suppliers are queried for packages.
@@ -102,7 +102,7 @@ package(dub) struct Settings {
 }
 
 unittest {
-    import dub.internal.configy.Read;
+    import dub.internal.configy.easy;
 
     const str1 = `{
   "registryUrls": [ "http://foo.bar\/optional\/escape" ],
@@ -191,7 +191,7 @@ unittest {
 unittest {
     // Test that SkipPackageRegistry.default_ is not allowed
 
-    import dub.internal.configy.Read;
+    import dub.internal.configy.easy;
     import std.exception : assertThrown;
 
     const str1 = `{

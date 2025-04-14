@@ -20,7 +20,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.recipe.selection;
 
-import dub.internal.configy.Read;
+import dub.internal.configy.easy;
 
 import std.algorithm;
 import std.array;
@@ -560,7 +560,7 @@ class Project {
 						return m_packageManager.loadSCMPackage(dep.name, repo);
 					},
 					(VersionRange range) {
-						// See `dub.recipe.selection : SelectedDependency.fromYAML`
+						// See `dub.recipe.selection : SelectedDependency.fromConfig`
 						assert(range.isExactVersion());
 						return m_packageManager.getPackage(dep.name, vspec.version_);
 					},

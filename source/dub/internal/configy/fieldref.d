@@ -15,10 +15,10 @@
 
 *******************************************************************************/
 
-module dub.internal.configy.FieldRef;
+module dub.internal.configy.fieldref;
 
 // Renamed imports as the names exposed by `FieldRef` shadow the imported ones.
-import dub.internal.configy.Attributes : CAName = Name, CAOptional = Optional, SetInfo;
+import dub.internal.configy.attributes : CAName = Name, CAOptional = Optional, SetInfo;
 
 import std.meta;
 import std.traits;
@@ -33,7 +33,7 @@ import std.traits;
 
     To prevent this from happening, we always pass around a `FieldRef`,
     which wraps the parent struct type (`T`), the name of the field
-    as `FieldName`, and other information.
+    as `FieldName`, and other informations.
 
     To avoid any issue, eponymous usage is also avoided, hence the reference
     needs to be accessed using `Ref`.
@@ -78,6 +78,9 @@ package template FieldRef (alias T, string name, bool forceOptional = false)
     // Booleans are always optional
     else static if (is(immutable(Type) == immutable(bool)))
         public enum Optional = true;
+    // Same for pointers
+    else static if (is(immutable(Type) == immutable(T*), T))
+        public enum Optional = true;
     // A mandatory SetInfo would not make sense
     else static if (is(Type : SetInfo!FT, FT))
         public enum Optional = true;
@@ -91,7 +94,7 @@ package template FieldRef (alias T, string name, bool forceOptional = false)
 
 unittest
 {
-    import dub.internal.configy.Attributes : Name;
+    import dub.internal.configy.attributes : Name;
 
     static struct Config1
     {
@@ -149,7 +152,7 @@ package template StructFieldRef (ST, string DefaultName = null)
     ///
     public enum Optional = false;
 
-    /// Some places reference their parent's Name / FieldName
+    /// Some places reference their parent's `Name` / `FieldName`
     public enum Name = DefaultName;
     /// Ditto
     public enum FieldName = DefaultName;
