@@ -15,7 +15,7 @@ import dub.internal.logging;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
 
-import dub.internal.configy.Attributes;
+import dub.internal.configy.attributes;
 
 import std.algorithm : findSplit, sort;
 import std.array : join, split;
@@ -198,13 +198,13 @@ struct SubPackage
 	 * full sub-package recipe into the parent package recipe.
 	 *
 	 * To support such a dual syntax, Configy requires the use
-	 * of a `fromYAML` method, as it exposes the underlying format.
+	 * of a `fromConfig` method, as it exposes the underlying format.
 	 */
-	static SubPackage fromYAML (scope ConfigParser!SubPackage p)
+	static SubPackage fromConfig (scope ConfigParser p)
 	{
-		import dub.internal.dyaml.node;
+		import dub.internal.configy.backend.node;
 
-		if (p.node.nodeID == NodeID.mapping)
+		if (p.node.type == Node.Type.Mapping)
 			return SubPackage(null, p.parseAs!PackageRecipe);
 		else
 			return SubPackage(p.parseAs!string);
@@ -216,24 +216,41 @@ struct ToolchainRequirements
 {
 	import std.typecons : Tuple, tuple;
 
-	// TODO: We can remove `@Optional` once bosagora/configy#30 is resolved,
-	// currently it fails because `Dependency.opCmp` is not CTFE-able.
+	private static struct JSONFormat {
+		private static struct VersionRangeC (bool asDMD) {
+			public VersionRange range;
+			alias range this;
+			public static VersionRangeC fromConfig (scope ConfigParser parser) {
+				scope scalar = parser.node.asScalar();
+				enforce(scalar !is null, "Node should be a scalar (string)");
+				static if (asDMD)
+					return typeof(return)(scalar.str.parseDMDDependency);
+				else
+					return typeof(return)(scalar.str.parseVersionRange);
+			}
+		}
+		VersionRangeC!false dub = VersionRangeC!false(VersionRange.Any);
+		VersionRangeC!true frontend = VersionRangeC!true(VersionRange.Any);
+		VersionRangeC!true dmd = VersionRangeC!true(VersionRange.Any);
+		VersionRangeC!false ldc = VersionRangeC!false(VersionRange.Any);
+		VersionRangeC!false gdc = VersionRangeC!false(VersionRange.Any);
+	}
 
 	/// DUB version requirement
-	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseVersionRange)
 	VersionRange dub = VersionRange.Any;
 	/// D front-end version requirement
-	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseDMDDependency)
 	VersionRange frontend = VersionRange.Any;
 	/// DMD version requirement
-	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseDMDDependency)
 	VersionRange dmd = VersionRange.Any;
 	/// LDC version requirement
-	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseVersionRange)
 	VersionRange ldc = VersionRange.Any;
 	/// GDC version requirement
-	@Optional @converter((scope ConfigParser!VersionRange p) => p.node.as!string.parseVersionRange)
 	VersionRange gdc = VersionRange.Any;
+
+	///
+	public static ToolchainRequirements fromConfig (scope ConfigParser parser) {
+		return ToolchainRequirements(parser.parseAs!(JSONFormat).tupleof);
+	}
 
 	/** Get the list of supported compilers.
 
@@ -317,12 +334,10 @@ public struct RecipeDependency
 	 *
 	 * Required to support both short and long form
 	 */
-	static RecipeDependency fromYAML (scope ConfigParser!RecipeDependency p)
+	static RecipeDependency fromConfig (scope ConfigParser p)
 	{
-		import dub.internal.dyaml.node;
-
-		if (p.node.nodeID == NodeID.scalar) {
-			auto d = YAMLFormat(p.node.as!string);
+		if (scope scalar = p.node.asScalar()) {
+			auto d = YAMLFormat(scalar.str);
 			return RecipeDependency(d.toDependency());
 		}
 		auto d = p.parseAs!YAMLFormat;
@@ -410,7 +425,7 @@ package struct RecipeDependencyAA
 	}
 
 	/// Configy doesn't like `alias this` to an AA
-	static RecipeDependencyAA fromYAML (scope ConfigParser!RecipeDependencyAA p)
+	static RecipeDependencyAA fromConfig (scope ConfigParser p)
 	{
 		return RecipeDependencyAA(p.parseAs!(typeof(this.data)));
 	}
@@ -839,4 +854,24 @@ unittest {
 	assert(dmdLikeVersionToSemverLike("~>2.082-beta1") == "~>2.82.0-beta1");
 	assert(dmdLikeVersionToSemverLike("2.4.6") == "2.4.6");
 	assert(dmdLikeVersionToSemverLike("2.4.6-alpha12") == "2.4.6-alpha12");
+}
+
+// Test for ToolchainRequirements as the implementation is custom
+unittest {
+    import dub.internal.configy.easy : parseConfigString;
+
+    immutable content = `{ "name": "mytest",
+    "toolchainRequirements": {
+        "frontend": ">=2.089",
+        "dmd":      ">=2.109",
+        "dub":      "~>1.1",
+        "gdc":      "no",
+    }}`;
+
+    auto s = parseConfigString!PackageRecipe(content, "/dev/null");
+    assert(s.toolchainRequirements.frontend.toString() == ">=2.89.0");
+    assert(s.toolchainRequirements.dmd.toString() == ">=2.109.0");
+    assert(s.toolchainRequirements.dub.toString() == "~>1.1");
+    assert(s.toolchainRequirements.gdc == VersionRange.Invalid);
+
 }

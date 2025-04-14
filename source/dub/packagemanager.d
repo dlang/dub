@@ -16,8 +16,8 @@ import dub.internal.logging;
 import dub.package_;
 import dub.recipe.io;
 import dub.recipe.selection;
-import dub.internal.configy.Exceptions;
-public import dub.internal.configy.Read : StrictMode;
+import dub.internal.configy.exceptions;
+public import dub.internal.configy.read : StrictMode;
 
 import dub.internal.dyaml.stdsumtype;
 
@@ -1196,7 +1196,7 @@ symlink_exit:
 	 */
 	Nullable!SelectionsFileLookupResult readSelections(in NativePath absProjectPath)
 	in (absProjectPath.absolute) {
-		import dub.internal.configy.Read;
+		import dub.internal.configy.easy;
 
 		alias N = typeof(return);
 
