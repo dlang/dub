@@ -47,6 +47,7 @@ deprecated("use defaultRegistryURLs") enum defaultRegistryURL = defaultRegistryU
 
 /// The URL to the official package registry and it's default fallback registries.
 static immutable string[] defaultRegistryURLs = [
+	"dub+index+https://github.com/dlang/dub-index.git",
 	"https://code.dlang.org/",
 	"https://codemirror.dlang.org/"
 ];
@@ -413,6 +414,12 @@ class Dub {
 		switch (url.startsWith("dub+", "mvn+", "file://"))
 		{
 		case 1:
+            // `startsWith` takes the shortest match so if we provide `dub+`
+            // `and `dub+index+` it will always match the former...
+            if (url.startsWith(`dub+index+`)) {
+                return new IndexPackageSupplier(URL(url["dub+index+".length .. $]),
+                    this.m_dirs.userPackages ~ "index");
+            }
 			return new RegistryPackageSupplier(URL(url[4..$]));
 		case 2:
 			return new MavenRegistryPackageSupplier(URL(url[4..$]));
@@ -1291,7 +1298,7 @@ class Dub {
 			try
 				results ~= tuple(ps.description, ps.searchPackages(query));
 			catch (Exception e) {
-				logWarn("Searching %s for '%s' failed: %s", ps.description, query, e.msg);
+				logWarn("Searching %s for '%s' failed: %s", ps.description, query, e);
 			}
 		}
 		return results.filter!(tup => tup[1].length);

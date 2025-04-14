@@ -18,6 +18,12 @@ source/dub/generators/sublimetext.d
 source/dub/generators/targetdescription.d
 source/dub/generators/visuald.d
 source/dub/init.d
+source/dub/index/bitbucket.d
+source/dub/index/client.d
+source/dub/index/data.d
+source/dub/index/github.d
+source/dub/index/gitlab.d
+source/dub/index/utils.d
 source/dub/internal/configy/attributes.d
 source/dub/internal/configy/backend/json.d
 source/dub/internal/configy/backend/node.d
@@ -83,6 +89,7 @@ source/dub/packagemanager.d
 source/dub/packagesupplier.d
 source/dub/packagesuppliers/fallback.d
 source/dub/packagesuppliers/filesystem.d
+source/dub/packagesuppliers/index.d
 source/dub/packagesuppliers/maven.d
 source/dub/packagesuppliers/package.d
 source/dub/packagesuppliers/packagesupplier.d
