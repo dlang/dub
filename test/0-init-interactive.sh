@@ -18,7 +18,7 @@ function runTest {
     fi
     if ! diff $packname/dub.$dub_ext "$CURR_DIR"/$comp; then
 	cleanup
-	die $LINENO "Contents of generated dub.$dub_ext not as expected."
+	die $LINENO "Contents of generated dub.$dub_ext does not match $comp"
     fi
     cleanup
 }
