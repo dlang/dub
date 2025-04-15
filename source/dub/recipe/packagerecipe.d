@@ -129,7 +129,7 @@ struct PackageRecipe {
 	 * build setting.
 	 * Build settings defined at the top level affect all configurations.
 	 */
-	@Optional @Key("name") ConfigurationInfo[] configurations;
+	@Optional ConfigurationInfo[] configurations;
 
 	/**
 	 * Defines additional custom build types or overrides the default ones
