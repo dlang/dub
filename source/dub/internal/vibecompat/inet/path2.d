@@ -18,17 +18,16 @@ import std.range.primitives : ElementType, isInputRange, isOutputRange, isForwar
 import std.traits : isArray, isInstanceOf, isSomeChar;
 import std.utf : byChar;
 
-// Original aliases
-package(dub.internal.vibecompat.inet) alias WindowsPath = GenericPath!WindowsPathFormat;
-package(dub.internal.vibecompat.inet) alias PosixPath = GenericPath!PosixPathFormat;
-package(dub.internal.vibecompat.inet) alias InetPath = GenericPath!InetPathFormat;
+public alias WindowsPath = GenericPath!WindowsPathFormat;
+public alias PosixPath = GenericPath!PosixPathFormat;
+public alias InetPath = GenericPath!InetPathFormat;
 version (Windows)
-    package(dub.internal.vibecompat.inet) alias NativePath = WindowsPath;
+    public alias NativePath = WindowsPath;
 else
-     package(dub.internal.vibecompat.inet) alias NativePath = PosixPath;
+    public alias NativePath = PosixPath;
 
 // for testing only, real one in path
-private string toNativeString(T)(T path)
+public string toNativeString(T)(T path)
 {
     return (cast(NativePath)path).toString();
 }
