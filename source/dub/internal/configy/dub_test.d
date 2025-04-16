@@ -26,7 +26,7 @@ unittest
         string[][string] names_;
     }
 
-    auto c = parseConfigString!Config("names-x86:\n  - John\n  - Luca\nnames:\n  - Marie", "/dev/null");
+    auto c = parseConfigString!Config(`{ "names-x86": [ "John", "Luca" ], "names": [ "Marie" ] }`, "/dev/null");
     assert(c.names_[null] == [ "Marie" ]);
     assert(c.names_["x86"] == [ "John", "Luca" ]);
 }
