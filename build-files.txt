@@ -19,6 +19,7 @@ source/dub/generators/targetdescription.d
 source/dub/generators/visuald.d
 source/dub/init.d
 source/dub/internal/configy/attributes.d
+source/dub/internal/configy/backend/json.d
 source/dub/internal/configy/backend/node.d
 source/dub/internal/configy/backend/yaml.d
 source/dub/internal/configy/easy.d
