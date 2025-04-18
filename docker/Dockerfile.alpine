@@ -14,10 +14,10 @@ RUN dub test --compiler=$DCBIN && dub build --compiler=$DCBIN
 # Remove dub to avoid the risk of using the wrong binary
 RUN apk del dub
 
-# Used by the `run-unittest.sh` script
+# Used by the `run-test.sh` script
 ENV DUB=/root/build/bin/dub
 ENV DC=$DCBIN
 
 # Finally, just run the test-suite
-WORKDIR /root/build/test/
-ENTRYPOINT [ "/root/build/test/run-unittest.sh" ]
+WORKDIR /root/build/test/integration/
+ENTRYPOINT [ "/root/build/test/integration/run-test.sh" ]

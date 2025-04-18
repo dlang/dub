@@ -35,20 +35,20 @@ __dummy.html
 *.exe
 *.lib
 *.log
-/test/*/*
-/test/*.*
-!/test/*.d
-!/test/*.d.min_frontend
-!/test/*.sh
-!/test/*.sh.min_frontend
-!/test/*/.no_*
-!/test/*/.min_frontend
-!/test/*/.fail_build
-!/test/*/dub.json
-!/test/*/dub.sdl
-!/test/*/dub.settings.json
-!/test/*/source/
-!/test/*/src/
+/test/integration/*/*
+/test/integration/*.*
+!/test/integration/*.d
+!/test/integration/*.d.min_frontend
+!/test/integration/*.sh
+!/test/integration/*.sh.min_frontend
+!/test/integration/*/.no_*
+!/test/integration/*/.min_frontend
+!/test/integration/*/.fail_build
+!/test/integration/*/dub.json
+!/test/integration/*/dub.sdl
+!/test/integration/*/dub.settings.json
+!/test/integration/*/source/
+!/test/integration/*/src/
 
 # Ignore coverage files
 cov/
