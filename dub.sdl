@@ -24,6 +24,11 @@ configuration "application" {
 	//dflags "-fpreview=in" platform="gdc"
 }
 
+configuration "unittest" {
+	versions "DubUseCurl"
+	sourcePaths "source" "test/unit/"
+}
+
 configuration "library" {
 	targetType "library"
 	excludedSourceFiles "source/app.d"

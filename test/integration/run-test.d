@@ -1,7 +1,7 @@
 #!/usr/bin/env dub
 /+dub.sdl:
 	name: run_unittest
-	targetName: run-unittest
+	targetName: run-test
 	dependency "common" path="./common"
 +/
 module run_unittest;
@@ -66,7 +66,7 @@ int main(string[] args)
 			if (!script.name.baseName.globMatch(filter)) continue;
 			if (!script.name.endsWith(".sh"))
 				continue;
-			if (baseName(script.name).among("run-unittest.sh", "common.sh")) continue;
+			if (baseName(script.name).among("run-test.sh", "common.sh")) continue;
 			const min_frontend = script.name ~ ".min_frontend";
 			if (exists(min_frontend) && frontend.length && cmp(frontend, min_frontend.readText) < 0) continue;
 			log("Running " ~ script ~ "...");

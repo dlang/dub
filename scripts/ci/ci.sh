@@ -18,5 +18,5 @@ else
     dub test --compiler=${DC} -b unittest-cov
     ./build.d
 fi
-DUB=`pwd`/bin/dub DC=${DC} dub --single ./test/run-unittest.d
-DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
+DUB=`pwd`/bin/dub DC=${DC} dub --single ./test/integration/run-test.d
+DUB=`pwd`/bin/dub DC=${DC} test/integration/run-test.sh

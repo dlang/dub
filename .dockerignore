@@ -3,4 +3,4 @@
 *.a
 *.o
 .dub/
-test/*/.dub/
+test/integration/*/.dub/
