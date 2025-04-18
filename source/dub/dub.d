@@ -1476,7 +1476,7 @@ class Dub {
 
 		Params:
 			destination_file_ext = The file extension matching the desired
-				format. Possible values are "json" or "sdl".
+				format. Possible values are "json", "sdl", or "yaml".
 			print_only = Print the converted recipe instead of writing to disk
 	*/
 	void convertRecipe(string destination_file_ext, bool print_only = false)

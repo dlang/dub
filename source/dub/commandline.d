@@ -1220,7 +1220,7 @@ class InitCommand : Command {
 			if (m_nonInteractive) return;
 
 			enum free_choice = true;
-			fmt = select("a package recipe format", !free_choice, fmt.to!string, "sdl", "json").to!PackageFormat;
+			fmt = select("a package recipe format", !free_choice, fmt.to!string, "sdl", "json", "yaml").to!PackageFormat;
 			auto author = p.authors.join(", ");
 			while (true) {
 				// Tries getting the name until a valid one is given.
@@ -2961,7 +2961,7 @@ class ConvertCommand : Command {
 
 	override void prepare(scope CommandArgs args)
 	{
-		args.getopt("f|format", &m_format, ["Specifies the target package recipe format. Possible values:", "  json, sdl"]);
+		args.getopt("f|format", &m_format, ["Specifies the target package recipe format. Possible values:", "  json, sdl, yaml"]);
 		args.getopt("s|stdout", &m_stdout, ["Outputs the converted package recipe to stdout instead of writing to disk."]);
 	}
 

@@ -26,7 +26,7 @@ function runTest {
 # sdl package format
 runTest '1\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl
 # select package format out of bounds
-runTest '3\n1\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl
+runTest '4\n1\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl
 # select package format not numeric, but in list
 runTest 'sdl\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl
 # selected value not numeric and not in list
