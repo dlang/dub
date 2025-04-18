@@ -468,11 +468,14 @@ public class MockPackageSupplier : PackageSupplier
         scope pkgRoot = new MockFS();
         dg(pkgRoot);
 
-        string recipe = pkgRoot.existsFile(NativePath("dub.json")) ? "dub.json" : null;
-        if (recipe is null)
-            recipe = pkgRoot.existsFile(NativePath("dub.sdl")) ? "dub.sdl" : null;
-        if (recipe is null)
-            recipe = pkgRoot.existsFile(NativePath("package.json")) ? "package.json" : null;
+        string recipe;
+        foreach (faf; packageInfoFiles) {
+            if (pkgRoot.existsFile(NativePath(faf.filename))) {
+                recipe = faf.filename;
+                break;
+            }
+        }
+
         // Note: If you want to provide an invalid package, override
         // [Mock]PackageSupplier. Most tests will expect a well-behaving
         // registry so this assert is here to help with writing tests.
