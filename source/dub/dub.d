@@ -251,7 +251,7 @@ class Dub {
 	 */
 	protected Settings loadConfig(ref SpecialDirs dirs) const
 	{
-		import dub.internal.configy.Read;
+		import dub.internal.configy.easy;
 
 		static void readSettingsFile (NativePath path_, ref Settings current)
 		{

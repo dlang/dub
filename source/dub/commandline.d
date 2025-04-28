@@ -34,6 +34,7 @@ import std.path : absolutePath, buildNormalizedPath, expandTilde, setExtension;
 import std.process : environment, spawnProcess, wait;
 import std.stdio;
 import std.string;
+import std.traits : EnumMembers;
 import std.typecons : Tuple, tuple;
 
 /** Retrieves a list of all available commands.
@@ -2969,6 +2970,12 @@ class ConvertCommand : Command {
 		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
 		enforceUsage(free_args.length == 0, "Unexpected arguments: "~free_args.join(" "));
 		enforceUsage(m_format.length > 0, "Missing target format file extension (--format=...).");
+		try this.m_format.to!PackageFormat;
+		catch (Exception exc)
+			enforceUsage(false,
+				"Unsupported format type '%s', supported values are: %(%s, %)"
+				.format(m_format, [ EnumMembers!PackageFormat ]));
+
 		if (!loadCwdPackage(dub, true)) return 2;
 		dub.convertRecipe(m_format, m_stdout);
 		return 0;

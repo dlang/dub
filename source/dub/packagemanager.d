@@ -16,8 +16,8 @@ import dub.internal.logging;
 import dub.package_;
 import dub.recipe.io;
 import dub.recipe.selection;
-import dub.internal.configy.Exceptions;
-public import dub.internal.configy.Read : StrictMode;
+import dub.internal.configy.exceptions;
+public import dub.internal.configy.read : StrictMode;
 
 import dub.internal.dyaml.stdsumtype;
 
@@ -891,10 +891,10 @@ class PackageManager {
 		logDebug("Extracting from zip.");
 
 		// In a GitHub zip, the actual contents are in a sub-folder
-		alias PSegment = typeof(NativePath.init.head);
+		alias PSegment = typeof(PosixPath.init.head);
 		PSegment[] zip_prefix;
 		outer: foreach(ArchiveMember am; archive.directory) {
-			auto path = NativePath(am.name).bySegment.array;
+			auto path = PosixPath(am.name).bySegment.array;
 			foreach (fil; packageInfoFiles)
 				if (path.length == 2 && path[$-1].name == fil.filename) {
 					zip_prefix = path[0 .. $-1];
@@ -904,11 +904,11 @@ class PackageManager {
 
 		logDebug("zip root folder: %s", zip_prefix);
 
-		NativePath getCleanedPath(string fileName) {
-			auto path = NativePath(fileName);
-			if (zip_prefix.length && !path.bySegment.startsWith(zip_prefix)) return NativePath.init;
+		PosixPath getCleanedPath(string fileName) {
+			auto path = PosixPath(fileName);
+			if (zip_prefix.length && !path.bySegment.startsWith(zip_prefix)) return PosixPath.init;
 			static if (is(typeof(path[0 .. 1]))) return path[zip_prefix.length .. $];
-			else return NativePath(path.bySegment.array[zip_prefix.length .. $]);
+			else return PosixPath(path.bySegment.array[zip_prefix.length .. $]);
 		}
 
 		void setAttributes(NativePath path, ArchiveMember am)
@@ -1005,8 +1005,7 @@ symlink_exit:
 		enforce(found, "Cannot remove, package not found: '"~ pack.name ~"', path: " ~ to!string(pack.path));
 
 		logDebug("About to delete root folder for package '%s'.", pack.path);
-		import std.file : rmdirRecurse;
-		rmdirRecurse(pack.path.toNativeString());
+		this.fs.removeDir(pack.path, true);
 		logInfo("Removed", Color.yellow, "%s %s", pack.name.color(Mode.bold), pack.version_);
 	}
 
@@ -1196,7 +1195,7 @@ symlink_exit:
 	 */
 	Nullable!SelectionsFileLookupResult readSelections(in NativePath absProjectPath)
 	in (absProjectPath.absolute) {
-		import dub.internal.configy.Read;
+		import dub.internal.configy.easy;
 
 		alias N = typeof(return);
 

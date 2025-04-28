@@ -9,7 +9,7 @@ module dub.compilers.buildsettings;
 
 import dub.internal.vibecompat.inet.path;
 
-import dub.internal.configy.Attributes;
+import dub.internal.configy.attributes;
 
 import std.array : array;
 import std.algorithm : filter, any;
@@ -462,16 +462,19 @@ struct Flags (T) {
 	 * but they are specified in the recipe using an array of their name.
 	 * This routine handles the conversion from `string[]` to `BitFlags!T`.
 	 */
-	public static Flags!T fromYAML (scope ConfigParser!(Flags!T) p)
+	public static Flags!T fromConfig (scope ConfigParser p)
 	{
-		import dub.internal.dyaml.node;
+		import dub.internal.configy.backend.node;
 		import std.exception;
 		import std.conv;
 
-		enforce(p.node.nodeID == NodeID.sequence, "Should be a sequence");
+		auto seq = p.node.asSequence();
+        enforce(seq !is null, "Should be a sequence");
 		typeof(return) res;
-		foreach (str; p.node.sequence)
-			res |= str.as!string.to!T;
+		foreach (idx, entry; seq) {
+            if (scope scalar = entry.asScalar())
+                res |= scalar.str.to!T;
+        }
 		return res;
 	}
 }
@@ -488,7 +491,7 @@ unittest
 
 unittest
 {
-	import dub.internal.configy.Read;
+	import dub.internal.configy.easy;
 
 	static struct Config
 	{
