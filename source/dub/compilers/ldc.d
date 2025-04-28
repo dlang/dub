@@ -234,6 +234,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 	{
 		const targetFileName = getTargetFileName(settings, platform);
 
+		const p = platform.platform;
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Invalid target type: autodetect");
 			case TargetType.none: assert(false, "Invalid target type: none");
@@ -259,6 +260,14 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				break;
 			case TargetType.object:
 				settings.addDFlags("-c");
+
+				// When using wasm-ld on output objects, we need to explicitly
+				// not strip dead symbols, otherwise we'll get a linker error.
+				// as wasm-ld only works on relocatable objects.
+				if (p.canFind("wasm")) {
+					settings.addDFlags("--disable-linker-strip-dead");
+					settings.addLFlags("-r");
+				}
 				break;
 		}
 
@@ -287,10 +296,17 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		import std.string;
 		auto tpath = NativePath(settings.targetPath) ~ getTargetFileName(settings, platform);
 		auto args = ["-of"~tpath.toNativeString()];
+		const p = platform.platform;
+
 		args ~= objects;
 		args ~= settings.sourceFiles;
-		if (platform.platform.canFind("linux"))
-			args ~= "-L--no-as-needed"; // avoids linker errors due to libraries being specified in the wrong order
+
+		// Avoids linker errors due to libraries being specified in the wrong order.
+		// However, the wasm-ld linker does not have --no-as-needed and emscripten is
+		// implicitly treated as a "linux" platform.
+		if (p.canFind("linux") && !p.canFind("emscripten"))
+			args ~= "-L--no-as-needed";
+
 		args ~= lflagsToDFlags(settings.lflags);
 		args ~= settings.dflags.filter!(f => isLinkerDFlag(f)).array;
 
@@ -321,8 +337,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 			arg = arg[1 .. $]; // normalize to 1 leading hyphen
 
 		switch (arg) {
-			case "-g", "-gc", "-m32", "-m64", "-shared", "-lib",
-			     "-betterC", "-disable-linker-strip-dead", "-static":
+			case "-g", "-gc", "-m32", "-m64", "-mwasm64", "-shared", "-lib",
+			     "-betterC", "-disable-linker-strip-dead", "-static", "-r":
 				return true;
 			default:
 				return arg.startsWith("-L")
