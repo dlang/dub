@@ -578,6 +578,8 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("debugVersions", "addDebugVersions")(dst, platform);
 		getPlatformSetting!("versionFilters", "addVersionFilters")(dst, platform);
 		getPlatformSetting!("debugVersionFilters", "addDebugVersionFilters")(dst, platform);
+		getPlatformSetting!("sourcePaths", "addSpecifiedSourcePaths")(dst, platform);
+		getPlatformSetting!("cSourcePaths", "addSpecifiedCSourcePaths")(dst, platform);
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
 		getPlatformSetting!("cImportPaths", "addCImportPaths")(dst, platform);
 		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);

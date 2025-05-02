@@ -1,0 +1,4 @@
+name "root"
+authors "webfreak"
+subPackage "sub"
+dependency ":sub" version="*"

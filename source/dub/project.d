@@ -1206,7 +1206,8 @@ class Project {
 			// Is relative path(s) to a directory?
 			enum isRelativeDirectory =
 				attributeName == "importPaths" || attributeName == "cImportPaths" || attributeName == "stringImportPaths" ||
-				attributeName == "targetPath" || attributeName == "workingDirectory";
+				attributeName == "targetPath" || attributeName == "workingDirectory" ||
+				attributeName == "specifiedSourcePaths" || attributeName == "specifiedCSourcePaths";
 
 			// Is relative path(s) to a file?
 			enum isRelativeFile =
@@ -1267,6 +1268,8 @@ class Project {
 			case "target-name":
 			case "working-directory":
 			case "string-import-files":
+			case "specified-source-paths":
+			case "specified-c-source-paths":
 			case "copy-files":
 			case "extra-dependency-files":
 			case "pre-generate-commands":
@@ -1320,6 +1323,8 @@ class Project {
 		case "debug-versions":             return listBuildSetting!"debugVersions"(args);
 		case "import-paths":               return listBuildSetting!"importPaths"(args);
 		case "string-import-paths":        return listBuildSetting!"stringImportPaths"(args);
+		case "specified-source-paths":     return listBuildSetting!"specifiedSourcePaths"(args);
+		case "specified-c-source-paths":   return listBuildSetting!"specifiedCSourcePaths"(args);
 		case "import-files":               return listBuildSetting!"importFiles"(args);
 		case "string-import-files":        return listBuildSetting!"stringImportFiles"(args);
 		case "pre-generate-commands":      return listBuildSetting!"preGenerateCommands"(args);
@@ -1479,6 +1484,8 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions, false, buildEnvs));
 	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters, false, buildEnvs));
 	dst.addDebugVersionFilters(processVars(project, pack, gsettings, settings.debugVersionFilters, false, buildEnvs));
+	dst.addSpecifiedSourcePaths(processVars(project, pack, gsettings, settings.specifiedSourcePaths, true, buildEnvs));
+	dst.addSpecifiedCSourcePaths(processVars(project, pack, gsettings, settings.specifiedCSourcePaths, true, buildEnvs));
 	dst.addImportPaths(processVars(project, pack, gsettings, settings.importPaths, true, buildEnvs));
 	dst.addCImportPaths(processVars(project, pack, gsettings, settings.cImportPaths, true, buildEnvs));
 	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.stringImportPaths, true, buildEnvs));

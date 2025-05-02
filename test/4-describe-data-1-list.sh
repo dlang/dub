@@ -23,6 +23,8 @@ if ! $DUB describe --compiler=$DC --filter-versions \
     '--data=versions, debug-versions' \
     --data=import-paths \
     --data=string-import-paths \
+    --data=specified-source-paths \
+    --data=specified-c-source-paths \
     --data=import-files \
     --data=string-import-files \
     --data=pre-generate-commands \
@@ -99,6 +101,14 @@ echo >> "$expected_file"
 echo "$CURR_DIR/describe-project/views/" >> "$expected_file"
 echo "$CURR_DIR/describe-dependency-2/some-extra-string-import-path/" >> "$expected_file"
 echo "$CURR_DIR/describe-dependency-3/dep3-string-import-path/" >> "$expected_file"
+echo >> "$expected_file"
+# --data=specified-source-paths
+echo "$CURR_DIR/describe-project/src/" >> "$expected_file"
+echo "$CURR_DIR/describe-dependency-1/source/" >> "$expected_file"
+echo >> "$expected_file"
+# --data=specified-c-source-paths
+# no C source paths
+echo >> "$expected_file"
 echo >> "$expected_file"
 # --data=import-files
 echo "$CURR_DIR/describe-dependency-2/some-path/dummy.d" >> "$expected_file"
