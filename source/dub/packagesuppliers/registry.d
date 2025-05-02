@@ -14,6 +14,7 @@ package enum PackagesPath = "packages";
 class RegistryPackageSupplier : PackageSupplier {
 	import dub.internal.utils : retryDownload, HTTPStatusException;
 	import dub.internal.vibecompat.data.json : parseJson, parseJsonString, serializeToJson;
+	import dub.internal.vibecompat.inet.path : InetPath;
 	import dub.internal.vibecompat.inet.url : URL;
 	import dub.internal.logging;
 
@@ -60,7 +61,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		if (best.type != Json.Type.null_)
 		{
 			auto vers = best["version"].get!string;
-			ret = m_registryUrl ~ NativePath(
+			ret = m_registryUrl ~ InetPath(
 				"%s/%s/%s.zip".format(PackagesPath, name.main, vers));
 		}
 		return ret;
@@ -102,7 +103,7 @@ class RegistryPackageSupplier : PackageSupplier {
 			m_metadataCache.remove(name.main);
 		}
 
-		auto url = m_registryUrl ~ NativePath("api/packages/infos");
+		auto url = m_registryUrl ~ InetPath("api/packages/infos");
 
 		url.queryString = "packages=" ~
 			encodeComponent(`["` ~ name.main.toString() ~ `"]`) ~

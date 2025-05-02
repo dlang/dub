@@ -12,7 +12,7 @@ import dub.recipe.packagerecipe;
 import dub.internal.logging;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
-import dub.internal.configy.Read;
+import dub.internal.configy.easy;
 
 /** Reads a package recipe from a file.
 
@@ -303,5 +303,5 @@ unittest {
 
 
 	error(`{ "name": "bar", "dependencies": {"bad": { "repository": "git+https://github.com/dlang/dmd" }}}`,
-		"dub.json(0:41): dependencies[bad]: Need to provide a commit hash in 'version' field with 'repository' dependency");
+		"dub.json(1:42): dependencies[bad]: Need to provide a commit hash in 'version' field with 'repository' dependency");
 }

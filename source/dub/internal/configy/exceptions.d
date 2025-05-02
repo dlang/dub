@@ -11,12 +11,10 @@
 
 *******************************************************************************/
 
-module dub.internal.configy.Exceptions;
+module dub.internal.configy.exceptions;
 
-import dub.internal.configy.Utils;
-
-import dub.internal.dyaml.exception;
-import dub.internal.dyaml.node;
+import dub.internal.configy.utils;
+import dub.internal.configy.backend.node;
 
 import std.algorithm : filter, map;
 import std.format;
@@ -46,32 +44,19 @@ import std.string : soundexer;
 public abstract class ConfigException : Exception
 {
     /// Position at which the error happened
-    public Mark yamlPosition;
+    public Location loc;
 
-    /// The path at which the key resides
+    /// The path in the configuration structure at which the error resides
     public string path;
 
-    /// If non-empty, the key under 'path' which triggered the error
-    /// If empty, the key should be considered part of 'path'
-    public string key;
-
     /// Constructor
-    public this (string path, string key, Mark position,
+    public this (string path, Location position,
                  string file = __FILE__, size_t line = __LINE__)
         @safe pure nothrow @nogc
     {
         super(null, file, line);
         this.path = path;
-        this.key = key;
-        this.yamlPosition = position;
-    }
-
-    /// Ditto
-    public this (string path, Mark position,
-                 string file = __FILE__, size_t line = __LINE__)
-        @safe pure nothrow @nogc
-    {
-        this(path, null, position, file, line);
+        this.loc = position;
     }
 
     /***************************************************************************
@@ -97,7 +82,7 @@ public abstract class ConfigException : Exception
 
     public override string toString () scope
     {
-        // Need to be overridden, otherwise the overload is shadowed
+        // Need to be overriden otherwise the overload is shadowed
         return super.toString();
     }
 
@@ -116,32 +101,14 @@ public abstract class ConfigException : Exception
     public void toString (scope SinkType sink, in FormatSpec!char spec)
         const scope @safe
     {
-        import core.internal.string : unsignedToTempString;
+        if (this.loc.toString(sink, spec))
+            sink(": ");
 
-        const useColors = spec.spec == 'S';
-        char[20] buffer = void;
-
-        if (useColors) sink(Yellow);
-        sink(this.yamlPosition.name);
-        if (useColors) sink(Reset);
-
-        sink("(");
-        if (useColors) sink(Cyan);
-        sink(unsignedToTempString(this.yamlPosition.line, buffer));
-        if (useColors) sink(Reset);
-        sink(":");
-        if (useColors) sink(Cyan);
-        sink(unsignedToTempString(this.yamlPosition.column, buffer));
-        if (useColors) sink(Reset);
-        sink("): ");
-
-        if (this.path.length || this.key.length)
+        if (this.path.length)
         {
+            const useColors = spec.spec == 'S';
             if (useColors) sink(Yellow);
             sink(this.path);
-            if (this.path.length && this.key.length)
-                sink(".");
-            sink(this.key);
             if (useColors) sink(Reset);
             sink(": ");
         }
@@ -151,10 +118,7 @@ public abstract class ConfigException : Exception
         debug (ConfigFillerDebug)
         {
             sink("\n\tError originated from: ");
-            sink(this.file);
-            sink("(");
-            sink(unsignedToTempString(line, buffer));
-            sink(")");
+            Location(this.file, this.line).toString(sink);
 
             if (!this.info)
                 return;
@@ -184,18 +148,18 @@ public abstract class ConfigException : Exception
 /// A configuration exception that is only a single message
 package final class ConfigExceptionImpl : ConfigException
 {
-    public this (string msg, Mark position,
+    public this (string msg, Location position,
                  string file = __FILE__, size_t line = __LINE__)
         @safe pure nothrow @nogc
     {
-        this(msg, null, null, position, file, line);
+        this(msg, null, position, file, line);
     }
 
-    public this (string msg, string path, string key, Mark position,
+    public this (string msg, string path, Location position,
                  string file = __FILE__, size_t line = __LINE__)
         @safe pure nothrow @nogc
     {
-        super(path, key, position, file, line);
+        super(path, position, file, line);
         this.msg = msg;
     }
 
@@ -217,20 +181,20 @@ package final class TypeConfigException : ConfigException
     public string expected;
 
     /// Constructor
-    public this (Node node, string expected, string path, string key = null,
+    public this (Node node, string expected, string path,
                  string file = __FILE__, size_t line = __LINE__)
         @safe nothrow
     {
-        this(node.nodeTypeString(), expected, path, key, node.startMark(),
+        this(node.type().toString(), expected, path, node.location(),
              file, line);
     }
 
     /// Ditto
-    public this (string actual, string expected, string path, string key,
-                 Mark position, string file = __FILE__, size_t line = __LINE__)
+    public this (string actual, string expected, string path,
+        Location position, string file = __FILE__, size_t line = __LINE__)
         @safe pure nothrow @nogc
     {
-        super(path, key, position, file, line);
+        super(path, position, file, line);
         this.actual = actual;
         this.expected = expected;
     }
@@ -242,7 +206,7 @@ package final class TypeConfigException : ConfigException
     {
         const useColors = spec.spec == 'S';
 
-        const fmt = "Expected to be of type %s, but is a %s";
+        const fmt = "Expected to be %s, but is a %s";
 
         if (useColors)
             formattedWrite(sink, fmt, this.expected.paint(Green), this.actual.paint(Red));
@@ -267,8 +231,8 @@ package final class DurationTypeConfigException : ConfigException
     public this (Node node, string path, string file = __FILE__, size_t line = __LINE__)
         @safe nothrow
     {
-        super(path, null, node.startMark(), file, line);
-        this.actual = node.nodeTypeString();
+        super(path, node.location(), file, line);
+        this.actual = node.type.toString();
     }
 
     /// Format the message with or without colors
@@ -293,12 +257,16 @@ public class UnknownKeyConfigException : ConfigException
     /// The list of valid field names
     public immutable string[] fieldNames;
 
+    /// The erroring key
+    public string key;
+
     /// Constructor
     public this (string path, string key, immutable string[] fieldNames,
-                 Mark position, string file = __FILE__, size_t line = __LINE__)
-        @safe pure nothrow @nogc
+                 Location position, string file = __FILE__, size_t line = __LINE__)
+        @safe pure nothrow
     {
-        super(path, key, position, file, line);
+        super(path.addPath(key), position, file, line);
+        this.key = key;
         this.fieldNames = fieldNames;
     }
 
@@ -341,11 +309,11 @@ public class UnknownKeyConfigException : ConfigException
 public class MissingKeyException : ConfigException
 {
     /// Constructor
-    public this (string path, string key, Mark position,
+    public this (string path, Location position,
                  string file = __FILE__, size_t line = __LINE__)
         @safe pure nothrow @nogc
     {
-        super(path, key, position, file, line);
+        super(path, position, file, line);
     }
 
     /// Format the message with or without colors
@@ -357,11 +325,11 @@ public class MissingKeyException : ConfigException
     }
 }
 
-/// Wrap an user-thrown Exception that happened in a Converter/ctor/fromString
+/// Wrap an user-thrown Exception that happened in a hook/ctor
 public class ConstructionException : ConfigException
 {
     /// Constructor
-    public this (Exception next, string path, Mark position,
+    public this (Exception next, string path, Location position,
                  string file = __FILE__, size_t line = __LINE__)
         @safe pure nothrow @nogc
     {
@@ -389,14 +357,14 @@ public class ArrayLengthException : ConfigException
 
     /// Constructor
     public this (size_t actual, size_t expected,
-                 string path, string key, Mark position,
+                 string path, in Location position,
                  string file = __FILE__, size_t line = __LINE__)
         @safe pure nothrow @nogc
     {
         assert(actual != expected);
         this.actual = actual;
         this.expected = expected;
-        super(path, key, position, file, line);
+        super(path, position, file, line);
     }
 
     /// Format the message with or without colors

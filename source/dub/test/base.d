@@ -134,9 +134,9 @@ version "1.2.0"`, PackageFormat.sdl);
         // This is required
         pkg.writeFile(NativePath(`dub.sdl`), `name "b"`);
         // Any other files can be present, as a normal package
-        pkg.mkdir(NativePath("source/b/"));
-        pkg.writeFile(
-            NativePath("main.d"), "module b.main; void main() {}");
+        const pkgDir = NativePath("source/") ~ NativePath("b/");
+        pkg.mkdir(pkgDir);
+        pkg.writeFile(pkgDir ~ NativePath("main.d"), "module b.main; void main() {}");
     });
     // Fetch the package from the registry
     dub.upgrade(UpgradeOptions.select | UpgradeOptions.upgrade);
@@ -190,7 +190,7 @@ public class TestDub : Dub
 
     /// Convenience constants for use in unittests
     version (Windows)
-        public static immutable Root = NativePath("T:\\dub\\");
+        public static immutable Root = NativePath(`C:\dub\`);
     else
         public static immutable Root = NativePath("/dub/");
 
@@ -235,6 +235,7 @@ public class TestDub : Dub
         fs_.mkdir(Paths.userPackages);
         fs_.mkdir(Paths.cache);
         fs_.mkdir(ProjectPath);
+        fs_.chdir(Root);
         if (dg !is null) dg(fs_);
         this(fs_, root, extras, skip);
     }
@@ -467,11 +468,14 @@ public class MockPackageSupplier : PackageSupplier
         scope pkgRoot = new MockFS();
         dg(pkgRoot);
 
-        string recipe = pkgRoot.existsFile(NativePath("dub.json")) ? "dub.json" : null;
-        if (recipe is null)
-            recipe = pkgRoot.existsFile(NativePath("dub.sdl")) ? "dub.sdl" : null;
-        if (recipe is null)
-            recipe = pkgRoot.existsFile(NativePath("package.json")) ? "package.json" : null;
+        string recipe;
+        foreach (faf; packageInfoFiles) {
+            if (pkgRoot.existsFile(NativePath(faf.filename))) {
+                recipe = faf.filename;
+                break;
+            }
+        }
+
         // Note: If you want to provide an invalid package, override
         // [Mock]PackageSupplier. Most tests will expect a well-behaving
         // registry so this assert is here to help with writing tests.
@@ -482,7 +486,7 @@ public class MockPackageSupplier : PackageSupplier
         pkgRecipe.version_ = vers.toString();
         const name = PackageName(pkgRecipe.name);
         this.pkgs[name][vers] = PkgData(
-            pkgRecipe, pkgRoot.serializeToZip("%s-%s/".format(name, vers)));
+            pkgRecipe, pkgRoot.serializeToZip(PosixPath("%s-%s/".format(name, vers))));
     }
 
     ///

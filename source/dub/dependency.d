@@ -357,7 +357,11 @@ struct Dependency {
 		this.m_value.match!(
 			(const NativePath v) @trusted {
 				initJson(json, optional, default_);
-				json["path"] = v.toString();
+				// Path should aim to be portable. A selections file generated
+				// on Windows will use Posix-style path if it can (e.g. the
+				// path is relative), making it portable accross platforms.
+				json["path"] = v.absolute() ? v.toNativeString() :
+					(cast(PosixPath)v).toString();
 			},
 
 			(const Repository v) @trusted {

@@ -15,12 +15,19 @@
 
 *******************************************************************************/
 
-module dub.internal.configy.Utils;
+module dub.internal.configy.utils;
 
 import std.format;
 
 /// Type of sink used by the `toString`
 package alias SinkType = void delegate (in char[]) @safe;
+
+/// Convenience function to extend a path
+package string addPath (string opath, string newPart) @safe pure nothrow
+in(newPart.length)
+do {
+    return opath.length ? (opath ~ "." ~ newPart) : newPart;
+}
 
 /*******************************************************************************
 
@@ -83,7 +90,7 @@ package struct Colored (T)
     private T value;
 
     /// Hook for `formattedWrite`
-    public void toString (scope SinkType sink)
+    public void toString (scope SinkType sink) @safe
     {
         static if (is(typeof(T.init.length) : size_t))
             if (this.value.length == 0) return;
@@ -106,7 +113,7 @@ package Colored!T paintIf (T) (T arg, bool cond, string ifTrue, string ifFalse)
 
 /// Paint a boolean in green if `true`, red otherwise, unless `reverse` is set to `true`,
 /// in which case the colors are swapped
-package Colored!bool paintBool (bool value, bool reverse = false)
+package Colored!bool paintBool (bool value, bool reverse = false) @safe pure nothrow @nogc
 {
     return value.paintIf(reverse ^ value, Green, Red);
 }

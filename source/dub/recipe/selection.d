@@ -11,7 +11,7 @@ module dub.recipe.selection;
 import dub.dependency;
 import dub.internal.vibecompat.inet.path : NativePath;
 
-import dub.internal.configy.Attributes;
+import dub.internal.configy.attributes;
 import dub.internal.dyaml.stdsumtype;
 
 import std.exception;
@@ -80,14 +80,13 @@ public struct SelectionsFile
      * will be returned inside a `Selections!0` struct,
      * which only contains a `fileVersion`.
      */
-    public static SelectionsFile fromYAML (scope ConfigParser!SelectionsFile parser)
+    public static SelectionsFile fromConfig (scope ConfigParser parser)
     {
-        import dub.internal.configy.Read;
+        import dub.internal.configy.read;
 
         static struct OnlyVersion { uint fileVersion; }
 
-        auto vers = parseConfig!OnlyVersion(
-            CLIArgs.init, parser.node, StrictMode.Ignore);
+        auto vers = parseConfig!OnlyVersion(parser.node, StrictMode.Ignore);
 
         switch (vers.fileVersion) {
         case 1:
@@ -131,7 +130,7 @@ private struct SelectedDependency
     public Dependency actual;
     alias actual this;
 
-    /// Constructor, used in `fromYAML`
+    /// Constructor, used in `fromConfig`
     public this (inout(Dependency) dep) inout @safe pure nothrow @nogc
     {
         this.actual = dep;
@@ -145,12 +144,10 @@ private struct SelectedDependency
     }
 
     /// Read a `Dependency` from the config file - Required to support both short and long form
-    static SelectedDependency fromYAML (scope ConfigParser!SelectedDependency p)
+    static SelectedDependency fromConfig (scope ConfigParser p)
     {
-        import dub.internal.dyaml.node;
-
-        if (p.node.nodeID == NodeID.scalar)
-            return SelectedDependency(Dependency(Version(p.node.as!string)));
+        if (scope scalar = p.node.asScalar())
+            return SelectedDependency(Dependency(Version(scalar.str)));
 
         auto d = p.parseAs!YAMLFormat;
         if (d.path.length)
@@ -188,7 +185,7 @@ private struct SelectedDependency
 // Ensure we can read all type of dependencies
 unittest
 {
-    import dub.internal.configy.Read : parseConfigString;
+    import dub.internal.configy.easy : parseConfigString;
 
     immutable string content = `{
     "fileVersion": 1,
@@ -219,7 +216,7 @@ unittest
 // with optional `inheritable` Boolean
 unittest
 {
-    import dub.internal.configy.Read : parseConfigString;
+    import dub.internal.configy.easy : parseConfigString;
 
     immutable string content = `{
     "fileVersion": 1,
@@ -236,7 +233,7 @@ unittest
 // Test reading an unsupported version
 unittest
 {
-    import dub.internal.configy.Read : parseConfigString;
+    import dub.internal.configy.easy : parseConfigString;
 
     immutable string content = `{"fileVersion": 9999, "thisis": "notrecognized"}`;
     auto s = parseConfigString!SelectionsFile(content, "/dev/null");
