@@ -284,10 +284,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		writeFile(res_file, escapeArgs(args).join("\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
-		string[string] env;
-		foreach (aa; [settings.environments, settings.buildEnvironments])
-			foreach (k, v; aa)
-				env[k] = v;
+
+		string[string] env = settings.mergeEnvs!("environments", "buildEnvironments");
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 
@@ -314,10 +312,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		writeFile(res_file, escapeArgs(args).join("\n"));
 
 		logDiagnostic("%s %s", platform.compilerBinary, escapeArgs(args).join(" "));
-		string[string] env;
-		foreach (aa; [settings.environments, settings.buildEnvironments])
-			foreach (k, v; aa)
-				env[k] = v;
+
+		string[string] env = settings.mergeEnvs!("environments", "buildEnvironments");
 		invokeTool([platform.compilerBinary, "@"~res_file.toNativeString()], output_callback, cwd, env);
 	}
 

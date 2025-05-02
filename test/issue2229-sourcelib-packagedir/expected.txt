@@ -1,0 +1,2 @@
+main /home/webfreak/dev/dub/test/issue2229-sourcelib-packagedir
+sourcelib /home/webfreak/dev/dub/test/issue2229-sourcelib-packagedir/sourcelib

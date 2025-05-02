@@ -581,21 +581,21 @@ struct BuildSettingsTemplate {
 		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
 		getPlatformSetting!("cImportPaths", "addCImportPaths")(dst, platform);
 		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);
-		getPlatformSetting!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);
-		getPlatformSetting!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);
-		getPlatformSetting!("preBuildCommands", "addPreBuildCommands")(dst, platform);
-		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
-		getPlatformSetting!("preRunCommands", "addPreRunCommands")(dst, platform);
-		getPlatformSetting!("postRunCommands", "addPostRunCommands")(dst, platform);
-		getPlatformSetting!("environments", "addEnvironments")(dst, platform);
-		getPlatformSetting!("buildEnvironments", "addBuildEnvironments")(dst, platform);
-		getPlatformSetting!("runEnvironments", "addRunEnvironments")(dst, platform);
-		getPlatformSetting!("preGenerateEnvironments", "addPreGenerateEnvironments")(dst, platform);
-		getPlatformSetting!("postGenerateEnvironments", "addPostGenerateEnvironments")(dst, platform);
-		getPlatformSetting!("preBuildEnvironments", "addPreBuildEnvironments")(dst, platform);
-		getPlatformSetting!("postBuildEnvironments", "addPostBuildEnvironments")(dst, platform);
-		getPlatformSetting!("preRunEnvironments", "addPreRunEnvironments")(dst, platform);
-		getPlatformSetting!("postRunEnvironments", "addPostRunEnvironments")(dst, platform);
+		getPlatformSetting!("preGenerateCommands", "mainUserBuildStep.addPreGenerateCommands")(dst, platform);
+		getPlatformSetting!("postGenerateCommands", "mainUserBuildStep.addPostGenerateCommands")(dst, platform);
+		getPlatformSetting!("preBuildCommands", "mainUserBuildStep.addPreBuildCommands")(dst, platform);
+		getPlatformSetting!("postBuildCommands", "mainUserBuildStep.addPostBuildCommands")(dst, platform);
+		getPlatformSetting!("preRunCommands", "mainUserBuildStep.addPreRunCommands")(dst, platform);
+		getPlatformSetting!("postRunCommands", "mainUserBuildStep.addPostRunCommands")(dst, platform);
+		getPlatformSetting!("environments", "mainUserBuildStep.addEnvironments")(dst, platform);
+		getPlatformSetting!("buildEnvironments", "mainUserBuildStep.addBuildEnvironments")(dst, platform);
+		getPlatformSetting!("runEnvironments", "mainUserBuildStep.addRunEnvironments")(dst, platform);
+		getPlatformSetting!("preGenerateEnvironments", "mainUserBuildStep.addPreGenerateEnvironments")(dst, platform);
+		getPlatformSetting!("postGenerateEnvironments", "mainUserBuildStep.addPostGenerateEnvironments")(dst, platform);
+		getPlatformSetting!("preBuildEnvironments", "mainUserBuildStep.addPreBuildEnvironments")(dst, platform);
+		getPlatformSetting!("postBuildEnvironments", "mainUserBuildStep.addPostBuildEnvironments")(dst, platform);
+		getPlatformSetting!("preRunEnvironments", "mainUserBuildStep.addPreRunEnvironments")(dst, platform);
+		getPlatformSetting!("postRunEnvironments", "mainUserBuildStep.addPostRunEnvironments")(dst, platform);
 		getPlatformSetting!("buildRequirements", "addRequirements")(dst, platform);
 		getPlatformSetting!("buildOptions", "addOptions")(dst, platform);
 	}
@@ -604,7 +604,7 @@ struct BuildSettingsTemplate {
 	const {
 		foreach(suffix, values; __traits(getMember, this, name)){
 			if( platform.matchesSpecification(suffix) )
-				__traits(getMember, dst, addname)(values);
+				mixin("dst.", addname, "(values);");
 		}
 	}
 
