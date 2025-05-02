@@ -1,0 +1,12 @@
+Add runtests sub command
+
+The `runtests` subcommand enables the execution of integration tests in a unified environment.
+Users prepare integration tests by placing test scripts in either the `test` directory or a directory specified by the `--testdir` argument.
+Test scripts can be in the following formats:
+
+- Directories: Build/test/run a directory containing either `dub.json` / `dub.sdl` / `package.json` as a DUB project.
+- `*.d` : The D language source code is executed by rdmd.
+- `*.script.d` : Runs the D language source code as a file as a single-file DUB project.
+- `*.sh` : Shell script format runs only in POSIX environment.
+- `*.bat` : Batch file format runs only in Windows environment.
+- `*.ps1`, `*.rb`, `*.py`, `*.pl` : PowerShell, Ruby, Python, and Perl scripts will be executed if the corresponding interpreter is installed.

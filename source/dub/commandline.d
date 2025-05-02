@@ -51,6 +51,7 @@ CommandGroup[] getCommands() @safe pure nothrow
 			new RunCommand,
 			new BuildCommand,
 			new TestCommand,
+			new RunTestsCommand,
 			new LintCommand,
 			new GenerateCommand,
 			new DescribeCommand,
@@ -270,7 +271,7 @@ unittest {
 	CommandLineHandler handler;
 	handler.commandGroups = getCommands();
 
-	assert(handler.commandNames == ["init", "run", "build", "test", "lint", "generate",
+	assert(handler.commandNames == ["init", "run", "build", "test", "runtests", "lint", "generate",
 		"describe", "clean", "dustmite", "fetch", "add", "remove",
 		"upgrade", "add-path", "remove-path", "add-local", "remove-local", "list", "search",
 		"add-override", "remove-override", "list-overrides", "clean-caches", "convert"]);
@@ -1727,6 +1728,559 @@ class TestCommand : PackageBuildCommand {
 		settings.runArgs = app_args;
 
 		dub.testProject(settings, this.baseSettings.config, NativePath(m_mainFile));
+		return 0;
+	}
+}
+
+class RunTestsCommand : BuildCommand {
+	private {
+		string[] m_targetTests;
+		string m_testDirName;
+		bool m_skipBuild;
+		bool m_tempBuild;
+
+		static NativePath searchApp(string appname, string[] extraPaths = null)
+		{
+			import std.algorithm : filter, map, splitter;
+			import std.array : array;
+			import std.path : chainPath, dirName;
+			import std.range : chain, only, take;
+			import std.process : environment;
+
+			version(Windows) {
+				immutable exeName = appname ~ ".exe";
+				enum pathSep = ';';
+			}
+			else {
+				immutable exeName = appname;
+				enum pathSep = ':';
+			}
+
+			auto appLocs = only(
+				std.file.getcwd().chainPath(exeName)
+			)
+			.chain(
+				extraPaths.map!(p => p.chainPath(exeName))
+			)
+			.chain(
+				environment.get("PATH", "")
+					.splitter(pathSep)
+					.map!(p => p.chainPath(exeName))
+			)
+			.filter!(std.file.exists);
+
+			enforce(!appLocs.empty, "Could not find executable");
+			return NativePath(appLocs.front.array);
+		}
+
+		static abstract class TestExecutor {
+			NativePath path;
+			GeneratorSettings baseSettings;
+			this(NativePath p, GeneratorSettings s)
+			{
+				path = p;
+				baseSettings = s;
+			}
+			abstract string getDescription();
+			abstract bool isSkip();
+			abstract bool execute();
+
+			static int frontendVerFromString(string verstr)
+			{
+				import std.range: take;
+				int ver;
+				foreach (v; verstr.splitter(".").take(2).map!(to!int)) {
+					ver *= 1000;
+					ver += v;
+				}
+				return ver;
+			}
+
+			static int getMinFrontendFromTextFile(NativePath minFrontendFile)
+			{
+				import dub.semver;
+				if (existsFile(minFrontendFile)) {
+					return frontendVerFromString(readText(minFrontendFile).strip);
+				} else {
+					return 0;
+				}
+			}
+		}
+
+		static abstract class ScriptTestExecutor: TestExecutor {
+			NativePath workDir;
+			string[string] env;
+			this(NativePath p, GeneratorSettings s, NativePath wd, string[string] e)
+			{
+				super(p, s);
+				workDir = wd;
+				env = e;
+			}
+			override string getDescription()
+			{
+				import std.path: baseName;
+				return path.head.name.baseName();
+			}
+
+			override bool isSkip()
+			{
+				// frontend version check
+				auto minFrontendVer = getMinFrontendFromTextFile(path.parentPath ~ (path.head.name ~ ".min_frontend"));
+				auto curFrontendVer = frontendVerFromString(baseSettings.platform.compilerVersion);
+				return curFrontendVer < minFrontendVer;
+			}
+		}
+
+		static class DubTestExecutor: TestExecutor {
+			Dub  m_dub;
+			enum TestType
+			{
+				build,
+				buildAndRun,
+				buildAndTest,
+				buildAndTestWithMain,
+				failBuild,
+			}
+			TestType m_testType;
+			string[string] m_env;
+
+
+			this(Dub hostDub, NativePath p, bool tempBuild, bool nodeps, GeneratorSettings s, string[string] e,
+				bool noRun, bool noTest)
+			{
+				super(p, s);
+				if (existsFile(p ~ ".fail_build")) {
+					m_testType = TestType.failBuild;
+				} else if (noRun && noTest) {
+					m_testType = TestType.build;
+				} else if (noRun) {
+					m_testType = TestType.buildAndTest;
+				} else if (noTest) {
+					m_testType = TestType.buildAndRun;
+				} else {
+					m_testType = TestType.buildAndTestWithMain;
+				}
+				m_env = e;
+				m_dub = new Dub(p.toNativeString(),
+					hostDub.packageSuppliers, SkipPackageSuppliers.all,
+					hostDub.packageManager);
+				m_dub.loadPackage();
+				m_dub.project.reinit();
+				if (!nodeps) m_dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
+				m_dub.project.validate();
+				baseSettings.tempBuild = tempBuild;
+			}
+			override string getDescription()
+			{
+				import std.path: baseName;
+				string description = path.head.name.baseName();
+				if (m_dub is null)
+					return description;
+				if (m_dub.projectName.length > 0 && description != m_dub.projectName)
+					description ~= " [" ~ m_dub.projectName ~ "]";
+				if (m_dub.project.rootPackage.recipe.description.length > 0)
+					description ~= " - " ~ m_dub.project.rootPackage.recipe.description;
+				return description;
+			}
+			override bool isSkip()
+			{
+				// frontend version check
+				auto minFrontendVer = getMinFrontendFromTextFile(path ~ ".min_frontend");
+				auto curFrontendVer = frontendVerFromString(baseSettings.platform.compilerVersion);
+				return curFrontendVer < minFrontendVer;
+			}
+			override bool execute()
+			{
+				bool ret;
+				auto coverage = baseSettings.buildType == "cov" || baseSettings.buildType == "unittest-cov";
+				GeneratorSettings gensettings = baseSettings;
+				gensettings.buildSettings.workingDirectory = path.toNativeString();
+				gensettings.overrideToolWorkingDirectory = path;
+				m_env.byKeyValue.each!(kv => gensettings.buildSettings.environments[kv.key] = kv.value);
+				gensettings.rdmd = false;
+				gensettings.single = false;
+				gensettings.force = true;
+
+				final switch (m_testType) {
+				case TestType.build:
+					gensettings.buildType = coverage ? "cov" : "debug";
+					ret = !m_dub.generateProject("build", gensettings).collectException();
+					break;
+				case TestType.buildAndRun:
+					gensettings.buildType = coverage ? "cov" : "debug";
+					gensettings.run = true;
+					gensettings.runCallback = (int status, string output) {
+						if (status != 0) logError("Test was failed: status == %s\n%s", status, output);
+						ret = status == 0;
+					};
+					auto buildResult = !m_dub.generateProject("build", gensettings).collectException();
+					ret &= buildResult;
+					break;
+				case TestType.buildAndTest:
+					gensettings.buildType = coverage ? "unittest-cov" : "unittest";
+					gensettings.run = true;
+					gensettings.runArgs = ["--DRT-testmode=test-only"];
+					gensettings.runCallback = (int status, string output) {
+						if (status != 0) logError("Test was failed: status == %s\n%s", status, output);
+						ret = status == 0;
+					};
+					m_dub.testProject(gensettings, gensettings.config, NativePath.init).collectException();
+					break;
+				case TestType.buildAndTestWithMain:
+					gensettings.buildType = coverage ? "unittest-cov" : "unittest";
+					gensettings.run = true;
+					gensettings.runArgs = ["--DRT-testmode=run-main"];
+					gensettings.runCallback = (int status, string output) {
+						if (status != 0) logError("Test was failed: status == %s\n%s", status, output);
+						ret = status == 0;
+					};
+					m_dub.testProject(gensettings, gensettings.config, NativePath.init).collectException();
+					break;
+				case TestType.failBuild:
+					gensettings.buildType = coverage ? "cov" : "debug";
+					ret = m_dub.generateProject("build", gensettings).collectException() !is null;
+					break;
+				}
+				return ret;
+			}
+		}
+
+		static class SingleFileDubTestExecutor: ScriptTestExecutor
+		{
+			Dub m_dub;
+			this(Dub hostDub, NativePath p, bool tempBuild, bool nodeps, GeneratorSettings s, NativePath wd, string[string] e)
+			{
+				super(p, s, wd, e);
+				m_dub = new Dub(path.toNativeString(),
+					hostDub.packageSuppliers, SkipPackageSuppliers.all,
+					hostDub.packageManager);
+				m_dub.loadSingleFilePackage(p);
+				m_dub.project.reinit();
+				if (!nodeps) m_dub.upgrade(UpgradeOptions.select | UpgradeOptions.noSaveSelections);
+				m_dub.project.validate();
+				baseSettings.tempBuild = tempBuild;
+			}
+
+			override string getDescription()
+			{
+				import std.path: baseName;
+				string description = path.head.name.baseName();
+				if (m_dub is null)
+					return description;
+				if (m_dub.projectName.length > 0 && description.baseName(".script.d") != m_dub.projectName)
+					description ~= " [" ~ m_dub.projectName ~ "]";
+				if (m_dub.project.rootPackage.recipe.description.length > 0)
+					description ~= " - " ~ m_dub.project.rootPackage.recipe.description;
+				return description;
+			}
+
+			override bool execute()
+			{
+				GeneratorSettings gensettings = baseSettings;
+				gensettings.config = m_dub.getDefaultConfiguration(baseSettings.platform);
+				gensettings.buildSettings.workingDirectory = workDir.toNativeString();
+				gensettings.overrideToolWorkingDirectory = workDir;
+				gensettings.buildSettings.runEnvironments = env;
+				gensettings.buildType = "debug";
+				gensettings.run = true;
+				gensettings.rdmd = false;
+				gensettings.single = true;
+				int testResult;
+				gensettings.runCallback = (int status, string output) {
+					testResult = status;
+					if (status != 0)
+						logError("Test was failed: status == %s\n%s", status, output);
+				};
+				auto buildResult = !m_dub.generateProject("build", gensettings).collectException();
+				return buildResult && testResult == 0;
+			}
+		}
+
+		static class RdmdTestExecutor: ScriptTestExecutor
+		{
+			NativePath m_rdmdExe;
+			this(NativePath rdmdExe, NativePath p, GeneratorSettings s, NativePath wd, string[string] e)
+			{
+				super(p, s, wd, e);
+				m_rdmdExe = rdmdExe;
+			}
+			override bool execute()
+			{
+				import std.process: Config;
+				auto pid = spawnProcess([m_rdmdExe.toNativeString(), path.toNativeString()],
+					env, Config.none, workDir.toNativeString());
+				auto result = pid.wait();
+				return result == 0;
+			}
+		}
+
+		static class ShellTestExecutor: ScriptTestExecutor
+		{
+			this(NativePath p, GeneratorSettings s, NativePath wd, string[string] e)
+			{
+				super(p, s, wd, e);
+			}
+			override bool execute()
+			{
+				import std.process: spawnShell, Config;
+				auto pid = spawnShell(path.toNativeString(), env, Config.none, workDir.toNativeString());
+				auto result = pid.wait();
+				return result == 0;
+			}
+		}
+
+		static class BatchTestExecutor: ScriptTestExecutor
+		{
+			this(NativePath p, GeneratorSettings s, NativePath wd, string[string] e)
+			{
+				super(p, s, wd, e);
+			}
+			override bool execute()
+			{
+				import std.process: spawnShell, Config;
+				auto pid = spawnShell(path.toNativeString(), env, Config.none, workDir.toNativeString());
+				auto result = pid.wait();
+				return result == 0;
+			}
+		}
+
+		static class RubyTestExecutor: ScriptTestExecutor
+		{
+			NativePath m_rubyExe;
+			this(NativePath rubyExe, NativePath p, GeneratorSettings s, NativePath wd, string[string] e)
+			{
+				super(p, s, wd, e);
+				m_rubyExe = rubyExe;
+			}
+			override bool execute()
+			{
+				import std.process: Config;
+				auto pid = spawnProcess([m_rubyExe.toNativeString(), path.toNativeString()],
+					env, Config.none, workDir.toNativeString());
+				auto result = pid.wait();
+				return result == 0;
+			}
+		}
+
+		static class PythonTestExecutor: ScriptTestExecutor
+		{
+			NativePath m_pythonExe;
+			this(NativePath pythonExe, NativePath p, GeneratorSettings s, NativePath wd, string[string] e)
+			{
+				super(p, s, wd, e);
+				m_pythonExe = pythonExe;
+			}
+			override bool execute()
+			{
+				import std.process: Config;
+				auto pid = spawnProcess([m_pythonExe.toNativeString(), path.toNativeString()],
+					env, Config.none, workDir.toNativeString());
+				auto result = pid.wait();
+				return result == 0;
+			}
+		}
+
+		static class PowershellTestExecutor: ScriptTestExecutor
+		{
+			NativePath m_powershellExe;
+			this(NativePath powershellExe, NativePath p, GeneratorSettings s, NativePath wd, string[string] e)
+			{
+				super(p, s, wd, e);
+				m_powershellExe = powershellExe;
+			}
+			override bool execute()
+			{
+				import std.process: Config;
+				auto pid = spawnProcess([m_powershellExe.toNativeString(), path.toNativeString()],
+					env, Config.none, workDir.toNativeString());
+				auto result = pid.wait();
+				return result == 0;
+			}
+		}
+
+		static class PerlTestExecutor: ScriptTestExecutor
+		{
+			NativePath m_perlExe;
+			this(NativePath perlExe, NativePath p, GeneratorSettings s, NativePath wd, string[string] e)
+			{
+				super(p, s, wd, e);
+				m_perlExe = perlExe;
+			}
+			override bool execute()
+			{
+				import std.process: Config;
+				auto pid = spawnProcess([m_perlExe.toNativeString(), path.toNativeString()],
+					env, Config.none, workDir.toNativeString());
+				auto result = pid.wait();
+				return result == 0;
+			}
+		}
+	}
+
+
+	this() @safe pure nothrow
+	{
+		this.name = "runtests";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
+		this.description = "Run all tests of the selected package";
+		this.helpText = [
+			`Builds the package and executes all contained tests in test directory.`
+		];
+		this.acceptsAppArgs = true;
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		bool coverage = false;
+		args.getopt("coverage", &coverage, [
+			"Enables code coverage statistics to be generated."
+		]);
+		args.getopt("t|testcase", &m_targetTests, [
+			"Target test case."
+		]);
+		args.getopt("testdir", &m_testDirName, [
+			"Target test directory."
+		]);
+		args.getopt("skip-build", &m_skipBuild, [
+			"Not build test target executable file."
+		]);
+		if (coverage) baseSettings.buildType = "cov";
+		if (m_testDirName.length == 0) m_testDirName = "test";
+
+		super.prepare(args);
+
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		import std.string: toLower, splitLines;
+		import std.path: extension, baseName, globMatch;
+
+		if (m_skipBuild) {
+			setupVersionPackage(dub, null);
+		} else {
+			super.execute(dub, free_args, app_args);
+		}
+
+		auto testpath = dub.project.rootPackage.path ~ m_testDirName;
+
+		immutable rdmdExe       = searchApp("rdmd").ifThrown(NativePath.init);
+		immutable pythonExe     = searchApp("python").ifThrown(NativePath.init);
+		immutable rubyExe       = searchApp("ruby").ifThrown(NativePath.init);
+		immutable perlExe       = searchApp("perl").ifThrown(NativePath.init);
+		immutable pwshExe       = searchApp("pwsh").ifThrown(NativePath.init);
+		immutable powershellExe = !pwshExe.empty ? pwshExe : searchApp("powershell").ifThrown(NativePath.init);
+		immutable hasRdmd       = !rdmdExe.empty;
+		immutable hasPython     = !pythonExe.empty;
+		immutable hasRuby       = !rubyExe.empty;
+		immutable hasPerl       = !perlExe.empty;
+		immutable hasPowershell = !powershellExe.empty;
+		auto testenv = [
+			"DUB": std.file.thisExePath,
+			"DC": baseSettings.platform.compilerBinary,
+			"CURR_DIR": testpath.toNativeString()];
+
+		string[] ignoreTests = existsFile(testpath ~ ".testignore")
+			? readText(testpath ~ ".testignore").splitLines.filter!(a => a.length != 0).array
+			: null;
+		TestExecutor[] tests;
+		bool[] testresults;
+
+		NativePath[] testScriptDirectories;
+		NativePath[] testScriptFiles;
+		foreach (de; iterateDirectory(testpath)) {
+			// skip if ignored testcases
+			if (ignoreTests.canFind!(t => de.name.globMatch(t))) continue;
+			// skip if cannot find specified testcases
+			if (m_targetTests.length > 0 && !m_targetTests.canFind(de.name.baseName, de.name.baseName(".script.d"))) continue;
+			// skip if posix hidden files
+			if (de.name.startsWith(".")) continue;
+			(de.isDirectory ? testScriptDirectories : testScriptFiles) ~= testpath ~ de.name;
+		}
+		foreach (p; testScriptDirectories.sort!((a, b) => a.head.name < b.head.name)) {
+			static bool isDubPackage(NativePath path)
+			{
+				foreach (f; packageInfoFiles) {
+					if (existsFile(path ~ f.filename)) return true;
+				}
+				return false;
+			}
+			if (isDubPackage(p)) {
+				// dub pacakage
+				bool existsPlatformSpecificationFile(NativePath p, string name)
+				{
+					if (existsFile(p ~ name)) return true;
+					foreach (de; iterateDirectory(p))
+					{
+						if (!globMatch(de.name, name ~ "_*")) continue;
+						auto platformSpec = de.name.chompPrefix(name ~ "_");
+						if (baseSettings.platform.matchesSpecification(platformSpec)) return true;
+					}
+					return false;
+				}
+				if (existsPlatformSpecificationFile(p, ".no_build")) continue;
+				tests ~= new DubTestExecutor(dub, p, baseSettings.tempBuild, m_nodeps, baseSettings, testenv,
+					existsPlatformSpecificationFile(p, ".no_run"),
+					existsPlatformSpecificationFile(p, ".no_test"));
+			}
+		}
+		foreach (p; testScriptFiles.sort!((a, b) => a.head.name < b.head.name)) {
+			if (p.head.name.toLower.endsWith(".script.d")) {
+				// script.d
+				tests ~= new SingleFileDubTestExecutor(dub, p, baseSettings.tempBuild, m_nodeps, baseSettings, testpath, testenv);
+			} else if (p.head.name.extension.toLower == ".d") {
+				// d
+				if (hasRdmd) tests ~= new RdmdTestExecutor(rdmdExe, p, baseSettings, testpath, testenv);
+			} else if (p.head.name.extension.toLower == ".sh") {
+				// shell script
+				// windows: skip
+				// posix:   $SHELL
+				version (Posix) tests ~= new ShellTestExecutor(p, baseSettings, testpath, testenv);
+			} else if (p.head.name.extension.toLower == ".bat") {
+				// windows batch file
+				// windows: %COMSPEC%
+				// posix:   skip
+				version (Windows) tests ~= new BatchTestExecutor(p, baseSettings, testpath, testenv);
+			} else if (p.head.name.extension.toLower == ".ps1") {
+				// powershell script, skip if no-installed
+				if (hasPowershell) tests ~= new PowershellTestExecutor(powershellExe, p, baseSettings, testpath, testenv);
+			} else if (p.head.name.extension.toLower == ".py") {
+				// python script, skip if no-installed
+				if (hasPython) tests ~= new PythonTestExecutor(pythonExe, p, baseSettings, testpath, testenv);
+			} else if (p.head.name.extension.toLower == ".pl") {
+				// perl script, skip if no-installed
+				if (hasPerl) tests ~= new PerlTestExecutor(perlExe, p, baseSettings, testpath, testenv);
+			} else if (p.head.name.extension.toLower == ".rb") {
+				// ruby script, skip if no-installed
+				if (hasRuby) tests ~= new RubyTestExecutor(rubyExe, p, baseSettings, testpath, testenv);
+			} else {
+				// do-nothing
+			}
+		}
+		tests = tests.filter!(t => !t.isSkip).array;
+		testresults.length = tests.length;
+		foreach (i, t; tests) {
+			logInfo("Script #" ~ i.to!string, Color.cyan, "%s", t.getDescription());
+			testresults[i] = t.execute().ifThrown(false);
+		}
+		logInfoNoTag("###### Test summary ######".color(Color.cyan, Mode.bold));
+		foreach (i, r; testresults) {
+			if (r) {
+				logInfo("[SUCCESS]", Color.green, "#%d: %s", i, tests[i].getDescription());
+			} else {
+				logInfo("[FAILED]", Color.red, "#%d: %s", i, tests[i].getDescription());
+			}
+		}
+		if (testresults.canFind(false))
+			logInfo("%s/%s tests was failed.", testresults.count(false), testresults.length);
+		if (testresults.canFind(true))
+			logInfo("%s/%s tests was succeeded.", testresults.count(true), testresults.length);
+		if (!testresults.canFind(false)) {
+			logInfo("All tests are completed!");
+		} else {
+			logError("Test failed.");
+			return -1;
+		}
 		return 0;
 	}
 }
