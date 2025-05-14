@@ -35,7 +35,8 @@ import std.typecons : Nullable;
 /// Lists the supported package recipe formats.
 enum PackageFormat {
 	json, /// JSON based, using the ".json" file extension
-	sdl   /// SDLang based, using the ".sdl" file extension
+	sdl,  /// SDLang based, using the ".sdl" file extension
+	yaml, /// YAML based, using either `.yaml` or `.yml` extension
 }
 
 struct FilenameAndFormat {
@@ -45,9 +46,11 @@ struct FilenameAndFormat {
 
 /// Supported package descriptions in decreasing order of preference.
 static immutable FilenameAndFormat[] packageInfoFiles = [
-	{"dub.json", PackageFormat.json},
-	{"dub.sdl", PackageFormat.sdl},
-	{"package.json", PackageFormat.json}
+	{ "dub.json",	  PackageFormat.json },
+	{ "dub.sdl",	  PackageFormat.sdl  },
+	{ "dub.yaml",	  PackageFormat.yaml }, // Official extension
+	{ "dub.yml",	  PackageFormat.yaml }, // Common alternative extension
+	{ "package.json", PackageFormat.json },
 ];
 
 /// Returns a list of all recognized package recipe file names in descending order of precedence.
