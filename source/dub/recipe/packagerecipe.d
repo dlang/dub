@@ -790,22 +790,32 @@ unittest { // issue #1407 - duplicate main source file
  *
  * TODO: Remove the special case in the parser and remove this hack.
  */
-package void fixDependenciesNames (T) (string root, ref T aggr) nothrow
+package void fixDependenciesNames (T) (string root, ref T aggr)
 {
-	static foreach (idx, FieldRef; T.tupleof) {
-		static if (is(immutable typeof(FieldRef) == immutable RecipeDependencyAA)) {
-			string[] toReplace;
-			foreach (key; aggr.tupleof[idx].byKey)
-				if (key.length && key[0] == ':')
-					toReplace ~= key;
-			foreach (k; toReplace) {
-				aggr.tupleof[idx][root ~ k] = aggr.tupleof[idx][k];
-				aggr.tupleof[idx].data.remove(k);
-			}
-		}
-		else static if (is(typeof(FieldRef) == struct))
-			fixDependenciesNames(root, aggr.tupleof[idx]);
-	}
+	static foreach (idx, FieldRef; T.tupleof)
+        fixFieldDependenciesNames(root, aggr.tupleof[idx]);
+}
+
+/// Ditto
+private void fixFieldDependenciesNames (Field) (string root, ref Field field)
+{
+    static if (is(immutable Field == immutable RecipeDependencyAA)) {
+        string[] toReplace;
+        foreach (key; field.byKey)
+            if (key.length && key[0] == ':')
+                toReplace ~= key;
+        foreach (k; toReplace) {
+            field[root ~ k] = field[k];
+            field.data.remove(k);
+        }
+    } else static if (is(Field == struct))
+        fixDependenciesNames(root, field);
+    else static if (is(Field : Elem[], Elem))
+        foreach (ref entry; field)
+            fixFieldDependenciesNames(root, entry);
+    else static if (is(Field : Value[Key], Value, Key))
+        foreach (key, ref value; field)
+            fixFieldDependenciesNames(root, value);
 }
 
 /**
