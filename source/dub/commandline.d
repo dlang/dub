@@ -888,7 +888,7 @@ class Command {
 		dub.mainRecipePath = options.recipeFile;
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
-		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath(options.recipeFile), false, StrictMode.Warn);
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath(options.recipeFile), PackageName.init, StrictMode.Warn);
 		catch (Exception e) {
 			// by default we ignore CWD package load fails in prepareDUB, since
 			// they will fail again later when they are actually requested. This

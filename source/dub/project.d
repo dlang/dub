@@ -67,7 +67,7 @@ class Project {
 			logWarn("There was no package description found for the application in '%s'.", project_path.toNativeString());
 			pack = new Package(PackageRecipe.init, project_path);
 		} else {
-			pack = package_manager.getOrLoadPackage(project_path, packageFile, false, StrictMode.Warn);
+			pack = package_manager.getOrLoadPackage(project_path, packageFile, PackageName.init, StrictMode.Warn);
 		}
 
 		this(package_manager, pack);
@@ -553,8 +553,7 @@ class Project {
 				p = vspec.visit!(
 					(NativePath path_) {
 						auto path = path_.absolute ? path_ : m_rootPackage.path ~ path_;
-						auto tmp = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-						return resolveSubPackage(tmp, subname, true);
+						return m_packageManager.getOrLoadPackage(path, NativePath.init, dep.name);
 					},
 					(Repository repo) {
 						return m_packageManager.loadSCMPackage(dep.name, repo);
@@ -587,15 +586,11 @@ class Project {
 					NativePath path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
-					p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-					if (p.parentPackage !is null) {
+					p = m_packageManager.getOrLoadPackage(path, NativePath.init, dep.name);
+					path.endsWithSlash = true;
+					if (path != p.basePackage.path) {
 						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
-						p = p.parentPackage;
 					}
-					p = resolveSubPackage(p, subname, false);
-					enforce(p.name == dep.name.toString(),
-						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
-							path.toNativeString(), dep.name, p.name));
 				} else {
 					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
 					if (is_desired) m_missingDependencies ~= dep.name.toString();
