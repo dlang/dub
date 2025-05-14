@@ -60,3 +60,18 @@ unittest
     assert(dub.project.getDependency("b:a", true), "Missing 'b:a' dependency");
     assert(dub.project.getDependency("c:a", true), "Missing 'c:a' dependency");
 }
+
+// https://github.com/dlang/dub/issues/1615
+// https://github.com/dlang/dub/pull/2972
+unittest
+{
+    scope dub = new TestDub((scope Filesystem root) {
+        root.writeFile(TestDub.ProjectPath ~ "dub.json",
+            `{"name": "t9",
+"subPackages":[{"name": "a","dependencies": {":b": "*"}},{"name": "b"}],
+"dependencies": {":a": "*",":b": "*"}}`);
+    });
+    dub.loadPackage();
+
+    assert(dub.project.hasAllDependencies(), "project has missing dependencies");
+}
