@@ -33,6 +33,7 @@ import std.file : tempDir, thisExePath;
 import std.process : environment;
 import std.range : assumeSorted, empty;
 import std.string;
+import std.typecons : Nullable, nullable;
 
 static this()
 {
@@ -155,13 +156,16 @@ class Dub {
 					as well as the default suppliers.
 	*/
 	this(string root_path = ".", PackageSupplier[] base = null,
-			SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+			Nullable!SkipPackageSuppliers skip = Nullable!SkipPackageSuppliers.init)
 	{
 		this(new RealFS(), root_path, base, skip);
 	}
+	this(string root_path, PackageSupplier[] base, SkipPackageSuppliers skip) {
+		this(root_path, base, nullable(skip));
+	}
 
 	package this (Filesystem fs, string root_path, PackageSupplier[] base = null,
-		SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+		Nullable!SkipPackageSuppliers skip = Nullable!SkipPackageSuppliers.init)
 	{
 		this.fs = fs;
 		m_rootPath = NativePath(root_path);
@@ -169,15 +173,13 @@ class Dub {
 
 		init();
 
-		if (skip == SkipPackageSuppliers.default_) {
-			// If unspecified on the command line, take
-			// the value from the configuration files, or
-			// default to none.
-			skip = m_config.skipRegistry.set ? m_config.skipRegistry.value : SkipPackageSuppliers.none;
-		}
+		// If unspecified on the command line, take the value from the
+		// configuration files, or default to none.
+		auto skipValue = skip.get(
+			m_config.skipRegistry.set ? m_config.skipRegistry.value : SkipPackageSuppliers.none);
 
 		const registry_var = environment.get("DUB_REGISTRY", null);
-		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);
+		m_packageSuppliers = this.makePackageSuppliers(base, skipValue, registry_var);
 		m_packageManager = this.makePackageManager();
 
 		auto ccps = m_config.customCachePaths;
@@ -193,6 +195,10 @@ class Dub {
 			m_packageManager.searchPath = paths;
 		}
 	}
+	package this (Filesystem fs, string root_path, PackageSupplier[] base,
+	              SkipPackageSuppliers skip) {
+        this(fs, root_path, base, nullable(skip));
+    }
 
 	/** Initializes the instance with a single package search path, without
 		loading a package.

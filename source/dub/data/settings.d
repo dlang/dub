@@ -17,7 +17,6 @@ public enum SkipPackageSuppliers {
     standard,   /// Does not use the default package suppliers (`defaultPackageSuppliers`).
     configured, /// Does not use default suppliers or suppliers configured in DUB's configuration file
     all,        /// Uses only manually specified package suppliers.
-    default_,   /// The value wasn't specified. It is provided in order to know when it is safe to ignore it
 }
 
 /**
@@ -40,22 +39,7 @@ package(dub) struct Settings {
     @Optional string[] registryUrls;
     @Optional NativePath[] customCachePaths;
 
-    private struct SkipRegistry {
-	    SkipPackageSuppliers skipRegistry;
-	    static SkipRegistry fromString (string value) {
-		    import std.conv : to;
-		    auto result = value.to!SkipPackageSuppliers;
-		    if (result == SkipPackageSuppliers.default_) {
-			    throw new Exception(
-				"skipRegistry value `default_` is only meant for interal use."
-				~ " Instead, use one of `none`, `standard`, `configured`, or `all`."
-						);
-		    }
-		    return SkipRegistry(result);
-	    }
-	    alias skipRegistry this;
-    }
-    SetInfo!(SkipRegistry) skipRegistry;
+    SetInfo!(SkipPackageSuppliers) skipRegistry;
     SetInfo!(string) defaultCompiler;
     SetInfo!(string) defaultArchitecture;
     SetInfo!(bool) defaultLowMemory;
@@ -186,16 +170,4 @@ unittest {
 
      auto m3 = Settings.init.merge(c1);
      assert(m3 == c1);
-}
-
-unittest {
-    // Test that SkipPackageRegistry.default_ is not allowed
-
-    import dub.internal.configy.easy;
-    import std.exception : assertThrown;
-
-    const str1 = `{
-  "skipRegistry": "default_"
-}`;
-    assertThrown!Exception(parseConfigString!Settings(str1, "/dev/null"));
 }

@@ -35,7 +35,7 @@ import std.process : environment, spawnProcess, wait;
 import std.stdio;
 import std.string;
 import std.traits : EnumMembers;
-import std.typecons : Tuple, tuple;
+import std.typecons : Nullable, nullable, Tuple, tuple;
 
 /** Retrieves a list of all available commands.
 
@@ -566,7 +566,7 @@ struct CommonOptions {
 	string root_path, recipeFile;
 	enum Color { automatic, on, off }
 	Color colorMode = Color.automatic;
-	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.default_;
+	Nullable!SkipPackageSuppliers skipRegistry;
 	PlacementLocation placementLocation = PlacementLocation.user;
 
 	private void parseColor(string option, string value) @safe
@@ -622,7 +622,8 @@ struct CommonOptions {
 			"  DUB: URL to DUB registry (default)",
 			"  Maven: URL to Maven repository + group id containing dub packages as artifacts. E.g. mvn+http://localhost:8040/maven/libs-release/dubpackages",
 			]);
-		args.getopt("skip-registry", &skipRegistry, &parseSkipRegistry, [
+		string skipRegistryValue;
+		args.getopt("skip-registry", &skipRegistryValue, &parseSkipRegistry, [
 			"Sets a mode for skipping the search on certain package registry types:",
 			"  none: Search all configured or default registries (default)",
 			"  standard: Don't search the main registry (e.g. "~defaultRegistryURLs[0]~")",
