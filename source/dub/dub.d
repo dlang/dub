@@ -599,7 +599,7 @@ class Dub {
 		enforce(recipe.buildSettings.cSourcePaths.length == 0, "Single-file packages are not allowed to specify C source paths.");
 		enforce(recipe.buildSettings.importPaths.length == 0, "Single-file packages are not allowed to specify import paths.");
 		enforce(recipe.buildSettings.cImportPaths.length == 0, "Single-file packages are not allowed to specify C import paths.");
-		recipe.buildSettings.sourceFiles[""] = [path.toNativeString()];
+		recipe.buildSettings.sourceFiles[""] = [];
 		recipe.buildSettings.sourcePaths[""] = [];
 		recipe.buildSettings.cSourcePaths[""] = [];
 		recipe.buildSettings.importPaths[""] = [];
