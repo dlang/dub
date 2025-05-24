@@ -12,18 +12,16 @@ import dub.compilers.utils : warnOnSpecialCompilerFlags;
 import dub.dependency;
 import dub.internal.logging;
 
-import dub.internal.vibecompat.core.file;
-import dub.internal.vibecompat.inet.path;
-
 import dub.internal.configy.attributes;
+import dub.internal.vibecompat.inet.path;
 
 import std.algorithm : findSplit, sort;
 import std.array : join, split;
 import std.exception : enforce;
-import std.file;
 import std.range;
-import std.process : environment;
 
+deprecated("Use `dub.compilers.buildsettings : getPlatformSettings`")
+public import dub.compilers.buildsettings : getPlatformSettings;
 
 /**
 	Returns the individual parts of a qualified package name.
@@ -486,124 +484,16 @@ struct BuildSettingsTemplate {
 		return clone(this);
 	}
 
-	/// Constructs a BuildSettings object from this template.
-	void getPlatformSettings(ref BuildSettings dst, in BuildPlatform platform, NativePath base_path)
-	const {
-		dst.targetType = this.targetType;
-		if (!this.targetPath.empty) dst.targetPath = this.targetPath;
-		if (!this.targetName.empty) dst.targetName = this.targetName;
-		if (!this.workingDirectory.empty) dst.workingDirectory = this.workingDirectory;
-		if (!this.mainSourceFile.empty) {
-			auto p = NativePath(this.mainSourceFile);
-			p.normalize();
-			dst.mainSourceFile = p.toNativeString();
-			dst.addSourceFiles(dst.mainSourceFile);
-		}
+    deprecated("This function is not intended for public consumption")
+    void getPlatformSetting(string name, string addname)(ref BuildSettings dst,
+        in BuildPlatform platform) const {
+        this.getPlatformSetting_!(name, addname)(dst, platform);
+    }
 
-		string[] collectFiles(in string[][string] paths_map, string pattern)
-		{
-			auto files = appender!(string[]);
-
-			import dub.project : buildSettingsVars;
-			import std.typecons : Nullable;
-
-			static Nullable!(string[string]) envVarCache;
-
-			if (envVarCache.isNull) envVarCache = environment.toAA();
-
-			foreach (suffix, paths; paths_map) {
-				if (!platform.matchesSpecification(suffix))
-					continue;
-
-				foreach (spath; paths) {
-					enforce(!spath.empty, "Paths must not be empty strings.");
-					auto path = NativePath(spath);
-					if (!path.absolute) path = base_path ~ path;
-					if (!existsDirectory(path)) {
-						import std.algorithm : any, find;
-						const hasVar = chain(buildSettingsVars, envVarCache.get.byKey).any!((string var) {
-							return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
-						});
-						if (!hasVar)
-							logWarn("Invalid source/import path: %s", path.toNativeString());
-						continue;
-					}
-
-					auto pstr = path.toNativeString();
-					foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
-						import std.path : baseName, pathSplitter;
-						import std.algorithm.searching : canFind;
-						// eliminate any hidden files, or files in hidden directories. But always include
-						// files that are listed inside hidden directories that are specifically added to
-						// the project.
-						if (d.isDir || pathSplitter(d.name[pstr.length .. $])
-								   .canFind!(name => name.length && name[0] == '.'))
-							continue;
-						auto src = NativePath(d.name).relativeTo(base_path);
-						files ~= src.toNativeString();
-					}
-				}
-			}
-
-			return files.data;
-		}
-
- 		// collect source files. Note: D source from 'sourcePaths' and C sources from 'cSourcePaths' are joint into 'sourceFiles'
-		dst.addSourceFiles(collectFiles(sourcePaths, "*.d"));
-		dst.addSourceFiles(collectFiles(cSourcePaths, "*.{c,i}"));
-		auto sourceFiles = dst.sourceFiles.sort();
-
- 		// collect import files and remove sources
-		import std.algorithm : copy, setDifference;
-
-		auto importFiles =
-			chain(collectFiles(importPaths, "*.{d,di}"), collectFiles(cImportPaths, "*.h"))
-			.array()
-			.sort();
-		immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles.release).length;
-		importFiles = importFiles[0 .. $ - nremoved];
-		dst.addImportFiles(importFiles.release);
-
-		dst.addStringImportFiles(collectFiles(stringImportPaths, "*"));
-
-		getPlatformSetting!("dflags", "addDFlags")(dst, platform);
-		getPlatformSetting!("lflags", "addLFlags")(dst, platform);
-		getPlatformSetting!("libs", "addLibs")(dst, platform);
-		getPlatformSetting!("sourceFiles", "addSourceFiles")(dst, platform);
-		getPlatformSetting!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
-		getPlatformSetting!("injectSourceFiles", "addInjectSourceFiles")(dst, platform);
-		getPlatformSetting!("copyFiles", "addCopyFiles")(dst, platform);
-		getPlatformSetting!("extraDependencyFiles", "addExtraDependencyFiles")(dst, platform);
-		getPlatformSetting!("versions", "addVersions")(dst, platform);
-		getPlatformSetting!("debugVersions", "addDebugVersions")(dst, platform);
-		getPlatformSetting!("versionFilters", "addVersionFilters")(dst, platform);
-		getPlatformSetting!("debugVersionFilters", "addDebugVersionFilters")(dst, platform);
-		getPlatformSetting!("importPaths", "addImportPaths")(dst, platform);
-		getPlatformSetting!("cImportPaths", "addCImportPaths")(dst, platform);
-		getPlatformSetting!("stringImportPaths", "addStringImportPaths")(dst, platform);
-		getPlatformSetting!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);
-		getPlatformSetting!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);
-		getPlatformSetting!("preBuildCommands", "addPreBuildCommands")(dst, platform);
-		getPlatformSetting!("postBuildCommands", "addPostBuildCommands")(dst, platform);
-		getPlatformSetting!("preRunCommands", "addPreRunCommands")(dst, platform);
-		getPlatformSetting!("postRunCommands", "addPostRunCommands")(dst, platform);
-		getPlatformSetting!("environments", "addEnvironments")(dst, platform);
-		getPlatformSetting!("buildEnvironments", "addBuildEnvironments")(dst, platform);
-		getPlatformSetting!("runEnvironments", "addRunEnvironments")(dst, platform);
-		getPlatformSetting!("preGenerateEnvironments", "addPreGenerateEnvironments")(dst, platform);
-		getPlatformSetting!("postGenerateEnvironments", "addPostGenerateEnvironments")(dst, platform);
-		getPlatformSetting!("preBuildEnvironments", "addPreBuildEnvironments")(dst, platform);
-		getPlatformSetting!("postBuildEnvironments", "addPostBuildEnvironments")(dst, platform);
-		getPlatformSetting!("preRunEnvironments", "addPreRunEnvironments")(dst, platform);
-		getPlatformSetting!("postRunEnvironments", "addPostRunEnvironments")(dst, platform);
-		getPlatformSetting!("buildRequirements", "addRequirements")(dst, platform);
-		getPlatformSetting!("buildOptions", "addOptions")(dst, platform);
-	}
-
-	void getPlatformSetting(string name, string addname)(ref BuildSettings dst, in BuildPlatform platform)
-	const {
-		foreach(suffix, values; __traits(getMember, this, name)){
-			if( platform.matchesSpecification(suffix) )
+	package(dub) void getPlatformSetting_(string name, string addname)(
+		ref BuildSettings dst, in BuildPlatform platform) const {
+		foreach (suffix, values; __traits(getMember, this, name)) {
+			if (platform.matchesSpecification(suffix) )
 				__traits(getMember, dst, addname)(values);
 		}
 	}
@@ -763,26 +653,6 @@ private T clone(T)(ref const(T) val)
 			ret.tupleof[i] = clone!M(val.tupleof[i]);
 		return ret;
 	} else static assert(false, "Unsupported type: "~T.stringof);
-}
-
-unittest { // issue #1407 - duplicate main source file
-	{
-		BuildSettingsTemplate t;
-		t.mainSourceFile = "./foo.d";
-		t.sourceFiles[""] = ["foo.d"];
-		BuildSettings bs;
-		t.getPlatformSettings(bs, BuildPlatform.init, NativePath("/"));
-		assert(bs.sourceFiles == ["foo.d"]);
-	}
-
-	version (Windows) {{
-		BuildSettingsTemplate t;
-		t.mainSourceFile = "src/foo.d";
-		t.sourceFiles[""] = ["src\\foo.d"];
-		BuildSettings bs;
-		t.getPlatformSettings(bs, BuildPlatform.init, NativePath("/"));
-		assert(bs.sourceFiles == ["src\\foo.d"]);
-	}}
 }
 
 /**
