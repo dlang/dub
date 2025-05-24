@@ -63,27 +63,11 @@ struct BuildSettings {
 	@byName Flags!BuildRequirement requirements;
 	@byName Flags!BuildOption options;
 
-	BuildSettings dup()
-	const {
-		import std.traits: FieldNameTuple;
-		import std.algorithm: map;
-		import std.typecons: tuple;
-		import std.array: assocArray;
-		BuildSettings ret;
-		foreach (m; FieldNameTuple!BuildSettings) {
-			static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m).dup)))
-				__traits(getMember, ret, m) = __traits(getMember, this, m).dup;
-			else static if (is(typeof(add(__traits(getMember, ret, m), __traits(getMember, this, m)))))
-				add(__traits(getMember, ret, m), __traits(getMember, this, m));
-			else static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m))))
-				__traits(getMember, ret, m) = __traits(getMember, this, m);
-			else static assert(0, "Cannot duplicate BuildSettings." ~ m);
-		}
-		assert(ret.targetType == targetType);
-		assert(ret.targetName == targetName);
-		assert(ret.importPaths == importPaths);
-		assert(ret.cImportPaths == cImportPaths);
-		return ret;
+	BuildSettings dup() const {
+		// Forwards to `add`, but `add` doesn't handle the first 5 fields
+		// as they are not additive, hence the `tupleof` call.
+		return typeof(return)(this.tupleof[0 .. /* dflags, not included */ 5])
+			.add(this);
 	}
 
 	/**
@@ -92,7 +76,7 @@ struct BuildSettings {
 	 * merged into the root package build settings as well as configuring
 	 * targets for different build types such as `release` or `unittest-cov`.
 	 */
-	void add(in BuildSettings bs)
+	ref BuildSettings add(in BuildSettings bs)
 	{
 		addDFlags(bs.dflags);
 		addLFlags(bs.lflags);
@@ -128,6 +112,7 @@ struct BuildSettings {
 		addPostRunEnvironments(bs.postRunEnvironments);
 		addRequirements(bs.requirements);
 		addOptions(bs.options);
+		return this;
 	}
 
 	void addDFlags(in string[] value...) { dflags = chain(dflags, value.dup).uniq.array; }
