@@ -543,6 +543,10 @@ class Dub {
 	{
 		auto selections = Project.loadSelections(pack.path, m_packageManager);
 		m_project = new Project(m_packageManager, pack, selections);
+		if (pack.recipePath().head == "package.json") {
+			logWarn("Using `package.json` is deprecated as it may conflict with other package managers");
+			logWarn("Rename 'package.json' to 'dub.json'. Loading dependencies using 'package.json' will still work.");
+		}
 	}
 
 	/** Loads a single file package.
