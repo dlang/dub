@@ -64,6 +64,8 @@ void moveFile(string from, string to)
 		overwrite = If true, any file existing at the destination path will be
 			overwritten. If this is false, an exception will be thrown should
 			a file already exist at the destination path.
+			This also sets the target as writable to ensure future invocations
+			will not fail.
 
 	Throws:
 		An Exception if the copy operation fails for some reason.
@@ -100,26 +102,12 @@ void copyFile(NativePath from, NativePath to, bool overwrite = false)
 			chmod(cdpath, st.st_mode);
 		}
 	}
+	if (overwrite) makeWritable(to);
 }
 /// ditto
 void copyFile(string from, string to)
 {
 	copyFile(NativePath(from), NativePath(to));
-}
-
-version (Windows) extern(Windows) int CreateHardLinkW(const(wchar)* to, const(wchar)* from, void* attr=null);
-
-// guess whether 2 files are identical, ignores filename and content
-private bool sameFile(NativePath a, NativePath b)
-{
-	version (Posix) {
-		auto st_a = std.file.DirEntry(a.toNativeString).statBuf;
-		auto st_b = std.file.DirEntry(b.toNativeString).statBuf;
-		return st_a == st_b;
-	} else {
-		static assert(__traits(allMembers, FileInfo)[0] == "name");
-		return getFileInfo(a).tupleof[1 .. $] == getFileInfo(b).tupleof[1 .. $];
-	}
 }
 
 private bool isWritable(NativePath name)
@@ -161,44 +149,6 @@ private void makeWritable(string name)
 	}
 	else
 		static assert(false, "Needs implementation.");
-}
-
-/**
-	Creates a hardlink if possible, a copy otherwise.
-
-	If `from` is read-only and `overwrite` is true, then a copy is made instead
-	and `to` is made writable; so that repeating the command will not fail.
-*/
-void hardLinkFile(NativePath from, NativePath to, bool overwrite = false)
-{
-	if (existsFile(to)) {
-		enforce(overwrite, "Destination file already exists.");
-		if (auto fe = collectException!FileException(removeFile(to))) {
-			if (sameFile(from, to)) return;
-			throw fe;
-		}
-	}
-	const writeAccessChangeRequired = overwrite && !isWritable(from);
-	if (!writeAccessChangeRequired)
-	{
-		version (Windows)
-		{
-			alias cstr = toUTFz!(const(wchar)*);
-			if (CreateHardLinkW(cstr(to.toNativeString), cstr(from.toNativeString)))
-				return;
-		}
-		else
-		{
-			import core.sys.posix.unistd : link;
-			alias cstr = toUTFz!(const(char)*);
-			if (!link(cstr(from.toNativeString), cstr(to.toNativeString)))
-				return;
-		}
-	}
-	// fallback to copy
-	copyFile(from, to, overwrite);
-	if (writeAccessChangeRequired)
-		to.makeWritable;
 }
 
 /**
