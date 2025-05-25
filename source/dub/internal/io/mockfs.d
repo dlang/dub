@@ -31,15 +31,21 @@ public final class MockFS : Filesystem {
         needs to be provided, as Windows' root has a drive letter.
 
         Params:
-          root = The name of the root, e.g. "C:\"
+          dir = The drive letter of the root, e.g. 'C'. This must be a letter,
+                in the range [a-zA-Z].
 
     ***************************************************************************/
 
     version (Windows) {
         public this (char dir = 'C') scope
         {
+            import std.ascii : toUpper;
+
+            char root = dir.toUpper();
+            assert(root >= 'A' && root <= 'Z',
+                "Expected 'dir' to be a letter, not: " ~ dir);
             this.root = this.cwd = new FSEntry();
-            this.root.name = [ dir, ':' ];
+            this.root.name = [ root, ':' ];
         }
     } else {
         public this () scope
