@@ -1029,7 +1029,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 					if (de.isDirectory) {
 						copyFolderRec(folder ~ de.name, dstfolder ~ de.name);
 					} else {
-						try hardLinkFile(folder ~ de.name, dstfolder ~ de.name, true);
+						try copyFile(folder ~ de.name, dstfolder ~ de.name, true);
 						catch (Exception e) {
 							logWarn("Failed to copy file %s: %s", (folder ~ de.name).toNativeString(), e.msg);
 						}
@@ -1063,7 +1063,7 @@ private void finalizeGeneration(in Package pack, in Project proj, in GeneratorSe
 				}
 				logDiagnostic("  %s to %s", src.toNativeString(), dst.toNativeString());
 				try {
-					hardLinkFile(src, dst, true);
+					copyFile(src, dst, true);
 				} catch(Exception e) logWarn("Failed to copy %s to %s: %s", src.toNativeString(), dst.toNativeString(), e.msg);
 			}
 			logInfo("Copying files for %s...", pack.name);
