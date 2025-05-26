@@ -148,7 +148,11 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 					} else if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
 					else settings.addLFlags(f);
 				}
-			}
+			} else if (execute([pkgconfig_bin, "--exists", "thislibrarydoesnotexists"]).status == 127)
+				logWarn("'pkg-config' does not seem to be installed. 'dub' will " ~
+					"automatically fall back to directly using '-l' flags, but " ~
+					"this is error prone. Please install 'pkg-config', or use " ~
+					"'lflags' directly.");
 			if (settings.libs.length) logDiagnostic("Using direct -l... flags for %s.", settings.libs.array.join(", "));
 		} catch (Exception e) {
 			logDiagnostic("pkg-config failed: %s", e.msg);
