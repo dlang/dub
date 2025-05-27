@@ -116,27 +116,34 @@ public abstract class ConfigException : Exception
         this.formatMessage(sink, spec);
 
         debug (ConfigFillerDebug)
-        {
-            sink("\n\tError originated from: ");
-            Location(this.file, this.line).toString(sink);
+            this.stackTraceToString(sink);
+    }
 
-            if (!this.info)
-                return;
+    /// Print the regular D stack-trace for debugging purpose
+    public void stackTraceToString (scope SinkType sink) const scope @safe {
+        sink("\n\tError originated from: ");
+        Location(this.file, this.line).toString(sink);
 
-            () @trusted nothrow
-            {
-                try
-                {
-                    sink("\n----------------");
-                    foreach (t; info)
-                    {
-                        sink("\n"); sink(t);
-                    }
+        if (!this.info)
+            return;
+
+        () @trusted nothrow {
+            try {
+                sink("\n----------------");
+                foreach (t; info) {
+                    sink("\n"); sink(t);
                 }
-                // ignore more errors
-                catch (Throwable) {}
-            }();
-        }
+            }
+            // ignore more errors
+            catch (Throwable) {}
+        }();
+    }
+
+    /// Ditto
+    public final string stackTraceToString () const scope @safe {
+        string buffer;
+        this.stackTraceToString((in char[] data) { buffer ~= data; });
+        return buffer;
     }
 
     /// Hook called by `toString` to simplify coloring
