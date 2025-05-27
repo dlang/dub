@@ -528,6 +528,8 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 
+	import dub.internal.configy.exceptions : ConfigException;
+
 	try {
 		// initialize the root package
 		Dub dub = cmd.prepareDub(handler.options);
@@ -539,10 +541,15 @@ int runDubCommandLine(string[] args)
 		// usage exceptions get thrown before any logging, so we are
 		// making the errors more narrow to better fit on small screens.
 		tagWidth.push(5);
-		logError("%s", e.msg);
+		logError("%s", e.message);
 		logDebug("Full exception: %s", e.toString().sanitize);
 		logInfo(`Run "%s" for more information about the "%s" command.`,
 			text("dub ", cmd.name, " -h").color(Mode.bold), cmd.name.color(Mode.bold));
+		return 1;
+	}
+	catch (ConfigException exc) {
+		logError("%S", exc);
+		logDiagnostic("%s", exc.stackTraceToString());
 		return 1;
 	}
 	catch (Exception e) {
@@ -550,7 +557,7 @@ int runDubCommandLine(string[] args)
 		// above. However this might be subject to change if it results in
 		// weird behavior anywhere.
 		tagWidth.push(5);
-		logError("%s", e.msg);
+		logError("%s", e.message);
 		logDebug("Full exception: %s", e.toString().sanitize);
 		return 2;
 	}
