@@ -1,0 +1,13 @@
+{
+	"name": "issue595-subpack-exe-subconfig",
+	"targetType": "none",
+	"subPackages": [
+		"sub"
+	],
+	"dependencies": {
+		":sub": "*"
+	},
+	"subConfigurations": {
+		"issue595-subpack-exe-subconfig:sub": "special"
+	}
+}
