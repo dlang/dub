@@ -749,7 +749,13 @@ class Project {
 				} else {
 					auto subconf = pack.package_.getSubConfiguration(c, packages[dp].package_, platform);
 					if (!subconf.empty) setConfigs(only(subconf));
-					else setConfigs(packages[dp].package_.getPlatformConfigurations(platform));
+					else {
+						setConfigs(packages[dp].package_.getPlatformConfigurations(platform));
+						if (depconfigs[dp].length == 0) {
+							// Try with the executables too
+							setConfigs(packages[dp].package_.getPlatformConfigurations(platform, true));
+						}
+					}
 				}
 
 				// if no valid configuration was found for a dependency, don't include the
@@ -791,7 +797,7 @@ class Project {
 			if (auto pc = pack.name in m_overriddenConfigs)
 				determineDependencyConfigs(pack_idx, *pc);
 			else
-				foreach (c; pack.package_.getPlatformConfigurations(platform, pack.package_ is m_rootPackage && allow_non_library))
+				foreach (c; pack.package_.getPlatformConfigurations(platform, allow_non_library))
 					determineDependencyConfigs(pack_idx, c);
 		}
 
