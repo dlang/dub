@@ -58,6 +58,10 @@ Daniel Jost maintains a dub package on [chocolatey](https://chocolatey.org/packa
 Mathias (@Geod24) Lang maintains the Alpine Linux packages.
 It is currently part of 'edge' and can be installed through `apk --no-cache add -X http://dl-cdn.alpinelinux.org/alpine/edge/testing dub`.
 
+## FreeBSD
+
+The port for DUB resides in [devel/dub](freshports.org/devel/dub). The compiled package can be installed with `pkg install dub`.
+
 ## OpenBSD
 
 Brian Callahan (bcallah@) maintains the OpenBSD package. Use `pkg_add dub` to install it.
