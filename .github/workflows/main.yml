@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install latest DMD
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
       - name: Checkout
         uses: actions/checkout@v4
       - name: Run tests
@@ -100,9 +100,19 @@ jobs:
 
     # Compiler to test with
     - name: Prepare compiler
-      uses: dlang-community/setup-dlang@v1
+      uses: dlang-community/setup-dlang@v2
       with:
         compiler: ${{ matrix.dc }}
+
+    - name: Set DC and DMD
+      shell: bash
+      run: |
+        for name in DC DMD; do
+          var=${!name}
+          var=$(basename "${var}")
+          var=${var%.exe} # strip the extension
+          tee -a ${GITHUB_ENV} <<<"${name}=${var}"
+        done
 
     # Checkout the repository
     - name: Checkout
