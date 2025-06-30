@@ -74,6 +74,9 @@ jobs:
           - { dc: ldc-master, do_test: true }
           # Test on ARM64
           - { os: macOS-14, dc: ldc-latest, do_test: true }
+          # Tests fail for gdc currently
+          - { os: ubuntu-24.04, dc: gdc-13, do_test: false }
+          - { os: ubuntu-24.04, dc: gdc-14, do_test: false }
         exclude:
           # Error with those versions:
           # ld: multiple errors: symbol count from symbol table and dynamic symbol table differ in [.../dub.o]; address=0x0 points to section(2) with no content in '[...]/osx/lib/libphobos2.a[3177](config_a68_4c3.o)'
@@ -103,8 +106,9 @@ jobs:
       uses: dlang-community/setup-dlang@v2
       with:
         compiler: ${{ matrix.dc }}
+        dub: latest # gdc doesn't come with dub
 
-    - name: Set DC and DMD
+    - name: Set environment variables
       shell: bash
       run: |
         for name in DC DMD; do
@@ -113,6 +117,12 @@ jobs:
           var=${var%.exe} # strip the extension
           tee -a ${GITHUB_ENV} <<<"${name}=${var}"
         done
+        # Pass -Wno-error with gdc, note that DFLAGS in the
+        # environment makes dub no longer pass -unittest on test
+        # builds so make sure tests are NOT run.
+        if [[ ${{ matrix.dc }} == gdc* ]]; then
+          tee -a ${GITHUB_ENV} <<<"DFLAGS=-Wno-error"
+        fi
 
     # Checkout the repository
     - name: Checkout
