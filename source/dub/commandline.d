@@ -1279,6 +1279,7 @@ abstract class PackageBuildCommand : Command {
 		string[] m_dVersions;
 		string[] m_overrideConfigs;
 		GeneratorSettings baseSettings;
+		string m_destPath;
 		string m_defaultConfig;
 		bool m_nodeps;
 		bool m_forceRemove = false;
@@ -1286,6 +1287,7 @@ abstract class PackageBuildCommand : Command {
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("dest", &m_destPath, ["Base directory in which output atifacts will be placed"]);
 		args.getopt("b|build", &this.baseSettings.buildType, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
@@ -1356,6 +1358,8 @@ abstract class PackageBuildCommand : Command {
 		this.baseSettings.platform = this.baseSettings.compiler.determinePlatform(this.baseSettings.buildSettings, m_compilerName, m_arch);
 		this.baseSettings.buildSettings.addDebugVersions(m_debugVersions);
 		this.baseSettings.buildSettings.addVersions(m_dVersions);
+
+		this.baseSettings.destinationDirectory = m_destPath ? NativePath(m_destPath) : NativePath.init;
 
 		m_defaultConfig = null;
 		enforce(loadSpecificPackage(dub, udesc), "Failed to load package.");
