@@ -1,0 +1,5 @@
+Added `--dest` command line build option.
+
+Adds support for specifying a root directory for staging, essentially
+acts as a prefix to the `targetPath` and `workingDirectory` dubfile
+entries.
