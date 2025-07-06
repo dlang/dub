@@ -2579,7 +2579,8 @@ enum castableToNode(T) = (is(T == struct) || is(T == class)) && is(typeof(T.opCa
 @safe unittest
 {
     import dub.internal.dyaml : Loader, Node;
-    import std : split, to;
+    import std.array : split;
+    import std.conv : to;
 
     static class MyClass
     {
@@ -2601,7 +2602,8 @@ enum castableToNode(T) = (is(T == struct) || is(T == class)) && is(typeof(T.opCa
 @safe unittest
 {
     import dub.internal.dyaml : Loader, Node;
-    import std : split, to;
+    import std.array : split;
+    import std.conv : to;
 
     static class MyClass
     {
