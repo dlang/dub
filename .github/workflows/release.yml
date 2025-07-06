@@ -35,7 +35,7 @@ jobs:
 
       ## Boileterplate (compiler/repo)
       - name: Install compiler
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
         with:
           compiler: ldc-latest
       - name: Checkout repository
@@ -48,7 +48,6 @@ jobs:
         if: runner.os == 'Linux' || runner.os == 'macOS'
         env:
           GITVER: ${{ github.event.release.tag_name }}
-          DMD: "ldmd2"
           ARCH_TRIPLE: ${{ matrix.arch }}-${{ runner.os == 'linux' && 'pc-linux' || 'apple-darwin' }}
         run: |
           ldc2 -run ./build.d -release -mtriple=${ARCH_TRIPLE}
@@ -63,7 +62,6 @@ jobs:
         if: runner.os == 'Windows'
         env:
           GITVER: ${{ github.event.release.tag_name }}
-          DMD: "ldmd2"
         run: |
           ldc2 -run ./build.d -release -mtriple=${{ matrix.arch }}-pc-windows-msvc
           pushd bin

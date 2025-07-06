@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install latest DMD
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
       - name: Checkout
         uses: actions/checkout@v4
       - name: Run tests
@@ -74,6 +74,9 @@ jobs:
           - { dc: ldc-master, do_test: true }
           # Test on ARM64
           - { os: macOS-14, dc: ldc-latest, do_test: true }
+          # Tests fail for gdc currently
+          - { os: ubuntu-24.04, dc: gdc-13, do_test: false }
+          - { os: ubuntu-24.04, dc: gdc-14, do_test: false }
         exclude:
           # Error with those versions:
           # ld: multiple errors: symbol count from symbol table and dynamic symbol table differ in [.../dub.o]; address=0x0 points to section(2) with no content in '[...]/osx/lib/libphobos2.a[3177](config_a68_4c3.o)'
@@ -96,13 +99,30 @@ jobs:
     - name: '[Linux] Install dependencies'
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev netcat
+        sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev netcat-openbsd
 
     # Compiler to test with
     - name: Prepare compiler
-      uses: dlang-community/setup-dlang@v1
+      uses: dlang-community/setup-dlang@v2
       with:
         compiler: ${{ matrix.dc }}
+        dub: latest # gdc doesn't come with dub
+
+    - name: Set environment variables
+      shell: bash
+      run: |
+        for name in DC DMD; do
+          var=${!name}
+          var=$(basename "${var}")
+          var=${var%.exe} # strip the extension
+          tee -a ${GITHUB_ENV} <<<"${name}=${var}"
+        done
+        # Pass -Wno-error with gdc, note that DFLAGS in the
+        # environment makes dub no longer pass -unittest on test
+        # builds so make sure tests are NOT run.
+        if [[ ${{ matrix.dc }} == gdc* ]]; then
+          tee -a ${GITHUB_ENV} <<<"DFLAGS=-Wno-error"
+        fi
 
     # Checkout the repository
     - name: Checkout
