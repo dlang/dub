@@ -317,6 +317,6 @@ struct BuildPlatform {
 		bp.platform = ["osx", "darwin"];
 		assert(bp.isDarwin);
 		bp.platform = ["posix"];
-		assert(bp.isDarwin);
+		assert(!bp.isDarwin);
 	}
 }
