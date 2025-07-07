@@ -578,6 +578,7 @@ class BuildGenerator : ProjectGenerator {
 		NativePath tempobj = NativePath(bs.targetPath)~objName;
 		string objPath = tempobj.toNativeString();
 		bs.libs = null;
+		bs.frameworks = null;
 		bs.lflags = null;
 		bs.sourceFiles = [ srcFile ];
 		bs.targetType = TargetType.object;
@@ -647,6 +648,7 @@ class BuildGenerator : ProjectGenerator {
 
 			// setup compiler command line
 			buildsettings.libs = null;
+			buildsettings.frameworks = null;
 			buildsettings.lflags = null;
 			if (generate_binary) buildsettings.addDFlags("-c", "-of"~tempobj.toNativeString());
 			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(settings.platform, f)).array;

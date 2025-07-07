@@ -1,0 +1,14 @@
+Add `frameworks` dubfile key.
+
+Adds support for specifying macOS frameworks to link against,
+this replaces the need to manually specify frameworks via lflags or dflags.
+
+Before:
+-------
+lflags "-framework" "Cocoa"
+-------
+
+After:
+-------
+frameworks "Cocoa" "OpenGL"
+-------

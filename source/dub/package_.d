@@ -623,6 +623,7 @@ class Package {
 		ret.dflags = bs.dflags;
 		ret.lflags = bs.lflags;
 		ret.libs = bs.libs;
+		ret.frameworks = bs.frameworks;
 		ret.injectSourceFiles = bs.injectSourceFiles;
 		ret.copyFiles = bs.copyFiles;
 		ret.versions = bs.versions;

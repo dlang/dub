@@ -37,6 +37,7 @@ struct BuildSettings {
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
+	string[] frameworks;
 	string[] linkerFiles;
 	string[] sourceFiles;
 	string[] injectSourceFiles;
@@ -87,6 +88,7 @@ struct BuildSettings {
 		addDFlags(bs.dflags);
 		addLFlags(bs.lflags);
 		addLibs(bs.libs);
+		addFrameworks(bs.frameworks);
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
 		addInjectSourceFiles(bs.injectSourceFiles);
@@ -127,6 +129,7 @@ struct BuildSettings {
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void prependLFlags(in string[] value...) { prepend(lflags, value, false); }
 	void addLibs(in string[] value...) { add(libs, value); }
+	void addFrameworks(in string[] value...) { add(frameworks, value); }
 	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
@@ -327,10 +330,11 @@ enum BuildSetting {
 	cImportPaths      = 1<<8,
 	stringImportPaths = 1<<9,
 	options           = 1<<10,
+	frameworks        = 1<<11,
 	none = 0,
 	commandLine = dflags|copyFiles,
 	commandLineSeparate = commandLine|lflags,
-	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|cImportPaths|stringImportPaths|options,
+	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|cImportPaths|stringImportPaths|options|frameworks,
 	noOptions = all & ~options
 }
 
@@ -559,6 +563,7 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 	this_.getPlatformSetting_!("dflags", "addDFlags")(dst, platform);
 	this_.getPlatformSetting_!("lflags", "addLFlags")(dst, platform);
 	this_.getPlatformSetting_!("libs", "addLibs")(dst, platform);
+	this_.getPlatformSetting_!("frameworks", "addFrameworks")(dst, platform);
 	this_.getPlatformSetting_!("sourceFiles", "addSourceFiles")(dst, platform);
 	this_.getPlatformSetting_!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
 	this_.getPlatformSetting_!("injectSourceFiles", "addInjectSourceFiles")(dst, platform);

@@ -160,6 +160,7 @@ private void parseBuildSetting(Tag setting, ref BuildSettingsTemplate bs,
 		case "dflags": setting.parsePlatformStringArray(bs.dflags); break;
 		case "lflags": setting.parsePlatformStringArray(bs.lflags); break;
 		case "libs": setting.parsePlatformStringArray(bs.libs); break;
+		case "frameworks": setting.parsePlatformStringArray(bs.frameworks); break;
 		case "sourceFiles": setting.parsePlatformStringArray(bs.sourceFiles); break;
 		case "sourcePaths": setting.parsePlatformStringArray(bs.sourcePaths); break;
 		case "cSourcePaths": setting.parsePlatformStringArray(bs.cSourcePaths); break;
@@ -302,6 +303,7 @@ private Tag[] toSDL(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.dflags) adda("dflags", suffix, arr);
 	foreach (suffix, arr; bs.lflags) adda("lflags", suffix, arr);
 	foreach (suffix, arr; bs.libs) adda("libs", suffix, arr);
+	foreach (suffix, arr; bs.frameworks) adda("frameworks", suffix, arr);
 	foreach (suffix, arr; bs.sourceFiles) adda("sourceFiles", suffix, arr);
 	foreach (suffix, arr; bs.sourcePaths) adda("sourcePaths", suffix, arr);
 	foreach (suffix, arr; bs.cSourcePaths) adda("cSourcePaths", suffix, arr);
@@ -500,6 +502,8 @@ buildRequirements "allowWarnings" "silenceDeprecations"
 buildOptions "verbose" "ignoreUnknownPragmas"
 libs "lib1" "lib2"
 libs "lib3"
+frameworks "Framework1" "Framework2"
+frameworks "Framework3"
 sourceFiles "source1" "source2"
 sourceFiles "source3"
 sourcePaths "sourcepath1" "sourcepath2"
@@ -609,6 +613,7 @@ lflags "lf3"
 	assert(rec.buildSettings.buildRequirements == ["": cast(Flags!BuildRequirement)(BuildRequirement.allowWarnings | BuildRequirement.silenceDeprecations)]);
 	assert(rec.buildSettings.buildOptions == ["": cast(Flags!BuildOption)(BuildOption.verbose | BuildOption.ignoreUnknownPragmas)]);
 	assert(rec.buildSettings.libs == ["": ["lib1", "lib2", "lib3"]]);
+	assert(rec.buildSettings.frameworks == ["": ["Framework1", "Framework2", "Framework3"]]);
 	assert(rec.buildSettings.sourceFiles == ["": ["source1", "source2", "source3"]]);
 	assert(rec.buildSettings.sourcePaths == ["": ["sourcepath1", "sourcepath2", "sourcepath3"]]);
 	assert(rec.buildSettings.cSourcePaths == ["": ["csourcepath1", "csourcepath2", "csourcepath3"]]);

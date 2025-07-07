@@ -761,6 +761,7 @@ class ProjectGenerator
 		if (child.targetType == TargetType.staticLibrary || child.targetType == TargetType.dynamicLibrary) {
 			parent.addSourceFiles(child.sourceFiles.filter!(f => isLinkerFile(platform, f)).array);
 			parent.addLibs(child.libs);
+			parent.addFrameworks(child.frameworks);
 			parent.addLFlags(child.lflags);
 		}
 	}

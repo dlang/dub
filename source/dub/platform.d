@@ -305,4 +305,18 @@ struct BuildPlatform {
 		bp.platform = ["posix"];
 		assert(!bp.isWindows);
 	}
+
+	/// Checks to see if platform field contains darwin
+	bool isDarwin() const {
+		import std.algorithm : canFind;
+		return this.platform.canFind("darwin");
+	}
+	///
+	unittest {
+		BuildPlatform bp;
+		bp.platform = ["osx", "darwin"];
+		assert(bp.isDarwin);
+		bp.platform = ["posix"];
+		assert(!bp.isDarwin);
+	}
 }

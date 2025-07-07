@@ -242,6 +242,13 @@ config    /etc/dmd.conf
 				settings.addLFlags(settings.libs.map!(l => "-l"~l)().array());
 		}
 
+		if (!(fields & BuildSetting.frameworks)) {
+			if (platform.isDarwin())
+				settings.addLFlags(settings.frameworks.map!(l => ["-framework", l])().joiner.array());
+			else
+				logDiagnostic("Not a darwin-derived platform, skipping frameworks...");
+		}
+
 		if (!(fields & BuildSetting.sourceFiles)) {
 			settings.addDFlags(settings.sourceFiles);
 			settings.sourceFiles = null;

@@ -444,6 +444,7 @@ struct BuildSettingsTemplate {
 	@StartsWith("dflags") string[][string] dflags;
 	@StartsWith("lflags") string[][string] lflags;
 	@StartsWith("libs") string[][string] libs;
+	@StartsWith("frameworks") string[][string] frameworks;
 	@StartsWith("sourceFiles") string[][string] sourceFiles;
 	@StartsWith("sourcePaths") string[][string] sourcePaths;
 	@StartsWith("cSourcePaths") string[][string] cSourcePaths;
