@@ -2,6 +2,6 @@
     "name": "sourcelib-dep",
     "description": "Testing sourceLibrary dependency.",
     "dependencies": {
-        "sourcelib-simple": { "path": "../1-sourceLib-simple/" }
+        "sourcelib-simple": { "path": "../extra/1-sourceLib-simple/" }
     }
 }
