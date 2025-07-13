@@ -137,6 +137,13 @@ class GDCCompiler : Compiler {
 			settings.addDFlags(settings.libs.map!(l => "-l"~l)().array());
 		}
 
+		if (!(fields & BuildSetting.frameworks)) {
+			if (platform.isDarwin())
+				settings.addDFlags(settings.frameworks.map!(l => ["-framework", l])().joiner.array());
+			else
+				logDiagnostic("Not a darwin-derived platform, skipping frameworks...");
+		}
+
 		if (!(fields & BuildSetting.lflags)) {
 			settings.addDFlags(lflagsToDFlags(settings.lflags));
 			settings.lflags = null;

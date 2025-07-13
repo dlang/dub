@@ -1061,6 +1061,7 @@ class Project {
 		case "linkerFiles":
 		case "mainSourceFile":
 		case "importFiles":
+		case "frameworks":
 			values = formatBuildSettingPlain!attributeName(settings, configs, projectDescription);
 			break;
 
@@ -1306,6 +1307,7 @@ class Project {
 		case "dflags":                     return listBuildSetting!"dflags"(args);
 		case "lflags":                     return listBuildSetting!"lflags"(args);
 		case "libs":                       return listBuildSetting!"libs"(args);
+		case "frameworks":                 return listBuildSetting!"frameworks"(args);
 		case "linker-files":               return listBuildSetting!"linkerFiles"(args);
 		case "source-files":               return listBuildSetting!"sourceFiles"(args);
 		case "inject-source-files":        return listBuildSetting!"injectSourceFiles"(args);
@@ -1464,6 +1466,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
+	dst.addFrameworks(processVars(project, pack, gsettings, settings.frameworks, false, buildEnvs));
 	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true, buildEnvs));
 	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true, buildEnvs));
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true, buildEnvs));

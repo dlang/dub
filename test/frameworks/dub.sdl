@@ -1,0 +1,12 @@
+name "frameworks"
+targetPath "out/"
+
+configuration "osx" {
+    platforms "osx"
+
+    frameworks "Foundation"
+}
+
+configuration "other" {
+    targetType "none"
+}

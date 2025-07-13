@@ -216,6 +216,7 @@ private void parseJson(ref BuildSettingsTemplate bs, Json json, in PackageName p
 			case "dflags": bs.dflags[suffix] = deserializeJson!(string[])(value); break;
 			case "lflags": bs.lflags[suffix] = deserializeJson!(string[])(value); break;
 			case "libs": bs.libs[suffix] = deserializeJson!(string[])(value); break;
+			case "frameworks": bs.frameworks[suffix] = deserializeJson!(string[])(value); break;
 			case "files":
 			case "sourceFiles": bs.sourceFiles[suffix] = deserializeJson!(string[])(value); break;
 			case "sourcePaths": bs.sourcePaths[suffix] = deserializeJson!(string[])(value); break;
@@ -289,6 +290,7 @@ private Json toJson(const scope ref BuildSettingsTemplate bs)
 	foreach (suffix, arr; bs.dflags) ret[withSuffix("dflags", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.lflags) ret[withSuffix("lflags", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.libs) ret[withSuffix("libs", suffix)] = serializeToJson(arr);
+	foreach (suffix, arr; bs.frameworks) ret[withSuffix("frameworks", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.sourceFiles) ret[withSuffix("sourceFiles", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.sourcePaths) ret[withSuffix("sourcePaths", suffix)] = serializeToJson(arr);
 	foreach (suffix, arr; bs.cSourcePaths) ret[withSuffix("cSourcePaths", suffix)] = serializeToJson(arr);
