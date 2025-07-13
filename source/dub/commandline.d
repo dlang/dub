@@ -73,7 +73,10 @@ CommandGroup[] getCommands() @safe pure nothrow
 			new ListOverridesCommand,
 			new CleanCachesCommand,
 			new ConvertCommand,
-		)
+			// This is index management but those commands are hidden
+			new IndexBuildCommand,
+			new IndexFromRegistryCommand,
+		),
 	];
 }
 
@@ -273,7 +276,8 @@ unittest {
 	assert(handler.commandNames == ["init", "run", "build", "test", "lint", "generate",
 		"describe", "clean", "dustmite", "fetch", "add", "remove",
 		"upgrade", "add-path", "remove-path", "add-local", "remove-local", "list", "search",
-		"add-override", "remove-override", "list-overrides", "clean-caches", "convert"]);
+		"add-override", "remove-override", "list-overrides", "clean-caches", "convert",
+		"index-build", "index-fromregistry"]);
 }
 
 /// It sets the cwd as root_path by default
@@ -2990,6 +2994,255 @@ class ConvertCommand : Command {
 
 		if (!loadCwdPackage(dub, true)) return 2;
 		dub.convertRecipe(m_format, m_stdout);
+		return 0;
+	}
+}
+
+
+/******************************************************************************/
+/* Index management
+/******************************************************************************/
+
+public class IndexBuildCommand : Command {
+	import dub.index.bitbucket;
+	import dub.index.data;
+	import dub.index.github;
+	import dub.index.gitlab;
+	import dub.index.utils;
+    import std.random;
+    import std.range;
+
+	/// Index file to use
+	private string index = "index.yaml";
+	/// Filename to write to
+	private string output = "index-build-result";
+	/// Packages to filter in - assume all if empty
+	private string[] include;
+	/// Packages to filter out
+	private string[] exclude;
+	/// Bearer token to use to authenticate requests
+	private string githubToken, gitlabToken, bitbucketToken;
+	/// Kind of packages to include (default: all kinds)
+	private string[] kind;
+	/// Whether to force the iteration of tags or not
+	/// This needs to be used if some tags need to be reprocessed
+	private bool force_tags;
+	/// Force the package to be entirely reprocessed. Imply `--force-tags`.
+	private bool force;
+    /// Whether to use a randomized sample of packages
+    private bool random;
+    /// The number of packages to update
+    private uint maxUpdates = uint.max;
+    /// Source and target index to use, mutually exclusive with `random`
+    private uint fromIdx = 0, toIdx = uint.max;
+
+	this() @safe pure nothrow
+	{
+		this.name = "index-build";
+		this.description = "Generate the rich index from the index.yaml file";
+		this.helpText = [ "This command is for internal use only. Do not use it." ];
+		this.hidden = true;
+	}
+
+	override void prepare(scope CommandArgs args) {
+		args.getopt("bitbucket-token", &this.bitbucketToken, ["Bearer token to use when issuing Bitbucket requests"]);
+		args.getopt("github-token", &this.githubToken, ["Bearer token to use when issuing Github requests"]);
+		args.getopt("gitlab-token", &this.gitlabToken, ["Bearer token to use when issuing GitLab requests"]);
+		args.getopt("output", &this.output, ["Where to output the data (path to a folder)"]);
+		args.getopt("index", &this.index, ["Index file to use - default to 'index.yaml'"]);
+		args.getopt("include", &this.include, ["Which packages to filter in - if not, assume all"]);
+		args.getopt("exclude", &this.exclude, ["Which packages to filter out - if not, assume none"]);
+		args.getopt("kind", &this.kind, ["Kind of packages to include (github, gitlab, bitbucket). Default: all"]);
+		args.getopt("force", &this.force, ["Force Dub to reprocess packages even if it has cache informations"]);
+		args.getopt("force-tags", &this.force_tags,
+			["Force Dub to re-list tags, but do not reload the recipe if the commit hasn't changed."]);
+		args.getopt("random", &this.random, ["Randomize the order in which packages are processed"]);
+		args.getopt("max-updates", &this.maxUpdates, ["Maximum number of packages to process"]);
+		args.getopt("from", &this.fromIdx, ["Index to seek to before iterating the list of packages (default: 0)"]);
+		args.getopt("to", &this.toIdx, ["Index to stop at when iterating the list of packages (default: end of list)"]);
+
+		enforce(this.fromIdx <= this.toIdx, "Cannot have source index (`--from`) be past end index (`--to`)");
+		enforce(this.fromIdx == 0 || !this.random,
+			"Cannot specify source index (`--from`) for random sampling (`--random`)");
+		enforce(this.toIdx == uint.max || !this.random,
+			"Cannot specify end index (`--to`) for random sampling (`--random`)");
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		import dub.index.client : RepositoryClient;
+		import dub.index.data;
+		import dub.internal.configy.easy;
+		static import std.file;
+		import std.typecons;
+
+		enforceUsage(free_args.length == 0, "Expected no free argument.");
+		enforceUsage(app_args.length  == 0, "Expected zero application arguments.");
+
+		const isUpdate = std.file.exists(this.output);
+		if (isUpdate)
+			enforce(std.file.isDir(this.output), this.output ~ ": is not a directory");
+		else
+			std.file.mkdirRecurse(this.output);
+
+		auto indexN = parseConfigFileSimple!PackageList(this.index);
+		if (indexN.isNull()) return 1;
+		auto indexC = indexN.get();
+		logInfoNoTag("Found %s packages in the index file", indexC.packages.length);
+
+		const NativePath outputPath = NativePath(this.output);
+		size_t processed, updated, notsupported;
+		string[] included, excluded, errored;
+		scope gh = new GithubClient(this.githubToken);
+		scope gl = new GitLabClient(this.gitlabToken);
+		scope bb = new BitbucketClient(this.bitbucketToken);
+
+		void update (scope RepositoryClient client, in PackageEntry pkg) {
+			const target = getPackageDescriptionPath(outputPath, PackageName(pkg.name.value));
+			ensureDirectory(target.parentPath());
+			const targetStr = target.toNativeString();
+			auto previous = !this.force && std.file.exists(targetStr) ?
+				parseConfigFileSimple!(IndexedPackage!0)(targetStr, StrictMode.Ignore) :
+				Nullable!(IndexedPackage!0).init;
+			if (this.force_tags && !previous.isNull())
+				previous.get().cache = CacheInfo.init;
+			auto res = updateDescription(client, pkg, previous);
+			if (previous.isNull() || previous.get() != res) {
+				std.file.write(targetStr, res.serializeToJsonString());
+				++updated;
+			}
+		}
+
+		// Update a single package - this code is in its own function as it
+		// is wrapped in a try-catch in the `foreach` to process as many packages
+		// as possible
+		void updatePackageIndex (in PackageEntry pkg) {
+			logInfo("[%s] Processing included package", pkg.name.value);
+            switch (pkg.source.kind) {
+                case `github`:
+                    scope client = gh.new Repository(pkg.source.owner, pkg.source.project);
+                    update(client, pkg);
+                    break;
+                case `gitlab`:
+                    scope client = gl.new Project(pkg.source.owner, pkg.source.project);
+                    update(client, pkg);
+                    break;
+                case `bitbucket`:
+                    scope client = bb.new Repository(pkg.source.owner, pkg.source.project);
+                    update(client, pkg);
+                    break;
+                default:
+                    throw new Exception("Package kind not supported: " ~ pkg.source.kind);
+            }
+		}
+
+		int processEntry (size_t idx, ref PackageEntry pkg) {
+			if (updated >= this.maxUpdates) return 1;
+			if (this.include.length && !this.include.canFind(pkg.name.value))
+				return 0;
+			if (this.exclude.canFind(pkg.name.value)) {
+				excluded ~= pkg.name.value;
+				return 0;
+			}
+			if (this.kind.length && !this.kind.canFind(pkg.source.kind))
+				return 0;
+
+			++processed;
+			try
+				updatePackageIndex(pkg);
+			catch (Exception exc) {
+				errored ~= pkg.name.value;
+				// If we get a 404 here, it might be a dead package
+				logError("[%s] Could not build index for package: %s",
+					pkg.name.value, exc.message());
+			}
+
+			if (this.include.length) {
+				included ~= pkg.name.value;
+				if (included.length % 10 == 0) {
+					const rl = gh.getRateLimit();
+					logDebug("Requests still available: %s/%s", rl.remaining, rl.limit);
+				}
+			}
+			else if (idx % 10 == 0) {
+				const rl = gh.getRateLimit();
+				logDebug("Requests still available: %s/%s", rl.remaining, rl.limit);
+			}
+			return 0;
+		}
+
+		if (this.random) { // Can't use `std.random : choose` because bugs
+			foreach (idx, pkg; indexC.packages.randomCover().enumerate)
+				if (processEntry(idx, pkg))
+					break;
+		} else {
+			const startIdx = min(this.fromIdx, indexC.packages.length);
+			const endIdx = min(this.toIdx, indexC.packages.length);
+			foreach (idx, pkg; indexC.packages[startIdx .. endIdx])
+				if (processEntry(idx, pkg))
+					break;
+		}
+
+		logInfoNoTag("Updated %s packages out of %s processed (%s excluded, %s errors, %s not supported)",
+			updated, processed, excluded.length, errored.length, notsupported);
+		if (this.include.length && included != this.include)
+			logWarn("Not all explicitly-included packages have been processed!");
+		if (errored.length)
+			logWarn("The following packages errored out:\n%(\t- %s\n%)", errored);
+		if (!this.kind.length || this.kind.canFind(`github`)) {
+			const rl = gh.getRateLimit();
+			logInfoNoTag("Github requests still available: %s/%s", rl.remaining, rl.limit);
+		}
+		return 0;
+	}
+}
+
+public class IndexFromRegistryCommand : Command {
+	/// Filename to write to
+	private string output = "index.yaml";
+	/// Bypass cache, always query the registry
+	private bool force;
+
+	this() @safe pure nothrow
+	{
+		this.name = "index-fromregistry";
+		this.description = "Generate the index.yaml file from the remote registry";
+		this.helpText = [ "This command is for internal use only. Do not use it." ];
+		this.hidden = true;
+	}
+
+	override void prepare(scope CommandArgs args) {
+		args.getopt("O", &this.output, ["Where to output the data ('-' is supported)"]);
+		args.getopt("f", &this.force,  ["Bypass the cache and always query the registry"]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		import dub.internal.vibecompat.inet.url;
+		import dub.packagesuppliers.registry;
+		import std.format;
+
+		enforceUsage(free_args.length == 0, "Expected zero arguments.");
+		enforceUsage(app_args.length  == 0, "Expected zero application arguments.");
+
+		scope registry = new RegistryPackageSupplier(URL(defaultRegistryURLs[1]));
+		scope allPkgs = registry.getPackageDump(this.force);
+		writeln("Found ", allPkgs.array.length, " packages");
+		scope output = this.output == "-" ? stdout : File(this.output, "w+");
+		scope writer = output.lockingTextWriter();
+		writer.formattedWrite("packages:\n");
+		foreach (pkg; allPkgs.array) {
+			writer.formattedWrite(`  %s:
+    source:
+      kind: %s
+      owner: %s
+      project: %s
+`,
+				pkg["name"].opt!string, pkg["repository"]["kind"].opt!string,
+				pkg["repository"]["owner"].opt!string,
+				pkg["repository"]["project"].opt!string);
+		}
+
 		return 0;
 	}
 }

@@ -205,3 +205,18 @@ public ConfigT parseConfigString (ConfigT)
     auto root = parseString(data, args.config_path);
     return parseConfig!ConfigT(root, strict);
 }
+
+/// ditto
+public ConfigT parseConfigStringJSON (ConfigT)
+    (string data, string path, StrictMode strict = StrictMode.Error)
+{
+    import std.exception;
+    import dub.internal.configy.backend.json;
+    import dub.internal.vibecompat.data.json;
+
+    assert(path.length, "No path provided to parseConfigStringJSON");
+    auto root = new JSONNode(parseJsonString(data, path), path).asMapping();
+    enforce(root !is null, "Parsing '" ~ path ~ "' didn't yield an object");
+    return parseConfig!ConfigT(root, strict);
+
+}
