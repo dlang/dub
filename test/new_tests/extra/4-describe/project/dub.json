@@ -24,15 +24,15 @@
     "dependencies": {
         "describe-dependency-1": {
             "version": "1.0",
-            "path": "../describe-dependency-1"
+            "path": "../dependency-1"
         },
         "describe-dependency-2": {
             "version": "1.0",
-            "path": "../describe-dependency-2"
+            "path": "../dependency-2"
         },
         "describe-dependency-3": {
             "version": "1.0",
-            "path": "../describe-dependency-3"
+            "path": "../dependency-3"
         }
     },
     "configurations": [
