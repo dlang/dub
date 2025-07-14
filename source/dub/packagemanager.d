@@ -130,14 +130,15 @@ class PackageManager {
 	   Params:
 		 path = Path of the single repository
 	 */
-	this(NativePath path)
+	this(NativePath path, Filesystem fs = null)
 	{
 		import dub.internal.io.realfs;
-		this.fs = new RealFS();
+		this.fs = fs !is null ? fs : new RealFS();
 		this.m_internal.searchPath = [ path ];
 		this.refresh();
 	}
 
+	deprecated("Use the overload that accepts a `Filesystem`")
 	this(NativePath package_path, NativePath user_path, NativePath system_path, bool refresh_packages = true)
 	{
 		import dub.internal.io.realfs;
@@ -271,7 +272,7 @@ class PackageManager {
 				foreach (ovr; repo.overrides)
 					if (ovr.package_ == name.toString() && ovr.source.matches(ver)) {
 						Package pack = ovr.target.match!(
-							(NativePath path) => getOrLoadPackage(path),
+							(NativePath path) => getOrLoadPackage(path, NativePath.init, name),
 							(Version	vers) => getPackage(name, vers, false),
 						);
 						if (pack) return pack;
@@ -377,21 +378,42 @@ class PackageManager {
 		Params:
 			path = NativePath to the root directory of the package
 			recipe_path = Optional path to the recipe file of the package
-			allow_sub_packages = Also return a sub package if it resides in the given folder
+			name = Optional (sub-)package name if known in advance. Required if a sub-package is to be returned.
 			mode = Whether to issue errors, warning, or ignore unknown keys in dub.json
 
 		Returns: The packages loaded from the given path
 		Throws: Throws an exception if no package can be loaded
 	*/
 	Package getOrLoadPackage(NativePath path, NativePath recipe_path = NativePath.init,
-		bool allow_sub_packages = false, StrictMode mode = StrictMode.Ignore)
+		PackageName name = PackageName.init, StrictMode mode = StrictMode.Ignore)
 	{
 		path.endsWithSlash = true;
-		foreach (p; this.m_internal.fromPath)
-			if (p.path == path && (!p.parentPackage || (allow_sub_packages && p.parentPackage.path != p.path)))
-				return p;
+		const nameString = name.toString();
+
+		foreach (p; this.m_internal.fromPath) {
+			if (!nameString.empty) {
+				if (p.name == nameString && (p.path == path || p.basePackage.path == path))
+					return p;
+			} else {
+				if (p.path == path && !p.parentPackage)
+					return p;
+			}
+		}
+
 		auto pack = this.load(path, recipe_path, null, null, mode);
-		addPackages(this.m_internal.fromPath, pack);
+		auto nameToResolve = PackageName(pack.name);
+
+		if (!nameString.empty) {
+			nameToResolve = PackageName(nameString);
+			const loadedName = PackageName(pack.name);
+			enforce(loadedName == nameToResolve || loadedName == nameToResolve.main,
+				"Package %s loaded from '%s' does not match expected name %s".format(
+					loadedName, path.toNativeString(), nameToResolve));
+		}
+
+		pack = addPackagesAndResolveSubPackage(this.m_internal.fromPath, pack, nameToResolve);
+		enforce(pack !is null, "No sub-package %s in parent package loaded from '%s'".format(
+			nameToResolve, path.toNativeString()));
 		return pack;
 	}
 
@@ -1291,7 +1313,7 @@ symlink_exit:
 			serialized["inheritable"] = true;
 		serialized["versions"] = Json.emptyObject;
 		foreach (p, dep; s.versions)
-			serialized["versions"][p] = dep.toJson(true);
+			serialized["versions"][p] = dep.toJsonDep();
 		return serialized;
 	}
 

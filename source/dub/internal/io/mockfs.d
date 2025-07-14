@@ -31,15 +31,21 @@ public final class MockFS : Filesystem {
         needs to be provided, as Windows' root has a drive letter.
 
         Params:
-          root = The name of the root, e.g. "C:\"
+          dir = The drive letter of the root, e.g. 'C'. This must be a letter,
+                in the range [a-zA-Z].
 
     ***************************************************************************/
 
     version (Windows) {
         public this (char dir = 'C') scope
         {
+            import std.ascii : toUpper;
+
+            char root = dir.toUpper();
+            assert(root >= 'A' && root <= 'Z',
+                "Expected 'dir' to be a letter, not: " ~ dir);
             this.root = this.cwd = new FSEntry();
-            this.root.name = [ dir, ':' ];
+            this.root.name = [ root, ':' ];
         }
     } else {
         public this () scope
@@ -75,6 +81,13 @@ public final class MockFS : Filesystem {
 
         const abs = path.absolute();
         auto segments = this.adaptPath(path);
+        // A path such as `C:\foo` gets turned into `[ "C:", "foo" ]`,
+        // so check if the root (drive) matches before we do comparison
+        version (Windows) if (abs && !segments.empty) {
+            enforce(this.root.name == segments.front.name,
+                "Cannot mkdir new drive '" ~ segments.front.name ~ `'`);
+            segments.popFront();
+        }
         reduce!((FSEntry dir, segment) => dir.mkdir(segment.name))(
             (abs ? this.root : this.cwd), segments);
     }
@@ -315,6 +328,13 @@ public final class MockFS : Filesystem {
 
         const abs = path.absolute();
         auto segments = this.adaptPath(path);
+        // A path such as `C:\foo` gets turned into `[ "C:", "foo" ]`.
+        // We need to do the root comparison before comparing the paths
+        version (Windows) if (abs && !segments.empty) {
+            if (this.root.name != segments.front.name)
+                return null;
+            segments.popFront();
+        }
         // Casting away constness because no good way to do this with `inout`,
         // but `FSEntry.lookup` is `inout` too.
         return cast(inout(FSEntry)) reduce!(
@@ -322,7 +342,16 @@ public final class MockFS : Filesystem {
             (cast() (abs ? this.root : this.cwd), segments);
     }
 
-    /// helper function for code common between `mkdir` and `lookup`
+    /**
+      * Adapt a path to work around various platform & library issues
+      *
+      * This helper function is for code common between `mkdir` and `lookup`,
+      * and need to be read in the context of those. The various adaptations
+      * done to the path to make it uniform are described within the function.
+      *
+      * Params:
+      *   path = The path to adapt
+      */
     private auto adaptPath (in NativePath path) const scope {
         if (!path.absolute()) return path.bySegment;
         auto segments = path.bySegment;
@@ -330,13 +359,6 @@ public final class MockFS : Filesystem {
         // while our built-in module (in vibecompat) does not.
         if (segments.front.name.length == 0)
             segments.popFront();
-        // A path such as `C:\foo` gets turned into `[ "", "C:", "foo" ]`,
-        // so after dropping the empty segment we need to drop the drive
-        version (Windows) if (!segments.empty) {
-            enforce(this.root.name == segments.front.name,
-                "Cannot mkdir new drive '" ~ segments.front.name ~ '"');
-            segments.popFront();
-        }
         return segments;
     }
 }
@@ -558,4 +580,12 @@ unittest {
         fs.chdir(NativePath("/foo/bar/../"));
         assert(fs.getcwd == P("/foo/"));
     }
+}
+
+version (Windows) unittest {
+    scope fs = new MockFS('X');
+    assert(fs.existsDirectory(NativePath(`X:\`)));
+    assert(!fs.existsDirectory(NativePath(`C:\`)));
+    assert(!fs.existsDirectory(NativePath(`C:\foo\bar`)));
+    assert(!fs.existsFile(NativePath(`C:/foo/bar.exe`)));
 }

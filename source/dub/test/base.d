@@ -55,6 +55,7 @@ import std.datetime.systime;
 import std.exception;
 import std.format;
 import std.string;
+import std.typecons : Nullable, nullable;
 
 import dub.data.settings;
 public import dub.dependency;
@@ -175,9 +176,6 @@ public void disableLogging()
  */
 public class TestDub : Dub
 {
-    /// The virtual filesystem that this instance acts on
-    public MockFS fs;
-
     /**
      * Redundant reference to the registry
      *
@@ -225,7 +223,7 @@ public class TestDub : Dub
     public this (scope void delegate(scope Filesystem root) dg = null,
         string root = ProjectPath.toNativeString(),
         PackageSupplier[] extras = null,
-        SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+        Nullable!SkipPackageSuppliers skip = Nullable!SkipPackageSuppliers.init)
     {
         /// Create the fs & its base structure
         auto fs_ = new MockFS();
@@ -237,7 +235,14 @@ public class TestDub : Dub
         fs_.mkdir(ProjectPath);
         fs_.chdir(Root);
         if (dg !is null) dg(fs_);
-        this(fs_, root, extras, skip);
+        super(fs_, root, extras, skip);
+    }
+    public this (scope void delegate(scope Filesystem root) dg,
+        string root,
+        PackageSupplier[] extras,
+        SkipPackageSuppliers skip)
+    {
+        this(dg, root, extras, nullable(skip));
     }
 
     /// Workaround https://issues.dlang.org/show_bug.cgi?id=24388 when called
@@ -245,18 +250,28 @@ public class TestDub : Dub
     public this (typeof(null) _,
         string root = ProjectPath.toNativeString(),
         PackageSupplier[] extras = null,
-        SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+        Nullable!SkipPackageSuppliers skip = Nullable!SkipPackageSuppliers.init)
     {
         alias TType = void delegate(scope Filesystem);
         this(TType.init, root, extras, skip);
     }
+    public this (typeof(null) _,
+        string root,
+        PackageSupplier[] extras,
+        SkipPackageSuppliers skip) {
+        this(null, root, extras, nullable(skip));
+    }
 
     /// Internal constructor
-    private this(MockFS fs_, string root, PackageSupplier[] extras,
+    private this(Filesystem fs_, string root, PackageSupplier[] extras,
+        Nullable!SkipPackageSuppliers skip)
+    {
+        super(fs_, root, extras, skip);
+    }
+    private this(Filesystem fs_, string root, PackageSupplier[] extras,
         SkipPackageSuppliers skip)
     {
-        this.fs = fs_;
-        super(root, extras, skip);
+        this(fs_, root, extras, nullable(skip));
     }
 
     /***************************************************************************
@@ -333,6 +348,14 @@ public class TestDub : Dub
         // This will not work with `SkipPackageSupplier`.
         assert(this.registry !is null, "The registry hasn't been instantiated?");
 		return this.registry;
+    }
+
+    /**
+     * Exposes our test filesystem to unittests
+     */
+    public @property inout(Filesystem) fs() inout
+    {
+        return super.fs;
     }
 }
 

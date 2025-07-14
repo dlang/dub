@@ -86,10 +86,12 @@ public final class RealFS : Filesystem {
     ///
     public override void removeDir (in NativePath path, bool force = false)
     {
+        const str = path.toNativeString();
+        if (!std.file.exists(str)) return;
         if (force)
-            std.file.rmdirRecurse(path.toNativeString());
+            std.file.rmdirRecurse(str);
         else
-            std.file.rmdir(path.toNativeString());
+            std.file.rmdir(str);
     }
 
 	/// Ditto

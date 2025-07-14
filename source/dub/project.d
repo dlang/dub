@@ -67,7 +67,7 @@ class Project {
 			logWarn("There was no package description found for the application in '%s'.", project_path.toNativeString());
 			pack = new Package(PackageRecipe.init, project_path);
 		} else {
-			pack = package_manager.getOrLoadPackage(project_path, packageFile, false, StrictMode.Warn);
+			pack = package_manager.getOrLoadPackage(project_path, packageFile, PackageName.init, StrictMode.Warn);
 		}
 
 		this(package_manager, pack);
@@ -553,8 +553,7 @@ class Project {
 				p = vspec.visit!(
 					(NativePath path_) {
 						auto path = path_.absolute ? path_ : m_rootPackage.path ~ path_;
-						auto tmp = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-						return resolveSubPackage(tmp, subname, true);
+						return m_packageManager.getOrLoadPackage(path, NativePath.init, dep.name);
 					},
 					(Repository repo) {
 						return m_packageManager.loadSCMPackage(dep.name, repo);
@@ -587,15 +586,11 @@ class Project {
 					NativePath path = vspec.path;
 					if (!path.absolute) path = pack.path ~ path;
 					logDiagnostic("%sAdding local %s in %s", indent, dep.name, path);
-					p = m_packageManager.getOrLoadPackage(path, NativePath.init, true);
-					if (p.parentPackage !is null) {
+					p = m_packageManager.getOrLoadPackage(path, NativePath.init, dep.name);
+					path.endsWithSlash = true;
+					if (path != p.basePackage.path) {
 						logWarn("%sSub package %s must be referenced using the path to it's parent package.", indent, dep.name);
-						p = p.parentPackage;
 					}
-					p = resolveSubPackage(p, subname, false);
-					enforce(p.name == dep.name.toString(),
-						format("Path based dependency %s is referenced with a wrong name: %s vs. %s",
-							path.toNativeString(), dep.name, p.name));
 				} else {
 					logDiagnostic("%sMissing dependency %s %s of %s", indent, dep.name, vspec, pack.name);
 					if (is_desired) m_missingDependencies ~= dep.name.toString();
@@ -1072,6 +1067,7 @@ class Project {
 		case "linkerFiles":
 		case "mainSourceFile":
 		case "importFiles":
+		case "frameworks":
 			values = formatBuildSettingPlain!attributeName(settings, configs, projectDescription);
 			break;
 
@@ -1317,6 +1313,7 @@ class Project {
 		case "dflags":                     return listBuildSetting!"dflags"(args);
 		case "lflags":                     return listBuildSetting!"lflags"(args);
 		case "libs":                       return listBuildSetting!"libs"(args);
+		case "frameworks":                 return listBuildSetting!"frameworks"(args);
 		case "linker-files":               return listBuildSetting!"linkerFiles"(args);
 		case "source-files":               return listBuildSetting!"sourceFiles"(args);
 		case "inject-source-files":        return listBuildSetting!"injectSourceFiles"(args);
@@ -1475,6 +1472,7 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addDFlags(processVars(project, pack, gsettings, settings.dflags, false, buildEnvs));
 	dst.addLFlags(processVars(project, pack, gsettings, settings.lflags, false, buildEnvs));
 	dst.addLibs(processVars(project, pack, gsettings, settings.libs, false, buildEnvs));
+	dst.addFrameworks(processVars(project, pack, gsettings, settings.frameworks, false, buildEnvs));
 	dst.addSourceFiles(processVars!true(project, pack, gsettings, settings.sourceFiles, true, buildEnvs));
 	dst.addImportFiles(processVars(project, pack, gsettings, settings.importFiles, true, buildEnvs));
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true, buildEnvs));
@@ -1950,14 +1948,19 @@ public class SelectedVersions {
 	void selectVersion(string package_id, Version version_)
 	{
 		const name = PackageName(package_id);
-		return this.selectVersion(name, version_);
+		return this.selectVersionInternal(name, Dependency(version_));
 	}
 
 	/// Ditto
-	void selectVersion(in PackageName name, Version version_)
+	void selectVersion(in PackageName name, Version version_, in IntegrityTag tag = IntegrityTag.init)
 	{
-		const dep = Dependency(version_);
-		this.selectVersionInternal(name, dep);
+		auto dep = SelectedDependency(Dependency(version_), tag);
+		if (auto pdep = name.main.toString() in this.m_selections.versions) {
+			if (*pdep == dep)
+				return;
+		}
+		this.m_selections.versions[name.main.toString()] = dep;
+		this.m_dirty = true;
 	}
 
 	/// Selects a certain path for a specific package.
@@ -2054,6 +2057,14 @@ public class SelectedVersions {
 	{
 		enforce(hasSelectedVersion(name));
 		return m_selections.versions[name.main.toString()];
+	}
+
+	/// Returns: The `IntegrityTag` associated to the version, or `.init` if none
+	IntegrityTag getIntegrityTag(in PackageName name) const
+	{
+		if (auto ptr = name.main.toString() in this.m_selections.versions)
+			return (*ptr).integrity;
+		return typeof(return).init;
 	}
 
 	/** Stores the selections to disk.

@@ -35,7 +35,7 @@ import std.process : environment, spawnProcess, wait;
 import std.stdio;
 import std.string;
 import std.traits : EnumMembers;
-import std.typecons : Tuple, tuple;
+import std.typecons : Nullable, nullable, Tuple, tuple;
 
 /** Retrieves a list of all available commands.
 
@@ -528,6 +528,8 @@ int runDubCommandLine(string[] args)
 		return 1;
 	}
 
+	import dub.internal.configy.exceptions : ConfigException;
+
 	try {
 		// initialize the root package
 		Dub dub = cmd.prepareDub(handler.options);
@@ -539,10 +541,15 @@ int runDubCommandLine(string[] args)
 		// usage exceptions get thrown before any logging, so we are
 		// making the errors more narrow to better fit on small screens.
 		tagWidth.push(5);
-		logError("%s", e.msg);
+		logError("%s", e.message);
 		logDebug("Full exception: %s", e.toString().sanitize);
 		logInfo(`Run "%s" for more information about the "%s" command.`,
 			text("dub ", cmd.name, " -h").color(Mode.bold), cmd.name.color(Mode.bold));
+		return 1;
+	}
+	catch (ConfigException exc) {
+		logError("%S", exc);
+		logDiagnostic("%s", exc.stackTraceToString());
 		return 1;
 	}
 	catch (Exception e) {
@@ -550,7 +557,7 @@ int runDubCommandLine(string[] args)
 		// above. However this might be subject to change if it results in
 		// weird behavior anywhere.
 		tagWidth.push(5);
-		logError("%s", e.msg);
+		logError("%s", e.message);
 		logDebug("Full exception: %s", e.toString().sanitize);
 		return 2;
 	}
@@ -566,7 +573,7 @@ struct CommonOptions {
 	string root_path, recipeFile;
 	enum Color { automatic, on, off }
 	Color colorMode = Color.automatic;
-	SkipPackageSuppliers skipRegistry = SkipPackageSuppliers.default_;
+	Nullable!SkipPackageSuppliers skipRegistry;
 	PlacementLocation placementLocation = PlacementLocation.user;
 
 	private void parseColor(string option, string value) @safe
@@ -622,7 +629,8 @@ struct CommonOptions {
 			"  DUB: URL to DUB registry (default)",
 			"  Maven: URL to Maven repository + group id containing dub packages as artifacts. E.g. mvn+http://localhost:8040/maven/libs-release/dubpackages",
 			]);
-		args.getopt("skip-registry", &skipRegistry, &parseSkipRegistry, [
+		string skipRegistryValue;
+		args.getopt("skip-registry", &skipRegistryValue, &parseSkipRegistry, [
 			"Sets a mode for skipping the search on certain package registry types:",
 			"  none: Search all configured or default registries (default)",
 			"  standard: Don't search the main registry (e.g. "~defaultRegistryURLs[0]~")",
@@ -888,7 +896,7 @@ class Command {
 		dub.mainRecipePath = options.recipeFile;
 		// make the CWD package available so that for example sub packages can reference their
 		// parent package.
-		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath(options.recipeFile), false, StrictMode.Warn);
+		try dub.packageManager.getOrLoadPackage(NativePath(options.root_path), NativePath(options.recipeFile), PackageName.init, StrictMode.Warn);
 		catch (Exception e) {
 			// by default we ignore CWD package load fails in prepareDUB, since
 			// they will fail again later when they are actually requested. This
@@ -1271,6 +1279,7 @@ abstract class PackageBuildCommand : Command {
 		string[] m_dVersions;
 		string[] m_overrideConfigs;
 		GeneratorSettings baseSettings;
+		string m_destPath;
 		string m_defaultConfig;
 		bool m_nodeps;
 		bool m_forceRemove = false;
@@ -1278,6 +1287,7 @@ abstract class PackageBuildCommand : Command {
 
 	override void prepare(scope CommandArgs args)
 	{
+		args.getopt("dest", &m_destPath, ["Base directory in which output atifacts will be placed"]);
 		args.getopt("b|build", &this.baseSettings.buildType, [
 			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
 			"Possible names:",
@@ -1348,6 +1358,8 @@ abstract class PackageBuildCommand : Command {
 		this.baseSettings.platform = this.baseSettings.compiler.determinePlatform(this.baseSettings.buildSettings, m_compilerName, m_arch);
 		this.baseSettings.buildSettings.addDebugVersions(m_debugVersions);
 		this.baseSettings.buildSettings.addVersions(m_dVersions);
+
+		this.baseSettings.destinationDirectory = m_destPath ? NativePath(m_destPath) : NativePath.init;
 
 		m_defaultConfig = null;
 		enforce(loadSpecificPackage(dub, udesc), "Failed to load package.");

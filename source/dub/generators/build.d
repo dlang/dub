@@ -184,7 +184,7 @@ class BuildGenerator : ProjectGenerator {
 			foreach (src; dynamicLibDepsFilesToCopy) {
 				logDiagnostic("Copying target from %s to %s",
 					src.toNativeString(), rootTargetPath.toNativeString());
-				hardLinkFile(src, rootTargetPath ~ src.head, true);
+				copyFile(src, rootTargetPath ~ src.head, true);
 			}
 		}
 
@@ -504,7 +504,7 @@ class BuildGenerator : ProjectGenerator {
 		{
 			auto src = build_path ~ filename;
 			logDiagnostic("Copying target from %s to %s", src.toNativeString(), buildsettings.targetPath);
-			hardLinkFile(src, NativePath(buildsettings.targetPath) ~ filename, true);
+			copyFile(src, NativePath(buildsettings.targetPath) ~ filename, true);
 		}
 	}
 
@@ -578,6 +578,7 @@ class BuildGenerator : ProjectGenerator {
 		NativePath tempobj = NativePath(bs.targetPath)~objName;
 		string objPath = tempobj.toNativeString();
 		bs.libs = null;
+		bs.frameworks = null;
 		bs.lflags = null;
 		bs.sourceFiles = [ srcFile ];
 		bs.targetType = TargetType.object;
@@ -647,6 +648,7 @@ class BuildGenerator : ProjectGenerator {
 
 			// setup compiler command line
 			buildsettings.libs = null;
+			buildsettings.frameworks = null;
 			buildsettings.lflags = null;
 			if (generate_binary) buildsettings.addDFlags("-c", "-of"~tempobj.toNativeString());
 			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(settings.platform, f)).array;

@@ -2,6 +2,18 @@
 
 . $(dirname "${BASH_SOURCE[0]}")/common.sh
 
+# When pipeing the dub output it is possible for head/tail to extract
+# the output line before dub finished printing leading to dub
+# receiving SIGPIPE. With pipefail this would fail the whole $()
+# invocation leading to a ERROR result but, since $() invokes a
+# subshell, the rest of the test still continue (and passes). The end
+# result are 2 log lines, one for success and one for failure, for
+# this single test file.
+#
+# The command that consistently fails for me is:
+# $DUB list foo@'>0.1.0' | head -n 2 | tail -n 1
+set +o pipefail
+
 DUBPKGPATH=${DPATH+"$DPATH/dub/packages/dub"}
 DUBPKGPATH=${DUBPKGPATH:-"$HOME/.dub/packages/dub"}
 

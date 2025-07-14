@@ -11,8 +11,8 @@ import dub.compilers.compiler;
 import dub.data.settings : SPS = SkipPackageSuppliers, Settings;
 import dub.dependency;
 import dub.dependencyresolver;
+import dub.internal.io.realfs;
 import dub.internal.utils;
-import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.url;
 import dub.internal.logging;
@@ -20,6 +20,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
 import dub.project;
+import dub.recipe.selection : IntegrityTag;
 import dub.generators.generator;
 import dub.init;
 
@@ -28,10 +29,11 @@ import std.array : array, replace;
 import std.conv : text, to;
 import std.encoding : sanitize;
 import std.exception : enforce;
-import std.file;
+import std.file : tempDir, thisExePath;
 import std.process : environment;
 import std.range : assumeSorted, empty;
 import std.string;
+import std.typecons : Nullable, nullable;
 
 static this()
 {
@@ -118,6 +120,7 @@ deprecated unittest
 */
 class Dub {
 	protected {
+		Filesystem fs;
 		bool m_dryRun = false;
 		PackageManager m_packageManager;
 		PackageSupplier[] m_packageSuppliers;
@@ -153,22 +156,30 @@ class Dub {
 					as well as the default suppliers.
 	*/
 	this(string root_path = ".", PackageSupplier[] base = null,
-			SkipPackageSuppliers skip = SkipPackageSuppliers.none)
+			Nullable!SkipPackageSuppliers skip = Nullable!SkipPackageSuppliers.init)
 	{
+		this(new RealFS(), root_path, base, skip);
+	}
+	this(string root_path, PackageSupplier[] base, SkipPackageSuppliers skip) {
+		this(root_path, base, nullable(skip));
+	}
+
+	package this (Filesystem fs, string root_path, PackageSupplier[] base = null,
+		Nullable!SkipPackageSuppliers skip = Nullable!SkipPackageSuppliers.init)
+	{
+		this.fs = fs;
 		m_rootPath = NativePath(root_path);
-		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
+		if (!m_rootPath.absolute) m_rootPath = fs.getcwd() ~ m_rootPath;
 
 		init();
 
-		if (skip == SkipPackageSuppliers.default_) {
-			// If unspecified on the command line, take
-			// the value from the configuration files, or
-			// default to none.
-			skip = m_config.skipRegistry.set ? m_config.skipRegistry.value : SkipPackageSuppliers.none;
-		}
+		// If unspecified on the command line, take the value from the
+		// configuration files, or default to none.
+		auto skipValue = skip.get(
+			m_config.skipRegistry.set ? m_config.skipRegistry.value : SkipPackageSuppliers.none);
 
 		const registry_var = environment.get("DUB_REGISTRY", null);
-		m_packageSuppliers = this.makePackageSuppliers(base, skip, registry_var);
+		m_packageSuppliers = this.makePackageSuppliers(base, skipValue, registry_var);
 		m_packageManager = this.makePackageManager();
 
 		auto ccps = m_config.customCachePaths;
@@ -184,6 +195,10 @@ class Dub {
 			m_packageManager.searchPath = paths;
 		}
 	}
+	package this (Filesystem fs, string root_path, PackageSupplier[] base,
+	              SkipPackageSuppliers skip) {
+        this(fs, root_path, base, nullable(skip));
+    }
 
 	/** Initializes the instance with a single package search path, without
 		loading a package.
@@ -201,9 +216,10 @@ class Dub {
 	{
 		// Note: We're doing `init()` before setting the `rootPath`,
 		// to prevent `init` from reading the project's settings.
+		this.fs = new RealFS();
 		init();
 		this.m_rootPath = root;
-		m_packageManager = new PackageManager(pkg_root);
+		m_packageManager = new PackageManager(pkg_root, this.fs);
 	}
 
 	deprecated("Use the overload that takes `(NativePath pkg_root, NativePath root)`")
@@ -222,12 +238,15 @@ class Dub {
 	 */
 	protected PackageManager makePackageManager()
 	{
-		return new PackageManager(m_rootPath, m_dirs.userPackages, m_dirs.systemSettings, false);
+		const local =  this.m_rootPath ~ ".dub/packages/";
+		const user =  m_dirs.userPackages ~ "packages/";
+		const system = m_dirs.systemSettings ~ "packages/";
+		return new PackageManager(this.fs, local, user, system);
 	}
 
 	protected void init()
 	{
-		this.m_dirs = SpecialDirs.make();
+		this.m_dirs = SpecialDirs.make(this.fs);
 		this.m_config = this.loadConfig(this.m_dirs);
 		this.m_defaultCompiler = this.determineDefaultCompiler();
 	}
@@ -253,13 +272,13 @@ class Dub {
 	{
 		import dub.internal.configy.easy;
 
-		static void readSettingsFile (NativePath path_, ref Settings current)
+		static void readSettingsFile (in Filesystem fs, NativePath path_, ref Settings current)
 		{
 			// TODO: Remove `StrictMode.Warn` after v1.40 release
 			// The default is to error, but as the previous parser wasn't
 			// complaining, we should first warn the user.
 			const path = path_.toNativeString();
-			if (path.exists) {
+			if (fs.existsFile(path_)) {
 				auto newConf = parseConfigFileSimple!Settings(path, StrictMode.Warn);
 				if (!newConf.isNull())
 					current = current.merge(newConf.get());
@@ -289,11 +308,11 @@ class Dub {
 			}
 		}
 
-		readSettingsFile(dirs.systemSettings ~ "settings.json", result);
-		readSettingsFile(dubFolderPath ~ "../etc/dub/settings.json", result);
+		readSettingsFile(this.fs, dirs.systemSettings ~ "settings.json", result);
+		readSettingsFile(this.fs, dubFolderPath ~ "../etc/dub/settings.json", result);
 		version (Posix) {
 			if (dubFolderPath.absolute && dubFolderPath.startsWith(NativePath("usr")))
-				readSettingsFile(NativePath("/etc/dub/settings.json"), result);
+				readSettingsFile(this.fs, NativePath("/etc/dub/settings.json"), result);
 		}
 
 		// Override user + local package path from system / binary settings
@@ -307,11 +326,11 @@ class Dub {
 		}
 
 		// load user config:
-		readSettingsFile(dirs.userSettings ~ "settings.json", result);
+		readSettingsFile(this.fs, dirs.userSettings ~ "settings.json", result);
 
 		// load per-package config:
 		if (!this.m_rootPath.empty)
-			readSettingsFile(this.m_rootPath ~ "dub.settings.json", result);
+			readSettingsFile(this.fs, this.m_rootPath ~ "dub.settings.json", result);
 
 		// same as userSettings above, but taking into account the
 		// config loaded from user settings and per-package config as well.
@@ -444,7 +463,7 @@ class Dub {
 	@property void rootPath(NativePath root_path)
 	{
 		m_rootPath = root_path;
-		if (!m_rootPath.absolute) m_rootPath = getWorkingDirectory() ~ m_rootPath;
+		if (!m_rootPath.absolute) m_rootPath = this.fs.getcwd() ~ m_rootPath;
 	}
 
 	/// Returns the name listed in the dub.json of the current
@@ -515,7 +534,7 @@ class Dub {
 	void loadPackage(NativePath path)
 	{
 		auto pack = this.m_packageManager.getOrLoadPackage(
-			path, NativePath.init, false, StrictMode.Warn);
+			path, NativePath.init, PackageName.init, StrictMode.Warn);
 		this.loadPackage(pack);
 	}
 
@@ -524,6 +543,10 @@ class Dub {
 	{
 		auto selections = Project.loadSelections(pack.path, m_packageManager);
 		m_project = new Project(m_packageManager, pack, selections);
+		if (pack.recipePath().head == "package.json") {
+			logWarn("Using `package.json` is deprecated as it may conflict with other package managers");
+			logWarn("Rename 'package.json' to 'dub.json'. Loading dependencies using 'package.json' will still work.");
+		}
 	}
 
 	/** Loads a single file package.
@@ -559,12 +582,11 @@ class Dub {
 	void loadSingleFilePackage(NativePath path)
 	{
 		import dub.recipe.io : parsePackageRecipe;
-		import std.file : readText;
 		import std.path : baseName, stripExtension;
 
 		path = makeAbsolute(path);
 
-		string file_content = readText(path.toNativeString());
+		string file_content = this.fs.readText(path);
 
 		if (file_content.startsWith("#!")) {
 			auto idx = file_content.indexOf('\n');
@@ -726,8 +748,14 @@ class Dub {
 
 			FetchOptions fetchOpts;
 			fetchOpts |= (options & UpgradeOptions.preRelease) != 0 ? FetchOptions.usePrerelease : FetchOptions.none;
-			if (!pack) this.fetch(name, ver.version_, fetchOpts, defaultPlacementLocation, "getting selected version");
-			if ((options & UpgradeOptions.select) && name.toString() != m_project.rootPackage.name) {
+			if (!pack) {
+				auto tag = this.m_project.selections.getIntegrityTag(name);
+				const isInitTag = tag is typeof(tag).init;
+				this.fetch(name, ver.version_, fetchOpts, defaultPlacementLocation, tag);
+				if (isInitTag)
+					this.m_project.selections.selectVersion(name, ver.version_, tag);
+			}
+			else if ((options & UpgradeOptions.select) && name.toString() != m_project.rootPackage.name) {
 				if (!ver.repository.empty) {
 					m_project.selections.selectVersion(name, ver.repository);
 				} else if (ver.path.empty) {
@@ -827,9 +855,9 @@ class Dub {
 			}
 		}
 
-		string configFilePath = (m_project.rootPackage.path ~ "dscanner.ini").toNativeString();
-		if (!args.canFind("--config") && exists(configFilePath)) {
-			settings.runArgs ~= ["--config", configFilePath];
+		const configFilePath = (m_project.rootPackage.path ~ "dscanner.ini");
+		if (!args.canFind("--config") && this.fs.existsFile(configFilePath)) {
+			settings.runArgs ~= ["--config", configFilePath.toNativeString()];
 		}
 
 		settings.runArgs ~= args ~ [m_project.rootPackage.path.toNativeString()];
@@ -880,8 +908,7 @@ class Dub {
 		const cache = this.m_dirs.cache;
 		logInfo("Cleaning", Color.green, "all artifacts at %s",
 			cache.toNativeString().color(Mode.bold));
-		if (existsFile(cache))
-			rmdirRecurse(cache.toNativeString());
+		this.fs.removeDir(cache, true);
 	}
 
 	/// Ditto
@@ -891,10 +918,8 @@ class Dub {
 		logInfo("Cleaning", Color.green, "artifacts for package %s at %s",
 			pack.name.color(Mode.bold),
 			cache.toNativeString().color(Mode.bold));
-
 		// TODO: clear target files and copy files
-		if (existsFile(cache))
-			rmdirRecurse(cache.toNativeString());
+		this.fs.removeDir(cache, true);
 	}
 
 	deprecated("Use the overload that accepts either a `Version` or a `VersionRange` as second argument")
@@ -940,6 +965,10 @@ class Dub {
 	 *   options = A set of options used for fetching / matching versions.
 	 *   location = Where to store the retrieved package. Default to the
 	 *              configured `defaultPlacementLocation`.
+	 *   tag = Dual-purpose `IntegrityTag` parameter. If it is specified
+	 *         (in its non-`init` state), then it will be used to verify
+	 *         the content of the download. If it is left in its init state,
+	 *         it will be populated with a sha512 checksum post-download.
 	 *   reason = Optionally, the reason for retriving this package.
 	 *            This is used only for logging.
 	 *
@@ -952,28 +981,48 @@ class Dub {
 	Package fetch(in PackageName name, in Version vers,
 		FetchOptions options = FetchOptions.none, string reason = "")
 	{
+		IntegrityTag empty;
 		return this.fetch(name, VersionRange(vers, vers), options,
-			this.defaultPlacementLocation, reason);
+			this.defaultPlacementLocation, empty, reason);
 	}
 
 	/// Ditto
 	Package fetch(in PackageName name, in Version vers, FetchOptions options,
 		PlacementLocation location, string reason = "")
 	{
+		IntegrityTag empty;
 		return this.fetch(name, VersionRange(vers, vers), options,
-			this.defaultPlacementLocation, reason);
+			this.defaultPlacementLocation, empty, reason);
+	}
+
+	/// Ditto
+	Package fetch(in PackageName name, in Version vers, FetchOptions options,
+		PlacementLocation location, ref IntegrityTag integrity)
+	{
+		return this.fetch(name, VersionRange(vers, vers), options,
+			this.defaultPlacementLocation, integrity, "getting selected version");
 	}
 
 	/// Ditto
 	Package fetch(in PackageName name, in VersionRange range = VersionRange.Any,
 		FetchOptions options = FetchOptions.none, string reason = "")
 	{
-		return this.fetch(name, range, options, this.defaultPlacementLocation, reason);
+		IntegrityTag empty;
+		return this.fetch(name, range, options, this.defaultPlacementLocation,
+			empty, reason);
 	}
 
 	/// Ditto
 	Package fetch(in PackageName name, in VersionRange range, FetchOptions options,
 		PlacementLocation location, string reason = "")
+	{
+		IntegrityTag empty;
+		return this.fetch(name, range, options, location, empty, reason);
+	}
+
+	/// Ditto
+	Package fetch(in PackageName name, in VersionRange range, FetchOptions options,
+		PlacementLocation location, ref IntegrityTag tag, string reason = "")
 	{
 		Json pinfo;
 		PackageSupplier supplier;
@@ -1030,6 +1079,12 @@ class Dub {
 			import std.zip : ZipException;
 
 			auto data = supplier.fetchPackage(name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			if (tag !is IntegrityTag.init)
+				enforce(tag.matches(data), ("Hash of downloaded package does " ~
+					"not match integrity tag for %s@%s - This can happen if " ~
+					"the version has been re-tagged").format(name.main, range));
+			else
+				tag = IntegrityTag.make(data);
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
@@ -1464,7 +1519,7 @@ class Dub {
 		}
 
 		writePackageRecipe(srcfile.parentPath ~ ("dub."~destination_file_ext), m_project.rootPackage.rawRecipe);
-		removeFile(srcfile);
+		this.fs.removeFile(srcfile);
 	}
 
 	/** Runs DDOX to generate or serve documentation.
@@ -1594,7 +1649,6 @@ class Dub {
 	 */
 	protected string determineDefaultCompiler() const
 	{
-		import std.file : thisExePath;
 		import std.path : buildPath, dirName, expandTilde, isAbsolute, isDirSeparator;
 		import std.range : front;
 
@@ -1624,12 +1678,13 @@ class Dub {
 		if (result.length)
 		{
 			string compilerPath = buildPath(thisExePath().dirName(), result ~ exe);
-			if (existsFile(compilerPath))
+			if (this.fs.existsFile(NativePath(compilerPath)))
 				return compilerPath;
 		}
 		else
 		{
-			auto nextFound = compilers.find!(bin => existsFile(buildPath(thisExePath().dirName(), bin ~ exe)));
+			auto nextFound = compilers.find!(
+				bin => this.fs.existsFile(NativePath(buildPath(thisExePath().dirName(), bin ~ exe))));
 			if (!nextFound.empty)
 				return buildPath(thisExePath().dirName(),  nextFound.front ~ exe);
 		}
@@ -1637,10 +1692,10 @@ class Dub {
 		// If nothing found next to dub, search the user's PATH, starting
 		// with the compiler name from their DUB config file, if specified.
 		auto paths = environment.get("PATH", "").splitter(sep).map!NativePath;
-		if (result.length && paths.canFind!(p => existsFile(p ~ (result ~ exe))))
+		if (result.length && paths.canFind!(p => this.fs.existsFile(p ~ (result ~ exe))))
 			return result;
 		foreach (p; paths) {
-			auto res = compilers.find!(bin => existsFile(p ~ (bin~exe)));
+			auto res = compilers.find!(bin => this.fs.existsFile(p ~ (bin~exe)));
 			if (!res.empty)
 				return res.front;
 		}
@@ -1654,7 +1709,7 @@ class Dub {
 		import dub.test.base : TestDub;
 
 		auto dub = new TestDub(null, ".", null, SkipPackageSuppliers.configured);
-		immutable testdir = getWorkingDirectory() ~ "test-determineDefaultCompiler";
+		immutable testdir = dub.fs.getcwd() ~ "test-determineDefaultCompiler";
 
 		immutable olddc = environment.get("DC", null);
 		immutable oldpath = environment.get("PATH", null);
@@ -1667,19 +1722,18 @@ class Dub {
 		}
 		scope (exit) repairenv("DC", olddc);
 		scope (exit) repairenv("PATH", oldpath);
-		scope (exit) std.file.rmdirRecurse(testdir.toNativeString());
 
 		version (Windows) enum sep = ";", exe = ".exe";
 		version (Posix) enum sep = ":", exe = "";
 
 		immutable dmdpath = testdir ~ "dmd" ~ "bin";
 		immutable ldcpath = testdir ~ "ldc" ~ "bin";
-		ensureDirectory(dmdpath);
-		ensureDirectory(ldcpath);
+		dub.fs.mkdir(dmdpath);
+		dub.fs.mkdir(ldcpath);
 		immutable dmdbin = dmdpath ~ ("dmd" ~ exe);
 		immutable ldcbin = ldcpath ~ ("ldc2" ~ exe);
-		writeFile(dmdbin, null);
-		writeFile(ldcbin, null);
+		dub.fs.writeFile(dmdbin, "dmd");
+		dub.fs.writeFile(ldcbin, "ldc");
 
 		environment["DC"] = dmdbin.toNativeString();
 		assert(dub.determineDefaultCompiler() == dmdbin.toNativeString());
@@ -1933,6 +1987,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		import dub.recipe.json;
 
 		// for sub packages, first try to get them from the base package
+		// FIXME: avoid this, PackageManager.getSubPackage() is costly
 		if (name.main != name) {
 			auto subname = name.sub;
 			auto basepack = getPackage(name.main, dep);
@@ -1948,12 +2003,14 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			return m_rootPackage.basePackage;
 
 		if (!dep.repository.empty) {
+			// note: would handle sub-packages directly
 			auto ret = m_dub.packageManager.loadSCMPackage(name, dep.repository);
 			return ret !is null && dep.matches(ret.version_) ? ret : null;
 		}
 		if (!dep.path.empty) {
 			try {
-				return m_dub.packageManager.getOrLoadPackage(dep.path);
+				// note: would handle sub-packages directly
+				return m_dub.packageManager.getOrLoadPackage(dep.path, NativePath.init, name);
 			} catch (Exception e) {
 				logDiagnostic("Failed to load path based dependency %s: %s", name, e.msg);
 				logDebug("Full error: %s", e.toString().sanitize);
@@ -2053,9 +2110,14 @@ package struct SpecialDirs {
 	NativePath cache;
 
 	/// Returns: An instance of `SpecialDirs` initialized from the environment
+	deprecated("Use the overload that accepts a `Filesystem`")
 	public static SpecialDirs make () {
-		import std.file : tempDir;
+		scope fs = new RealFS();
+		return SpecialDirs.make(fs);
+	}
 
+	/// Ditto
+	public static SpecialDirs make (scope Filesystem fs) {
 		SpecialDirs result;
 		result.temp = NativePath(tempDir);
 
@@ -2069,7 +2131,7 @@ package struct SpecialDirs {
 			result.systemSettings = NativePath("/var/lib/dub/");
 			result.userSettings = NativePath(environment.get("HOME")) ~ ".dub/";
 			if (!result.userSettings.absolute)
-				result.userSettings = getWorkingDirectory() ~ result.userSettings;
+				result.userSettings = fs.getcwd() ~ result.userSettings;
 			result.userPackages = result.userSettings;
 		}
 		result.cache = result.userPackages ~ "cache";

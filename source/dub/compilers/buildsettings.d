@@ -7,16 +7,22 @@
 */
 module dub.compilers.buildsettings;
 
-import dub.internal.vibecompat.inet.path;
-
 import dub.internal.configy.attributes;
+import dub.internal.logging;
+import dub.internal.vibecompat.core.file;
+import dub.internal.vibecompat.inet.path;
+import dub.platform : BuildPlatform, matchesSpecification;
+import dub.recipe.packagerecipe;
 
-import std.array : array;
-import std.algorithm : filter, any;
+import std.array : appender, array;
+import std.algorithm : filter, any, sort;
 import std.path : globMatch;
 import std.typecons : BitFlags;
 import std.algorithm.iteration : uniq;
-import std.range : chain;
+import std.exception : enforce;
+import std.file;
+import std.process : environment;
+import std.range : empty, chain;
 
 /// BuildPlatform specific settings, like needed libraries or additional
 /// include paths.
@@ -31,6 +37,7 @@ struct BuildSettings {
 	string[] dflags;
 	string[] lflags;
 	string[] libs;
+	string[] frameworks;
 	string[] linkerFiles;
 	string[] sourceFiles;
 	string[] injectSourceFiles;
@@ -63,27 +70,11 @@ struct BuildSettings {
 	@byName Flags!BuildRequirement requirements;
 	@byName Flags!BuildOption options;
 
-	BuildSettings dup()
-	const {
-		import std.traits: FieldNameTuple;
-		import std.algorithm: map;
-		import std.typecons: tuple;
-		import std.array: assocArray;
-		BuildSettings ret;
-		foreach (m; FieldNameTuple!BuildSettings) {
-			static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m).dup)))
-				__traits(getMember, ret, m) = __traits(getMember, this, m).dup;
-			else static if (is(typeof(add(__traits(getMember, ret, m), __traits(getMember, this, m)))))
-				add(__traits(getMember, ret, m), __traits(getMember, this, m));
-			else static if (is(typeof(__traits(getMember, ret, m) = __traits(getMember, this, m))))
-				__traits(getMember, ret, m) = __traits(getMember, this, m);
-			else static assert(0, "Cannot duplicate BuildSettings." ~ m);
-		}
-		assert(ret.targetType == targetType);
-		assert(ret.targetName == targetName);
-		assert(ret.importPaths == importPaths);
-		assert(ret.cImportPaths == cImportPaths);
-		return ret;
+	BuildSettings dup() const {
+		// Forwards to `add`, but `add` doesn't handle the first 5 fields
+		// as they are not additive, hence the `tupleof` call.
+		return typeof(return)(this.tupleof[0 .. /* dflags, not included */ 5])
+			.add(this);
 	}
 
 	/**
@@ -92,11 +83,12 @@ struct BuildSettings {
 	 * merged into the root package build settings as well as configuring
 	 * targets for different build types such as `release` or `unittest-cov`.
 	 */
-	void add(in BuildSettings bs)
+	ref BuildSettings add(in BuildSettings bs)
 	{
 		addDFlags(bs.dflags);
 		addLFlags(bs.lflags);
 		addLibs(bs.libs);
+		addFrameworks(bs.frameworks);
 		addLinkerFiles(bs.linkerFiles);
 		addSourceFiles(bs.sourceFiles);
 		addInjectSourceFiles(bs.injectSourceFiles);
@@ -128,6 +120,7 @@ struct BuildSettings {
 		addPostRunEnvironments(bs.postRunEnvironments);
 		addRequirements(bs.requirements);
 		addOptions(bs.options);
+		return this;
 	}
 
 	void addDFlags(in string[] value...) { dflags = chain(dflags, value.dup).uniq.array; }
@@ -136,6 +129,7 @@ struct BuildSettings {
 	void addLFlags(in string[] value...) { lflags ~= value; }
 	void prependLFlags(in string[] value...) { prepend(lflags, value, false); }
 	void addLibs(in string[] value...) { add(libs, value); }
+	void addFrameworks(in string[] value...) { add(frameworks, value); }
 	void addLinkerFiles(in string[] value...) { add(linkerFiles, value); }
 	void addSourceFiles(in string[] value...) { add(sourceFiles, value); }
 	void prependSourceFiles(in string[] value...) { prepend(sourceFiles, value); }
@@ -336,10 +330,11 @@ enum BuildSetting {
 	cImportPaths      = 1<<8,
 	stringImportPaths = 1<<9,
 	options           = 1<<10,
+	frameworks        = 1<<11,
 	none = 0,
 	commandLine = dflags|copyFiles,
 	commandLineSeparate = commandLine|lflags,
-	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|cImportPaths|stringImportPaths|options,
+	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|cImportPaths|stringImportPaths|options|frameworks,
 	noOptions = all & ~options
 }
 
@@ -477,6 +472,147 @@ struct Flags (T) {
         }
 		return res;
 	}
+}
+
+/// Constructs a BuildSettings object from this template.
+void getPlatformSettings(in BuildSettingsTemplate* this_, ref BuildSettings dst,
+	in BuildPlatform platform, NativePath base_path) {
+    getPlatformSettings(*this_, dst, platform, base_path);
+}
+
+/// Ditto
+void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
+	in BuildPlatform platform, NativePath base_path) {
+	dst.targetType = this_.targetType;
+	if (!this_.targetPath.empty) dst.targetPath = this_.targetPath;
+	if (!this_.targetName.empty) dst.targetName = this_.targetName;
+	if (!this_.workingDirectory.empty) dst.workingDirectory = this_.workingDirectory;
+	if (!this_.mainSourceFile.empty) {
+		auto p = NativePath(this_.mainSourceFile);
+		p.normalize();
+		dst.mainSourceFile = p.toNativeString();
+		dst.addSourceFiles(dst.mainSourceFile);
+	}
+
+	string[] collectFiles(in string[][string] paths_map, string pattern)
+	{
+		auto files = appender!(string[]);
+
+		import dub.project : buildSettingsVars;
+		import std.typecons : Nullable;
+
+		static Nullable!(string[string]) envVarCache;
+
+		if (envVarCache.isNull) envVarCache = environment.toAA();
+
+		foreach (suffix, paths; paths_map) {
+			if (!platform.matchesSpecification(suffix))
+				continue;
+
+			foreach (spath; paths) {
+				enforce(!spath.empty, "Paths must not be empty strings.");
+				auto path = NativePath(spath);
+				if (!path.absolute) path = base_path ~ path;
+				if (!existsDirectory(path)) {
+					import std.algorithm : any, find;
+					const hasVar = chain(buildSettingsVars, envVarCache.get.byKey).any!((string var) {
+						return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
+					});
+					if (!hasVar)
+						logWarn("Invalid source/import path: %s", path.toNativeString());
+					continue;
+				}
+
+				auto pstr = path.toNativeString();
+				foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
+					import std.path : baseName, pathSplitter;
+					import std.algorithm.searching : canFind;
+					// eliminate any hidden files, or files in hidden directories. But always include
+					// files that are listed inside hidden directories that are specifically added to
+					// the project.
+					if (d.isDir || pathSplitter(d.name[pstr.length .. $])
+						.canFind!(name => name.length && name[0] == '.'))
+						continue;
+					auto src = NativePath(d.name).relativeTo(base_path);
+					files ~= src.toNativeString();
+				}
+			}
+		}
+
+		return files.data;
+	}
+
+	// collect source files. Note: D source from 'sourcePaths' and C sources from 'cSourcePaths' are joint into 'sourceFiles'
+	dst.addSourceFiles(collectFiles(this_.sourcePaths, "*.d"));
+	dst.addSourceFiles(collectFiles(this_.cSourcePaths, "*.{c,i}"));
+	auto sourceFiles = dst.sourceFiles.sort();
+
+	// collect import files and remove sources
+	import std.algorithm : copy, setDifference;
+
+	auto importFiles =
+		chain(collectFiles(this_.importPaths, "*.{d,di}"), collectFiles(this_.cImportPaths, "*.h"))
+		.array()
+		.sort();
+	immutable nremoved = importFiles.setDifference(sourceFiles).copy(importFiles.release).length;
+	importFiles = importFiles[0 .. $ - nremoved];
+	dst.addImportFiles(importFiles.release);
+
+	dst.addStringImportFiles(collectFiles(this_.stringImportPaths, "*"));
+
+	this_.getPlatformSetting_!("dflags", "addDFlags")(dst, platform);
+	this_.getPlatformSetting_!("lflags", "addLFlags")(dst, platform);
+	this_.getPlatformSetting_!("libs", "addLibs")(dst, platform);
+	this_.getPlatformSetting_!("frameworks", "addFrameworks")(dst, platform);
+	this_.getPlatformSetting_!("sourceFiles", "addSourceFiles")(dst, platform);
+	this_.getPlatformSetting_!("excludedSourceFiles", "removeSourceFiles")(dst, platform);
+	this_.getPlatformSetting_!("injectSourceFiles", "addInjectSourceFiles")(dst, platform);
+	this_.getPlatformSetting_!("copyFiles", "addCopyFiles")(dst, platform);
+	this_.getPlatformSetting_!("extraDependencyFiles", "addExtraDependencyFiles")(dst, platform);
+	this_.getPlatformSetting_!("versions", "addVersions")(dst, platform);
+	this_.getPlatformSetting_!("debugVersions", "addDebugVersions")(dst, platform);
+	this_.getPlatformSetting_!("versionFilters", "addVersionFilters")(dst, platform);
+	this_.getPlatformSetting_!("debugVersionFilters", "addDebugVersionFilters")(dst, platform);
+	this_.getPlatformSetting_!("importPaths", "addImportPaths")(dst, platform);
+	this_.getPlatformSetting_!("cImportPaths", "addCImportPaths")(dst, platform);
+	this_.getPlatformSetting_!("stringImportPaths", "addStringImportPaths")(dst, platform);
+	this_.getPlatformSetting_!("preGenerateCommands", "addPreGenerateCommands")(dst, platform);
+	this_.getPlatformSetting_!("postGenerateCommands", "addPostGenerateCommands")(dst, platform);
+	this_.getPlatformSetting_!("preBuildCommands", "addPreBuildCommands")(dst, platform);
+	this_.getPlatformSetting_!("postBuildCommands", "addPostBuildCommands")(dst, platform);
+	this_.getPlatformSetting_!("preRunCommands", "addPreRunCommands")(dst, platform);
+	this_.getPlatformSetting_!("postRunCommands", "addPostRunCommands")(dst, platform);
+	this_.getPlatformSetting_!("environments", "addEnvironments")(dst, platform);
+	this_.getPlatformSetting_!("buildEnvironments", "addBuildEnvironments")(dst, platform);
+	this_.getPlatformSetting_!("runEnvironments", "addRunEnvironments")(dst, platform);
+	this_.getPlatformSetting_!("preGenerateEnvironments", "addPreGenerateEnvironments")(dst, platform);
+	this_.getPlatformSetting_!("postGenerateEnvironments", "addPostGenerateEnvironments")(dst, platform);
+	this_.getPlatformSetting_!("preBuildEnvironments", "addPreBuildEnvironments")(dst, platform);
+	this_.getPlatformSetting_!("postBuildEnvironments", "addPostBuildEnvironments")(dst, platform);
+	this_.getPlatformSetting_!("preRunEnvironments", "addPreRunEnvironments")(dst, platform);
+	this_.getPlatformSetting_!("postRunEnvironments", "addPostRunEnvironments")(dst, platform);
+	this_.getPlatformSetting_!("buildRequirements", "addRequirements")(dst, platform);
+	this_.getPlatformSetting_!("buildOptions", "addOptions")(dst, platform);
+}
+
+unittest { // issue #1407 - duplicate main source file
+	{
+		BuildSettingsTemplate t;
+		t.mainSourceFile = "./foo.d";
+		t.sourceFiles[""] = ["foo.d"];
+		BuildSettings bs;
+		t.getPlatformSettings(bs, BuildPlatform.init, NativePath("/"));
+		assert(bs.sourceFiles == ["foo.d"]);
+	}
+
+	version (Windows) {{
+		BuildSettingsTemplate t;
+		t.mainSourceFile = "src/foo.d";
+		t.sourceFiles[""] = ["src\\foo.d"];
+		BuildSettings bs;
+		t.getPlatformSettings(bs, BuildPlatform.init, NativePath("/"));
+		assert(bs.sourceFiles == ["src\\foo.d"]);
+	}}
 }
 
 unittest

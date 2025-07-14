@@ -190,6 +190,7 @@ docs/
 %1$s.so
 %1$s.dylib
 %1$s.dll
+lib%1$s.a
 %1$s.a
 %1$s.lib
 %1$s-test-*

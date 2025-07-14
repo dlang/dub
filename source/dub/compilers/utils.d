@@ -151,8 +151,10 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 			}
 			if (settings.libs.length) logDiagnostic("Using direct -l... flags for %s.", settings.libs.array.join(", "));
 		} catch (Exception e) {
-			logDiagnostic("pkg-config failed: %s", e.msg);
-			logDiagnostic("Falling back to direct -l... flags.");
+			logWarn("'pkg-config' does not seem to be installed or functional as it failed with: %s", e.msg);
+			logWarn("'dub' will automatically fall back to directly using '-l' flags, " ~
+				"but this is error prone. Please install 'pkg-config', or use " ~
+				"'lflags' directly.");
 		}
 	}
 }
