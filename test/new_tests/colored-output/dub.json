@@ -1,0 +1,9 @@
+{
+    "name": "test-colored-output",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
