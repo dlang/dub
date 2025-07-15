@@ -1,0 +1,9 @@
+{
+    "name": "5-convert",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
