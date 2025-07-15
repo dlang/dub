@@ -1,0 +1,9 @@
+{
+    "name": "cache-generated-test-config",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
