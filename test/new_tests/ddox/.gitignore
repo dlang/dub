@@ -1,0 +1,17 @@
+/**
+
+!/.gitignore
+!/source/
+!/source/*.d
+!/dub.json
+
+!/custom
+!/custom-tool
+!/default
+
+!/*/dub.sdl
+!/*/source
+!/*/source/*.d
+
+!/custom-tool/public/
+!/custom-tool/public/copied

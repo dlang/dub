@@ -1,0 +1,8 @@
+{
+	"name": "test-ddox",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
