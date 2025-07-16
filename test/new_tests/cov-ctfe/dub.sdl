@@ -1,4 +1,4 @@
-name "test"
+name "cov-ctfe"
 version "1.0.0"
 targetType "executable"
 dflags "-cov=100"
