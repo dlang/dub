@@ -8,7 +8,7 @@ import std.file;
 import std.path;
 import std.stdio;
 
-void main(string[] args)
+void main()
 {
 	auto project = buildNormalizedPath(getcwd, "subproject");
 	chdir(buildNormalizedPath(getcwd, ".."));
@@ -31,10 +31,15 @@ void main(string[] args)
 		dub.defaultCompiler, dub.defaultArchitecture);
 
 	gs.compileCallback = (status, output) {
+		writeln(output);
 		found = output.canFind("FIND_THIS_STRING");
-		if (!found)
-			stderr.writeln("Did not find required string!\nExit status:",
-				status, "\n\nOutput:\n", output);
+		if (!found) {
+			writeln("[ERROR]: Did not find the requiring string!");
+			writeln("Exit status: ", status);
+			writeln("Output:");
+			writeln(output);
+			writeln("[FAIL]: Could not find the requiring string");
+		}
 	};
 
 	stderr.writeln("Checking if building works from a library in a different cwd:");
