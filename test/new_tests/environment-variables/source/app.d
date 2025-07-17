@@ -1,12 +1,12 @@
-/+ dub.json: {
-   "name": "environment_variables"
-} +/
 module environment_variables;
+
+import common;
+
 import std;
 
 void main()
 {
-	auto currDir = environment.get("CURR_DIR", __FILE_FULL_PATH__.dirName());
+	auto currDir = environment.get("CURR_DIR");
 	// preGenerateCommands  uses system.environments < settings.environments < deppkg.environments < root.environments < deppkg.preGenerateEnvironments < root.preGenerateEnvironments
 	// preBuildCommands     uses system.environments < settings.environments < deppkg.environments < root.environments < deppkg.buildEnvironments < root.buildEnvironments < deppkg.preBuildEnvironments < root.preBuildEnvironments
 	// Build tools          uses system.environments < settings.environments < deppkg.environments < root.environments < deppkg.buildEnvironments < root.buildEnvironments
@@ -43,13 +43,17 @@ void main()
 	//      expantion check: system.SYSENVVAREXPCHECK
 	// postRunCommands [in deppkg][in root]
 	//      expantion check: deppkg.VAR4
-	auto res = execute([environment.get("DUB", "dub"), "run", "-f"], [
+	auto res = execute([dub, "run", "-f"], [
 		"PRIORITYCHECK_SYS_SET": "system.PRIORITYCHECK_SYS_SET",
 		"SYSENVVAREXPCHECK":     "system.SYSENVVAREXPCHECK",
 		"VAR5":                  "system.VAR5"
-	], Config.none, size_t.max, currDir.buildPath("environment-variables"));
-	scope (failure)
-		writeln("environment-variables test failed... Testing stdout is:\n-----\n", res.output);
+	], Config.none, size_t.max, "sample");
+	scope (failure) {
+		writeln("environment-variables test failed...");
+		writeln("Testing stdout is:");
+		writeln(res.output);
+		die("environment-variables test failed");
+	}
 
 	// preGenerateCommands [in root]
 	assert(res.output.canFind("root.preGenerate: setting.PRIORITYCHECK_SYS_SET"),       "preGenerate environment variables priority check is failed.");
