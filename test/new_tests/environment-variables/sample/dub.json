@@ -1,9 +1,9 @@
 {
-	"name": "environment-variables",
+	"name": "environment-variables-test",
 	"dependencies": {
-		"deppkg": {"path": "deppkg"}
+		"environment-variables-deppkg": {"path": "deppkg"}
 	},
-	
+
 	"environments": {
 		"ENVIRONMENTS": "root.environments",
 		"VAR1": "root.VAR1",
@@ -40,7 +40,7 @@
 	"postRunEnvironments": {
 		"POST_RUN_ENVIRONMENTS": "root.postRunEnvironments"
 	},
-	
+
 	"preGenerateCommands": [
 		"echo root.preGenerate: $PRIORITYCHECK_SYS_SET",
 		"echo root.preGenerate: $PRIORITYCHECK_SET_DEP",
