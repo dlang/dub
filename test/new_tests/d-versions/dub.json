@@ -1,0 +1,9 @@
+{
+    "name": "test-d-versions",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
