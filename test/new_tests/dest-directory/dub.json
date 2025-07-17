@@ -1,0 +1,9 @@
+{
+    "name": "test-dest-directory",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
