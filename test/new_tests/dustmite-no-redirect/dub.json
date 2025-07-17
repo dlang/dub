@@ -1,0 +1,9 @@
+{
+    "name": "test-dustmite-no-redirect",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
