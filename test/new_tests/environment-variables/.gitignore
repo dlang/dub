@@ -1,0 +1,11 @@
+/sample/*
+
+!/sample
+!/sample/dub.json
+!/sample/dub.settings.json
+!/sample/source/
+
+!/sample/deppkg/
+!/sample/deppkg/dub.json
+!/sample/deppkg/source/
+!/sample/deppkg/dub.settings.json
