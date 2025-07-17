@@ -1,0 +1,9 @@
+{
+    "name": "test-dub-as-a-library-cwd",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
