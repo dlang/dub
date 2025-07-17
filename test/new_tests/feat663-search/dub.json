@@ -1,0 +1,9 @@
+{
+    "name": "test-feat663-search",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
