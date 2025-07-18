@@ -1,0 +1,9 @@
+{
+    "name": "test-frameworks",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
