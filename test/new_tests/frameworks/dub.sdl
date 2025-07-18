@@ -5,6 +5,7 @@ configuration "osx" {
     platforms "osx"
 
     frameworks "Foundation"
+    targetType "executable"
 }
 
 configuration "other" {
