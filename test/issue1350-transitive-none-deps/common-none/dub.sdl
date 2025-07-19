@@ -1,3 +1,0 @@
-name "common-none"
-targetType "none"
-dependency "common-dep" path="../common-dep"

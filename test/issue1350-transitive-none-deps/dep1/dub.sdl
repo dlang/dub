@@ -1,4 +1,0 @@
-name "dep1"
-importPaths "."
-sourceFiles "dep1.d"
-dependency "common-none" path="../common-none"
