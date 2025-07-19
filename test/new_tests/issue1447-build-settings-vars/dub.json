@@ -1,0 +1,8 @@
+{
+	"name": "issue1447-build-settings-vars",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
