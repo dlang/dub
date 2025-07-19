@@ -1,3 +1,3 @@
-name "lib"
+name "issue1408-lib"
 targetType "staticLibrary"
 sourceFiles "lib.d"
