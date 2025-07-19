@@ -1,0 +1,8 @@
+{
+	"name": "issue1477-subpakcage-visuald-paths",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
