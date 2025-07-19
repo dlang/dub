@@ -1,0 +1,8 @@
+{
+	"name": "issue1005-configuration-resolution",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
