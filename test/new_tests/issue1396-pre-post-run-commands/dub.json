@@ -1,0 +1,8 @@
+{
+	"name": "issue1396-pre-post-run-commands",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
