@@ -1,0 +1,8 @@
+{
+	"name": "issue1158-stdin-for-single-files",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
