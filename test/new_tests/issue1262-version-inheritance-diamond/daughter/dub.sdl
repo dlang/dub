@@ -1,0 +1,3 @@
+name "issue1262-diamond-daughter"
+versions "Daughter"
+dependency "issue1262-diamond-diamond" path="../diamond"
