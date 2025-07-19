@@ -1,0 +1,7 @@
+/sample/**
+!/sample/
+!/sample/dub.json
+!/sample/source/
+!/sample/source/*.d
+!/sample/ext/
+!/sample/ext/kekw.d
