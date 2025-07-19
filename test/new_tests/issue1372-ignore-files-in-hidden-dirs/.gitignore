@@ -1,0 +1,6 @@
+sample/*
+!sample/
+!sample/dub.json
+!sample/.hiddensource
+!sample/source/
+!sample/source/*
