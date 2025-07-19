@@ -1,0 +1,8 @@
+{
+	"name": "issue1091-bogus-rebuild",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
