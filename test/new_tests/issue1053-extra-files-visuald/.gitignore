@@ -1,0 +1,6 @@
+/sample/*
+!/sample/
+!/sample/dub.json
+!/sample/text/
+!/sample/shaders
+!/sample/source
