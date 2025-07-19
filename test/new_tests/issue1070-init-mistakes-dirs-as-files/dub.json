@@ -1,0 +1,8 @@
+{
+	"name": "issue1070-ini-tmistakes-dirs-as-files",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
