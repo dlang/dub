@@ -1,0 +1,4 @@
+name "issue1350-dep1"
+importPaths "."
+sourceFiles "dep1.d"
+dependency "issue1350-common-none" path="../common-none"
