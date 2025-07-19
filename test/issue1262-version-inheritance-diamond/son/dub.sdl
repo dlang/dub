@@ -1,3 +1,0 @@
-name "son"
-versions "Son"
-dependency "diamond" path="../diamond"
