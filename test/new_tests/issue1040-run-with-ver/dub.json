@@ -1,0 +1,8 @@
+{
+	"name": "issue1040-run-with-ver",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
