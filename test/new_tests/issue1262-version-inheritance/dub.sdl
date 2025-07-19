@@ -1,0 +1,4 @@
+name "issue1262-version-inheritance"
+versions "Parent"
+dependency "issue1262-daughter" path="daughter"
+dependency "issue1262-son" path="son"
