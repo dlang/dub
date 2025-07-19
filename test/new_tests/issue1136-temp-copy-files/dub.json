@@ -1,0 +1,8 @@
+{
+	"name": "issue1136-temp-copy-files",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
