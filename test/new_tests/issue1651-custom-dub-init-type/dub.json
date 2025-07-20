@@ -1,0 +1,8 @@
+{
+	"name": "issue1651-custom-dub-init-type",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
