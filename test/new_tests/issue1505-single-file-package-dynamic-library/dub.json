@@ -1,0 +1,8 @@
+{
+	"name": "issue1505-single-file-package-dynamic-library",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
