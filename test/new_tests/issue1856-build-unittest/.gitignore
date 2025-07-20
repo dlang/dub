@@ -1,0 +1,6 @@
+/sample/**
+!/sample/
+!/sample/no_ut.d
+!/sample/partial_ut.d
+!/sample/partial_ut2.d
+!/sample/full_ut.d
