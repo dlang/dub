@@ -1,0 +1,8 @@
+{
+	"name": "issue1567-fetch-sub-package",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
