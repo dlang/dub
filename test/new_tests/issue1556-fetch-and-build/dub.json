@@ -1,0 +1,8 @@
+{
+	"name": "issue1556-fetch-and-build",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
