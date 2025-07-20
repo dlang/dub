@@ -1,0 +1,8 @@
+{
+	"name": "issue1856-build-unittest",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
