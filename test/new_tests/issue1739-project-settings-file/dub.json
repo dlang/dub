@@ -1,0 +1,8 @@
+{
+	"name": "issue1739-project-settings-file",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
