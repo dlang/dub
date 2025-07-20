@@ -1,0 +1,8 @@
+{
+	"name": "issue1645-dflags-build",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
