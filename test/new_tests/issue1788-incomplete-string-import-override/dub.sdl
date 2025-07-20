@@ -1,0 +1,4 @@
+name "issue1788-a"
+
+dependency "issue1788-b" path="b"
+dependency "issue1788-c" path="c"
