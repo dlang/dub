@@ -1,0 +1,8 @@
+{
+	"name": "issue2192-environment-variables",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
