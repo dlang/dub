@@ -1,0 +1,8 @@
+{
+	"name": "issue2234-copy-read-only-files",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
