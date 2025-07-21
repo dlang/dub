@@ -1,0 +1,8 @@
+{
+	"name": "issue1867-lowmem",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
