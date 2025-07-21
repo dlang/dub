@@ -1,0 +1,8 @@
+{
+	"name": "issue2046-ignored-optional-with-path",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
