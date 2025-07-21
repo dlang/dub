@@ -1,0 +1,6 @@
+/sample/**
+!/sample/
+!/sample/dub.sdl
+!/sample/dub.settings.json
+!/sample/source/
+!/sample/source/*.d
