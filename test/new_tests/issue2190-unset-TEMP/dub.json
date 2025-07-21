@@ -1,0 +1,8 @@
+{
+	"name": "issue2190-unset-TEMP",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
