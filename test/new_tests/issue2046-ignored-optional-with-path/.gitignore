@@ -1,0 +1,8 @@
+/sample/*
+!/sample/
+!/sample/dub.json
+!/sample/dub.selections.json-nofoo
+!/sample/dub.selections.json-usefoo
+!/sample/libbar/
+!/sample/libfoo/
+!/sample/source/
