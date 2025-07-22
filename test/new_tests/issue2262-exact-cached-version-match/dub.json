@@ -1,0 +1,8 @@
+{
+	"name": "issue2262-exact-cached-version-match",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
