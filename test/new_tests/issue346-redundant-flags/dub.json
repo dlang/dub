@@ -1,0 +1,8 @@
+{
+	"name": "issue346-redundant-flags",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
