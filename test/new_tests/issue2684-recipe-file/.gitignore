@@ -1,0 +1,8 @@
+/sample/**
+!/sample/
+!/sample/dub.json
+!/sample/dubWithAnotherSource.json
+!/sample/source/
+!/sample/source/*.d
+!/sample/anotherSource/
+!/sample/anotherSource/*.d
