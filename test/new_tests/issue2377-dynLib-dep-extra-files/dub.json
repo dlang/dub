@@ -1,0 +1,8 @@
+{
+	"name": "issue2377-dynLib-dep-extra-files",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
