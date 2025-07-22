@@ -1,0 +1,8 @@
+{
+	"name": "issue2684-recipe-file",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
