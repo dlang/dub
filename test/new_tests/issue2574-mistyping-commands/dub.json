@@ -1,0 +1,8 @@
+{
+	"name": "issue2574-mistyping-commands",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
