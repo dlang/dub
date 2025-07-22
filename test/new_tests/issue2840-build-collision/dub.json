@@ -1,0 +1,8 @@
+{
+	"name": "issue2840-build-collision",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
