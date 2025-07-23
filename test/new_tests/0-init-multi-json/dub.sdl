@@ -1,0 +1,2 @@
+name "0-init-multi-json"
+dependency "common" path="../common"
