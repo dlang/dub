@@ -1,0 +1,8 @@
+{
+	"name": "issue564-invalid-upgrade-dependency",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
