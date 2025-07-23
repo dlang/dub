@@ -34,7 +34,7 @@ auto apiFileHandler(string skip, string folder) {
         requestURI.skipOver(skip);
         const reqFile = buildPath(folder, requestURI);
         if (reqFile.exists) {
-            return req.sendFile(res, PosixPath(reqFile));
+            return req.sendFile(res, NativePath(reqFile));
         }
     }
     return toDelegate(&handler);
