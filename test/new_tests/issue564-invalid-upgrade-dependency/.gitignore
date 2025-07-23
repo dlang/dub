@@ -1,0 +1,12 @@
+/sample/**
+!/sample/
+
+!/sample/a-1.0.0/
+!/sample/a-1.1.0/
+!/sample/main/
+
+!/sample/*/dub.json
+!/sample/*/source/
+!/sample/*/source/*.d
+
+!/sample/main/dub.selections.json
