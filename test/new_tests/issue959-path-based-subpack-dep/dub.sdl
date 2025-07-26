@@ -1,0 +1,6 @@
+name "issue959-bar"
+mainSourceFile "main.d"
+targetType "executable"
+
+dependency "issue959-foo" path="foo"
+dependency "issue959-foo:baz" path="foo"
