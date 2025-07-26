@@ -1,5 +1,7 @@
 module test_cache_db;
 
+import common;
+
 import std.path;
 import std.file;
 import std.process;
@@ -8,50 +10,40 @@ import std.json;
 
 void main()
 {
-    const dubhome = __FILE_FULL_PATH__.dirName().dirName().buildNormalizedPath("dubhome");
-    if (exists(dubhome))
+    if (exists(dubHome))
     {
-        rmdirRecurse(dubhome);
+        rmdirRecurse(dubHome);
     }
 
-    const string[string] env = [
-        "DUB_HOME": dubhome,
-    ];
     const fetchProgram = [
-        environment["DUB"],
+        dub,
         "fetch",
         "gitcompatibledubpackage@1.0.4",
     ];
-    auto dubFetch = spawnProcess(fetchProgram, stdin, stdout, stderr, env);
+    auto dubFetch = spawnProcess(fetchProgram);
     wait(dubFetch);
 
     const buildProgramLib = [
-        environment["DUB"],
+		dub,
         "build",
         "--build=debug",
         "--config=lib",
         "gitcompatibledubpackage@1.0.4",
     ];
-    auto dubBuild = spawnProcess(buildProgramLib, stdin, stdout, stderr, env);
+    auto dubBuild = spawnProcess(buildProgramLib);
     wait(dubBuild);
 
     const buildProgramExe = [
-        environment["DUB"],
+        dub,
         "build",
         "--build=debug",
         "--config=exe",
         "gitcompatibledubpackage@1.0.4",
     ];
-    dubBuild = spawnProcess(buildProgramExe, stdin, stdout, stderr, env);
+    dubBuild = spawnProcess(buildProgramExe);
     wait(dubBuild);
 
-    scope (success)
-    {
-        // leave dubhome in the tree for analysis in case of failure
-        rmdirRecurse(dubhome);
-    }
-
-    const buildDbPath = buildNormalizedPath(dubhome, "cache", "gitcompatibledubpackage", "1.0.4", "db.json");
+    const buildDbPath = buildNormalizedPath(dubHome, "cache", "gitcompatibledubpackage", "1.0.4", "db.json");
     assert(exists(buildDbPath), buildDbPath ~ " should exist");
     const buildDbStr = readText(buildDbPath);
     auto json = parseJSON(buildDbStr);
