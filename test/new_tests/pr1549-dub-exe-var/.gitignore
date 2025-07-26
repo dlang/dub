@@ -1,0 +1,6 @@
+/sample/**
+!/sample/
+!/sample/dub.sdl
+!/sample/setmsg.d
+!/sample/source/
+!/sample/source/*.d
