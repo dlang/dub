@@ -1,0 +1,8 @@
+{
+	"name": "issue838-custom-cache-paths",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
