@@ -1,0 +1,9 @@
+{
+	"name": "test-upgrade-subpackages-sample",
+	"dependencies": {
+		"test-upgrade-subpackages-sample:subpack": "*"
+	},
+	"subPackages": [
+		"subpack/"
+	]
+}
