@@ -1,0 +1,8 @@
+{
+	"name": "issue990-download-optional-selected",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
