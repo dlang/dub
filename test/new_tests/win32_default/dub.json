@@ -1,0 +1,8 @@
+{
+	"name": "win32_default",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
