@@ -1,0 +1,8 @@
+{
+	"name": "pr1549-dub-exe-var",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
