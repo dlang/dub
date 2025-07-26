@@ -1,0 +1,8 @@
+{
+	"name": "issue884-init-defer-file-creation",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
