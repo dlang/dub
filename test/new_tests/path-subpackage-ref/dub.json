@@ -1,0 +1,9 @@
+{
+	"name": "path-subpackage-ref",
+	"dependencies": {
+		"path-subpackage-ref:subpack": "*"
+	},
+	"subPackages": [
+		"subpack/"
+	]
+}
