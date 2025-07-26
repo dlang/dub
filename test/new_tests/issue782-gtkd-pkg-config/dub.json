@@ -1,0 +1,8 @@
+{
+	"name": "issue782-gtkd-pkg-config",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
