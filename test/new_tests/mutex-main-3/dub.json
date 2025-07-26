@@ -1,6 +1,6 @@
 {
 	"description": "A minimal D application.",
-	"name": "mutex-main",
+	"name": "mutex-main-3",
 	"targetType": "executable",
 
 	"configurations": [
