@@ -1,0 +1,9 @@
+/sample/**
+!/sample/
+!/sample/issue616-describe-vs-generate-commands/
+!/sample/issue616-subpack/
+!/sample/issue616-subsubpack/
+!/sample/*/dub.json
+!/sample/*/*.sh
+!/sample/*/src/
+!/sample/*/src/**.d
