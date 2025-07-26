@@ -1,0 +1,8 @@
+{
+	"name": "issue674-concurrent-dub",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
