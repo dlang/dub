@@ -1,0 +1,8 @@
+{
+	"name": "issue813-pure-sub-dependency",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
