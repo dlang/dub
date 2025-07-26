@@ -1,4 +1,4 @@
-name "test"
+name "unittest-cov-ctfe"
 version "1.0.0"
 targetType "library"
 dflags "-cov=100"
