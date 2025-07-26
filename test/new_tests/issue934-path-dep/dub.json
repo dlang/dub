@@ -1,0 +1,8 @@
+{
+	"name": "issue934-path-dep",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
