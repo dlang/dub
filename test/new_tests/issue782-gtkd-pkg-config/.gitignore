@@ -1,0 +1,10 @@
+/sample/**
+!/sample/
+!/sample/main/
+!/sample/fake-gtkd/
+!/sample/*/dub.json
+!/sample/*/src/
+!/sample/*/src/**.d
+
+!/sample/fake-gtkd/pkgconfig
+!/sample/fake-gtkd/pkgconfig/fake-gtkd.pc
