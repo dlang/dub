@@ -1,4 +1,4 @@
-name "son"
+name "version-filters-son"
 versions "Son"
 debugVersions "dSon"
 x:versionFilters "Son"
