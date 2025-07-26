@@ -1,0 +1,7 @@
+/sample/**
+!/sample/
+!/sample/dub.sdl
+!/sample/source/
+!/sample/source/*.d
+!/sample/cache/
+!/sample/cache/**
