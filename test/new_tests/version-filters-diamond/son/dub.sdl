@@ -1,0 +1,6 @@
+name "version-filters-diamond-son"
+versions "Son"
+debugVersions "dSon"
+x:versionFilters "Son"
+x:debugVersionFilters "dSon"
+dependency "version-filters-diamond-diamond" path="../diamond"
