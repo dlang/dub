@@ -1,4 +1,4 @@
-name "source-dep"
+name "version-filters-source-dep-ex"
 versions "SourceDep"
 debugVersions "dSourceDep"
 # filter of sourceOnly libs are merged with dependents
