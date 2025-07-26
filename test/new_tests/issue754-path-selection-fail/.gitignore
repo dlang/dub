@@ -1,0 +1,5 @@
+!/dub.selections.json
+!/a-*/
+!/a-*/dub.sdl
+!/a-*/source/
+!/a-*/source/**.d
