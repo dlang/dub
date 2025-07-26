@@ -1,0 +1,8 @@
+/sample/**
+!/sample/
+!/sample/a/
+!/sample/b/
+!/sample/main/
+!/sample/*/dub.sdl
+!/sample/*/source/
+!/sample/*/source/*.d
