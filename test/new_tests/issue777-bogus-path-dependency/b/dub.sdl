@@ -1,0 +1,10 @@
+name "issue777-b"
+targetType "none"
+
+configuration "a" {
+	dependency "issue777-c" version="*"
+}
+
+configuration "b" {
+	dependency "issue777-c" path="../c-err"
+}
