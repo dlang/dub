@@ -1,0 +1,8 @@
+{
+	"name": "version-spec",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
