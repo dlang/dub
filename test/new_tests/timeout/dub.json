@@ -1,0 +1,8 @@
+{
+	"name": "timeout",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
