@@ -1,0 +1,8 @@
+{
+	"name": "issue586-subpack-dep",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
