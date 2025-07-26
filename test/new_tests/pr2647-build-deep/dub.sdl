@@ -1,2 +1,3 @@
 name "pr2647-build-deep";
 targetType "executable";
+dependency "common" path="../common";
