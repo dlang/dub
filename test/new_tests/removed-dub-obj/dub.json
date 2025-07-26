@@ -1,0 +1,8 @@
+{
+	"name": "removed-dub-obj",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
