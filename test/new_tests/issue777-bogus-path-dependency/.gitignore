@@ -1,0 +1,7 @@
+!/dub.selections.json
+!/b/
+!/c/
+!/c-err/
+!/*/dub.sdl
+!/*/source/
+!/*/source/**.d
