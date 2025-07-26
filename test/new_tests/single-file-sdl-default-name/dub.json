@@ -1,0 +1,8 @@
+{
+	"name": "single-file-sdl-default-name",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
