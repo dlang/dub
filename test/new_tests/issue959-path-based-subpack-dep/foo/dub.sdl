@@ -1,8 +1,8 @@
-name "foo"
+name "issue959-foo"
 targetType "sourceLibrary"
 
 subPackage {
     name "baz"
     targetType "sourceLibrary"
-    dependency "foo"  path="."
+    dependency "issue959-foo"  path="."
 }
