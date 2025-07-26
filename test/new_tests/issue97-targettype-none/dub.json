@@ -1,0 +1,8 @@
+{
+	"name": "issue97-targettype-none",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
