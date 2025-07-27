@@ -1,0 +1,8 @@
+{
+	"name": "issue820-extra-fields-after-convert",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
