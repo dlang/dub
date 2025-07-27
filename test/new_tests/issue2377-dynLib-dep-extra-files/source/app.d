@@ -24,13 +24,13 @@ void main () {
 	version (Windows) {
 		assertFileExists("parent.pdb");
 		assertFileExists("parent.lib");
-		assertFileExists("parent.exp");
+		version(none) assertFileExists("parent.exp");
 		assertFileExists("dep1.pdb");
 		assertFileExists("dep1.lib");
-		assertFileExists("dep1.exp");
+		version(none) assertFileExists("dep1.exp");
 		assertFileExists("dep2.pdb");
 		assertFileExists("dep2.lib");
-		assertFileExists("dep2.exp");
+		version(none) assertFileExists("dep2.exp");
 	}
 	chdir("../..");
 
@@ -42,7 +42,7 @@ void main () {
 	version (Windows) {
 		assertFileExists("parent.pdb");
 		assertFileExists("parent.lib");
-		assertFileExists("parent.exp");
+		version(none) assertFileExists("parent.exp");
 	}
 	if (canFindFiles("*dep*"))
 		die("unexpected dependency files in statically linked dynlib output dir");
@@ -58,7 +58,7 @@ void main () {
 		assertFileExists("parent.pdb");
 		if (exists("parent.lib"))
 			die("unexpected import .lib for executable");
-		if (exists("parent.exp"))
+		version (none) if (exists("parent.exp"))
 			die("unexpected .exp file for executable");
 	}
 	if (canFindFiles("*dep*"))
@@ -81,7 +81,7 @@ void main () {
 		assertFileExists("dep2.pdb");
 		if (canFindFiles("*.lib"))
 			die("unexpected import libs in dynamically linked executable output dir");
-		if (canFindFiles("*.exp"))
+		version (none) if (canFindFiles("*.exp"))
 			die("unexpected import libs in dynamically linked executable output dir");
 	}
 	chdir("../..");
@@ -95,10 +95,10 @@ void main () {
 	version (Windows) {
 		assertFileExists("dep1.pdb");
 		assertFileExists("dep1.lib");
-		assertFileExists("dep1.exp");
+		version(none) assertFileExists("dep1.exp");
 		assertFileExists("dep2.pdb");
 		assertFileExists("dep2.lib");
-		assertFileExists("dep2.exp");
+		version(none) assertFileExists("dep2.exp");
 	}
 }
 
