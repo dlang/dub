@@ -1,0 +1,8 @@
+{
+	"name": "issue1037-better-dependency-message",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
