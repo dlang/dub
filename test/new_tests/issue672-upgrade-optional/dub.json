@@ -1,0 +1,8 @@
+{
+	"name": "issue672-upgrade-optional",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
