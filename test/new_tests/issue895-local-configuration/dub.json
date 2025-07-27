@@ -1,0 +1,8 @@
+{
+	"name": "issue895-local-configuration",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
