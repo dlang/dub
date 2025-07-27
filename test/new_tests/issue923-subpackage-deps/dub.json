@@ -1,0 +1,8 @@
+{
+	"name": "issue923-subpackage-deps",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
