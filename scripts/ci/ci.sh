@@ -2,21 +2,36 @@
 
 set -v -e -o pipefail
 
-vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
-dub fetch vibe-d@$vibe_ver # get optional dependency
-dub test --compiler=${DC} -c library-nonet
+testLibraryNonet=1
+if [[ ${DC} =~ gdc|gdmd ]]; then
+    # ICE with gdc-14
+    testLibraryNonet=
+fi
+
+if [[ ${testLibraryNonet} ]]; then
+    vibe_ver=$(jq -r '.versions | .["vibe-d"]' < dub.selections.json)
+    dub fetch vibe-d@$vibe_ver # get optional dependency
+    dub test --compiler=${DC} -c library-nonet --build=unittest
+fi
 
 export DMD="$(command -v $DMD)"
 
-./build.d -preview=in -w -g -debug
+"${DMD}" -run build.d -preview=in -w -g -debug
+
+if [[ ${testLibraryNoNet} ]]; then
+    dub test --compiler=${DC} -b unittest-cov
+fi
 
 if [ "$COVERAGE" = true ]; then
     # library-nonet fails to build with coverage (Issue 13742)
-    dub test --compiler=${DC} -b unittest-cov
-    ./build.d -cov
+    "${DMD}" -run build.d -cov
 else
-    dub test --compiler=${DC} -b unittest-cov
-    ./build.d
+    "${DMD}" -run build.d
 fi
-DUB=`pwd`/bin/dub DC=${DC} dub --single ./test/run-unittest.d
-DUB=`pwd`/bin/dub DC=${DC} test/run-unittest.sh
+
+# force the creation of the coverage dir
+bin/dub --version
+
+# let the runner add the needed flags, in the case of gdmd
+unset DFLAGS
+DC=${DMD} dub run --root test/run_unittest -- -v

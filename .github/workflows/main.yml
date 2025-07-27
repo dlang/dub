@@ -74,6 +74,8 @@ jobs:
           - { dc: ldc-master, do_test: true }
           # Test on ARM64
           - { os: macOS-14, dc: ldc-latest, do_test: true }
+          - { os: ubuntu-24.04, dc: gdc-13, do_test: false } # ice when building tests
+          - { os: ubuntu-24.04, dc: gdc-14, do_test: true }
         exclude:
           # Error with those versions:
           # ld: multiple errors: symbol count from symbol table and dynamic symbol table differ in [.../dub.o]; address=0x0 points to section(2) with no content in '[...]/osx/lib/libphobos2.a[3177](config_a68_4c3.o)'
@@ -96,13 +98,28 @@ jobs:
     - name: '[Linux] Install dependencies'
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev netcat
+        sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev netcat-openbsd
 
     # Compiler to test with
     - name: Prepare compiler
-      uses: dlang-community/setup-dlang@v1
+      uses: dlang-community/setup-dlang@v2
       with:
         compiler: ${{ matrix.dc }}
+
+    - name: Set environment variables
+      shell: bash
+      run: |
+        for name in DC DMD; do
+          var=${!name}
+          var=$(basename "${var}")
+          var=${var%.exe} # strip the extension
+          export "${name}=${var}"
+          tee -a ${GITHUB_ENV} <<<"${name}=${var}"
+        done
+
+        if [[ ${{ matrix.dc }} == gdc-13 ]]; then
+          tee -a ${GITHUB_ENV} <<<"DFLAGS=-Wno-error"
+        fi
 
     # Checkout the repository
     - name: Checkout
@@ -115,7 +132,6 @@ jobs:
       run: |
         dub build --compiler=${{ env.DC }}
         if [[ ${{ matrix.do_test }} == 'true' ]]; then
-          dub run   --compiler=${{ env.DC }} --single test/issue2051_running_unittests_from_dub_single_file_packages_fails.d
           ./scripts/ci/ci.sh
         fi
 
@@ -127,19 +143,7 @@ jobs:
         dub build --compiler=${{ env.DC }}
         if [[ ${{ matrix.do_test }} == 'true' ]]; then
           dub test  --compiler=${{ env.DC }}
-          dub run   --compiler=${{ env.DC }} --single test/issue2051_running_unittests_from_dub_single_file_packages_fails.d
-          dub --single test/run-unittest.d
-
-          # FIXME: DMD fails a few tests on Windows; remove them for now
-          if [[ '${{ matrix.dc }}' = dmd* ]]; then
-            # DLL support is lacking
-            rm -rf test/{1-dynLib-simple,2-dynLib-dep,2-dynLib-with-staticLib-dep}
-            # Unicode in paths too
-            rm -rf test/issue130-unicode-СНА*
-            # ImportC probably requires set-up MSVC environment variables
-            rm -rf test/use-c-sources
-          fi
-          test/run-unittest.sh
+          dub run --root test/run_unittest -- -v
         fi
       shell: bash
 
