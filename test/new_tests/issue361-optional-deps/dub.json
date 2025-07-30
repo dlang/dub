@@ -1,0 +1,8 @@
+{
+	"name": "issue361-optional-deps",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

@@ -1,0 +1,8 @@
+{
+	"name": "issue686-multiple-march",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

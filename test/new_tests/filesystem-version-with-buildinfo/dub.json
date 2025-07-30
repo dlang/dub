@@ -1,0 +1,9 @@
+{
+    "name": "test-filesystem-version-with-buildinfo",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

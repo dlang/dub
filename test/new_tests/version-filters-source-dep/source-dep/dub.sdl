@@ -1,0 +1,7 @@
+name "version-filters-source-dep-ex"
+versions "SourceDep"
+debugVersions "dSourceDep"
+# filter of sourceOnly libs are merged with dependents
+x:versionFilters "SourceDep"
+x:debugVersionFilters "dSourceDep"
+targetType "sourceLibrary"

@@ -1,0 +1,8 @@
+{
+	"name": "issue616-describe-vs-generate-commands",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

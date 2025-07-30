@@ -1,0 +1,8 @@
+{
+	"name": "issue1053-extra-files-visuald",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

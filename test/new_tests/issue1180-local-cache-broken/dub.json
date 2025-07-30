@@ -1,0 +1,11 @@
+{
+	"name": "issue1180-local-cache-broken",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		},
+		"test_registry_helper": {
+			"path": "../extra/test_registry"
+		}
+	}
+}

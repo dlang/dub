@@ -1,3 +1,0 @@
-name "lib"
-targetType "staticLibrary"
-sourceFiles "lib.d"

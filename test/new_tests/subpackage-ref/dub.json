@@ -1,0 +1,11 @@
+{
+	"name": "subpackage-ref",
+	"dependencies": {
+		"subpackage-ref:subpack": "*"
+	},
+	"subPackages": [
+		{
+			"name": "subpack"
+		}
+	]
+}

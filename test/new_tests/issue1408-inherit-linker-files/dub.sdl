@@ -1,0 +1,14 @@
+name "issue1408-inherit-linker-files"
+targetType "executable"
+dependency ":dep" version="*"
+sourceFiles "main.d"
+// make lib.d available for import
+importPaths "."
+
+subPackage {
+	name "dep"
+	sourceFiles "dep.d"
+	sourceFiles "lib/libissue1408-lib.a" platform="posix"
+	sourceFiles "lib/issue1408-lib.lib" platform="windows"
+	preBuildCommands "$DUB_EXE build --root=\"$PACKAGE_DIR/lib\""
+}

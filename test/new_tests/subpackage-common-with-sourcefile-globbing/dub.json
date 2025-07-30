@@ -1,0 +1,8 @@
+{
+	"name": "subpackage-common-with-sourcefile-globbing",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

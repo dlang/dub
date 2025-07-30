@@ -1,0 +1,8 @@
+{
+	"name": "issue2012-dc-env",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

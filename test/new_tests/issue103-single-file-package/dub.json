@@ -1,0 +1,8 @@
+{
+	"name": "issue103-single-file-package",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

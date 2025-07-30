@@ -1,0 +1,9 @@
+/sample/**
+!/sample/
+!/sample/dub.sdl
+!/sample/source/
+!/sample/source/*.d
+!/sample/subpkg/
+!/sample/subpkg/dub.sdl
+!/sample/subpkg/source/
+!/sample/subpkg/source/*.d
