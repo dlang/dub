@@ -7,7 +7,7 @@ ARG DCBIN
 
 # Build dub (and install tests dependencies in the process)
 WORKDIR /root/build/
-RUN apk add --no-cache bash build-base curl curl-dev dtools dub git grep rsync $DCPKG
+RUN apk add --no-cache bash build-base curl curl-dev dtools dub git grep rsync lld $DCPKG
 ADD . /root/build/
 RUN dub test --compiler=$DCBIN && dub build --compiler=$DCBIN
 
