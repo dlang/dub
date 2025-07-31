@@ -700,9 +700,9 @@ class ProjectGenerator
 				ti.pack.path ~ ".dub/metadata_cache.json", e);
 		}
 
-		// use ctRegex for performance reasons, only small compile time increase
-		enum verRE = ctRegex!`(?:^|\s)version\s*\(\s*([^\s]*?)\s*\)`;
-		enum debVerRE = ctRegex!`(?:^|\s)debug\s*\(\s*([^\s]*?)\s*\)`;
+		// force RT, due to CT costs being very noticable of std.regex
+		auto verRE = regex(`(?:^|\s)version\s*\(\s*([^\s]*?)\s*\)`);
+		auto debVerRE = regex(`(?:^|\s)debug\s*\(\s*([^\s]*?)\s*\)`);
 
 		auto versionFilters = appender!(string[]);
 		auto debugVersionFilters = appender!(string[]);
