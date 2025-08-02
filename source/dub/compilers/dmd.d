@@ -99,11 +99,29 @@ config    /etc/dmd.conf
 		assert(c && c.length > 1 && c[1] == "2.084.0-beta.1");
 	}
 
-	string determineVersion(string compiler_binary, string verboseOutput)
+	string determineVersion(in BuildPlatform platform, string verboseOutput)
 	{
-		import std.regex : matchFirst, regex;
-		auto ver = matchFirst(verboseOutput, regex(dmdVersionRe, "m"));
-		return ver && ver.length > 1 ? ver[1] : null;
+		// Find the backend version of the compiler, not the dmd FE.
+		// Specificically, for gdmd-14 this function should return
+		// 14.X.Y not 2.108.Z
+		switch (platform.compiler) {
+		case "dmd":
+		case "ldc":
+			{
+				import std.regex : matchFirst, regex;
+				auto ver = matchFirst(verboseOutput, regex(dmdVersionRe, "m"));
+				return ver && ver.length > 1 ? ver[1] : null;
+			}
+		case "gdc":
+			{
+				import std.process;
+				const result = execute([platform.compilerBinary, "-q,-dumpfullversion", "--version"]);
+				return result.status == 0 ? result.output : null;
+			}
+		default:
+			throw new UnknownCompilerException(platform.compiler);
+		}
+
 	}
 
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)

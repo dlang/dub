@@ -54,10 +54,10 @@ class GDCCompiler : Compiler {
 
 	@property string name() const { return "gdc"; }
 
-	string determineVersion(string compiler_binary, string verboseOutput)
+	string determineVersion(in BuildPlatform platform, string verboseOutput)
 	{
 		const result = execute([
-			compiler_binary,
+			platform.compilerBinary,
 			"-dumpfullversion",
 			"-dumpversion"
 		]);

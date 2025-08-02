@@ -69,7 +69,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 		assert(c && c.length > 1 && c[1] == "1.11.0");
 	}
 
-	string determineVersion(string compiler_binary, string verboseOutput)
+	string determineVersion(in BuildPlatform platform, string verboseOutput)
 	{
 		import std.regex : matchFirst, regex;
 		auto ver = matchFirst(verboseOutput, regex(ldcVersionRe, "m"));
