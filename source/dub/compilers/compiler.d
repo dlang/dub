@@ -132,7 +132,7 @@ interface Compiler {
 	string[] lflagsToDFlags(const string[] lflags) const;
 
 	/// Determines compiler version
-	string determineVersion(string compiler_binary, string verboseOutput);
+	string determineVersion(in BuildPlatform platform, string verboseOutput);
 
 	/** Runs a tool and provides common boilerplate code.
 
@@ -193,8 +193,8 @@ interface Compiler {
 				format("Failed to invoke the compiler %s to determine the build platform: %s",
 				compiler_binary, result.output));
 		BuildPlatform build_platform = readPlatformSDLProbe(result.output);
-		string ver = determineVersion(compiler_binary, result.output).strip;
 		build_platform.compilerBinary = compiler_binary;
+		string ver = determineVersion(build_platform, result.output).strip;
 
 		if (ver.empty) {
 			logWarn(`Could not probe the compiler version for "%s". ` ~
