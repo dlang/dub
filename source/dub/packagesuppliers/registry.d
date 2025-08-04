@@ -135,4 +135,33 @@ class RegistryPackageSupplier : PackageSupplier {
 			.map!(j => SearchResult(j["name"].opt!string, j["description"].opt!string, j["version"].opt!string))
 			.array;
 	}
+
+    /**
+     * This gets a dump of all the packages
+     *
+     * As it is pretty expensive (fetches 140M of JSON as of 2025-04), avoid
+     * calling this. Only used for internal commands.
+     */
+    package(dub) Json getPackageDump (bool force = false) {
+        static import std.file;
+        import dub.internal.logging;
+
+        const cachePath = `registry-cache.json`;
+        auto url = this.m_registryUrl ~ InetPath("api/packages/dump");
+        string data;
+        if (!force && std.file.exists(cachePath)) {
+            logInfo("Using `registry-cache.json` to avoid overloading the registry");
+            data = std.file.readText(cachePath);
+        }
+        else {
+            if (!force) {
+                logWarn("Quering the registry for a list of packages - this is expensive, prefer caching");
+                logWarn("Use caching with `curl https://code.dlang.org/api/packages/dump > %s`", cachePath);
+            } else {
+                logInfo("Querying the registry for a list of packages...");
+            }
+            data = cast(string)retryDownload(url);
+        }
+        return data.parseJson();
+    }
 }

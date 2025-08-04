@@ -141,6 +141,11 @@ unittest {
 	Returns:
 		Whether the cloning succeeded.
 */
+bool cloneRepository(string remote, string reference, NativePath destination) {
+    return cloneRepository(remote, reference, destination.toNativeString());
+}
+
+/// Ditto
 bool cloneRepository(string remote, string reference, string destination)
 {
 	import std.process : Pid, spawnProcess, wait;
@@ -167,4 +172,21 @@ bool cloneRepository(string remote, string reference, string destination)
 	}
 
 	return true;
+}
+
+/**
+ * Upgrade an already checked out repository to the latest version.
+ */
+public bool updateRepository (NativePath path, string reference, string remote = "origin") {
+	import std.process : spawnProcess, wait;
+
+    const pathStr = path.toNativeString();
+	string[] args = [ "git", "-C", pathStr, "fetch", remote ];
+	if (getLogLevel > LogLevel.diagnostic) args ~= "-q";
+	if (wait(spawnProcess(args)) != 0)
+        return false;
+
+	args = [ "git", "-C", pathStr, "checkout", "--detach" ];
+	if (getLogLevel > LogLevel.diagnostic) args ~= "-q";
+    return (wait(spawnProcess(args ~ reference)) == 0);
 }
