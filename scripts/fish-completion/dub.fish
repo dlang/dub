@@ -82,10 +82,13 @@ end
 
 for cmd in dustmite
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l compiler-status    -x -d "Expected compiler status code"
+	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l compiler-text      -x -d "Compiler output (sub) string"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l compiler-regex     -x -d "Compiler output regular expression"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l linker-status      -x -d "Expected linker status code"
+	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l linker-text        -x -d "Linker output (sub) string"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l linker-regex       -x -d "Linker output regular expression"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l program-status     -x -d "Expected program status code"
+	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l program-text       -x -d "Program output (sub) string"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l program-regex      -x -d "Program output regular expression"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l test-package       -x -d "Perform a test run"
 end

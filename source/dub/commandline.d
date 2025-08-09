@@ -2718,8 +2718,11 @@ class DustmiteCommand : PackageBuildCommand {
 		int m_compilerStatusCode = int.min;
 		int m_linkerStatusCode = int.min;
 		int m_programStatusCode = int.min;
+		string m_compilerText;
 		string m_compilerRegex;
+		string m_linkerText;
 		string m_linkerRegex;
+		string m_programText;
 		string m_programRegex;
 		string m_testPackage;
 		bool m_noRedirect;
@@ -2746,10 +2749,13 @@ class DustmiteCommand : PackageBuildCommand {
 	override void prepare(scope CommandArgs args)
 	{
 		args.getopt("compiler-status", &m_compilerStatusCode, ["The expected status code of the compiler run"]);
+		args.getopt("compiler-text", &m_compilerText, ["A (sub) string used to match against the compiler output"]);
 		args.getopt("compiler-regex", &m_compilerRegex, ["A regular expression used to match against the compiler output"]);
 		args.getopt("linker-status", &m_linkerStatusCode, ["The expected status code of the linker run"]);
+		args.getopt("linker-text", &m_linkerText, ["A (sub) string used to match against the linker output"]);
 		args.getopt("linker-regex", &m_linkerRegex, ["A regular expression used to match against the linker output"]);
 		args.getopt("program-status", &m_programStatusCode, ["The expected status code of the built executable"]);
+		args.getopt("program-text", &m_programText, ["A (sub) string used to match against the program output"]);
 		args.getopt("program-regex", &m_programRegex, ["A regular expression used to match against the program output"]);
 		args.getopt("test-package", &m_testPackage, ["Perform a test run - usually only used internally"]);
 		args.getopt("combined", &this.baseSettings.combined, ["Builds multiple packages with one compiler run"]);
@@ -2787,9 +2793,9 @@ class DustmiteCommand : PackageBuildCommand {
 			gensettings.run = m_programStatusCode != int.min || m_programRegex.length;
 			gensettings.runArgs = app_args;
 			gensettings.force = true;
-			gensettings.compileCallback = check(m_compilerStatusCode, m_compilerRegex);
-			gensettings.linkCallback = check(m_linkerStatusCode, m_linkerRegex);
-			gensettings.runCallback = check(m_programStatusCode, m_programRegex);
+			gensettings.compileCallback = check(m_compilerStatusCode, m_compilerText, m_compilerRegex);
+			gensettings.linkCallback = check(m_linkerStatusCode, m_linkerText, m_linkerRegex);
+			gensettings.runCallback = check(m_programStatusCode, m_programText, m_programRegex);
 			try dub.generateProject("build", gensettings);
 			catch (DustmiteMismatchException) {
 				logInfoNoTag("Dustmite test doesn't match.");
@@ -2881,10 +2887,13 @@ class DustmiteCommand : PackageBuildCommand {
 			if (m_compilerName.length) testcmd.formattedWrite(" \"--compiler=%s\"", m_compilerName);
 			if (m_arch.length) testcmd.formattedWrite(" --arch=%s", m_arch);
 			if (m_compilerStatusCode != int.min) testcmd.formattedWrite(" --compiler-status=%s", m_compilerStatusCode);
+			if (m_compilerText.length) testcmd.formattedWrite(" \"--compiler-text=%s\"", m_compilerText);
 			if (m_compilerRegex.length) testcmd.formattedWrite(" \"--compiler-regex=%s\"", m_compilerRegex);
 			if (m_linkerStatusCode != int.min) testcmd.formattedWrite(" --linker-status=%s", m_linkerStatusCode);
+			if (m_linkerText.length) testcmd.formattedWrite(" \"--linker-text=%s\"", m_linkerText);
 			if (m_linkerRegex.length) testcmd.formattedWrite(" \"--linker-regex=%s\"", m_linkerRegex);
 			if (m_programStatusCode != int.min) testcmd.formattedWrite(" --program-status=%s", m_programStatusCode);
+			if (m_programText.length) testcmd.formattedWrite(" \"--program-text=%s\"", m_programText);
 			if (m_programRegex.length) testcmd.formattedWrite(" \"--program-regex=%s\"", m_programRegex);
 			if (this.baseSettings.combined) testcmd ~= " --combined";
 
@@ -2907,7 +2916,7 @@ class DustmiteCommand : PackageBuildCommand {
 		return 0;
 	}
 
-	void delegate(int, string) check(int code_match, string regex_match)
+	void delegate(int, string) check(int code_match, string string_match, string regex_match)
 	{
 		return (code, output) {
 			import std.encoding;
@@ -2920,8 +2929,14 @@ class DustmiteCommand : PackageBuildCommand {
 				throw new DustmiteMismatchException;
 			}
 
+			if (string_match.length > 0 && !output.sanitize.canFind(string_match)) {
+				logInfo("Output doesn't contain (sub) string %s:", string_match);
+				logInfo("%s", output);
+				throw new DustmiteMismatchException;
+			}
+
 			if (regex_match.length > 0 && !match(output.sanitize, regex_match)) {
-				logInfo("Output doesn't match regex:");
+				logInfo("Output doesn't match regex %s:", regex_match);
 				logInfo("%s", output);
 				throw new DustmiteMismatchException;
 			}
