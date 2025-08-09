@@ -1,0 +1,9 @@
+/sample/**
+!/sample/
+!/sample/parent/
+!/sample/dep1/
+!/sample/dep2/
+!/sample/framework/
+!/sample/*/dub.sdl
+!/sample/*/source/
+!/sample/*/source/*.d

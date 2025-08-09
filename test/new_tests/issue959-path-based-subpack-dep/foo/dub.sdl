@@ -1,0 +1,8 @@
+name "issue959-foo"
+targetType "sourceLibrary"
+
+subPackage {
+    name "baz"
+    targetType "sourceLibrary"
+    dependency "issue959-foo"  path="."
+}

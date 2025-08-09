@@ -1,0 +1,14 @@
+name "issue97-targettype-none-onerecipe"
+targetType "none"
+dependency "issue97-targettype-none-onerecipe:a" version="*"
+dependency "issue97-targettype-none-onerecipe:b" version="*"
+subPackage {
+	name "a"
+	targetType "executable"
+	sourcePaths "a/source"
+}
+subPackage {
+	name "b"
+	targetType "executable"
+	sourcePaths "b/source"
+}

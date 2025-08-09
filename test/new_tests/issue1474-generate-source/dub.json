@@ -1,0 +1,9 @@
+{
+    "name": "issue1474-generate-source",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

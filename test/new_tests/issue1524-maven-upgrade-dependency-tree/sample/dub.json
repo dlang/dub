@@ -1,0 +1,6 @@
+{
+	"name": "test",
+	"dependencies": {
+		"maven-dubpackage-a": "~>1.0.5"
+	}
+}

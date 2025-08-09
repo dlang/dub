@@ -1,8 +1,0 @@
-name "test"
-dependency "staticlib-simple" path="../1-staticLib-simple"
-dependency "sourcelib-simple" path="../1-sourceLib-simple"
-targetType "executable"
-
-subConfiguration "staticlib-simple" "foo"
-subConfiguration "bar" "baz"
-subConfiguration "sourcelib-simple" "library"

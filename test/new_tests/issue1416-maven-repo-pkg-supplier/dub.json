@@ -1,0 +1,11 @@
+{
+	"name": "issue1416-maven-repo-pkg-supplier",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		},
+		"test_registry_helper": {
+			"path": "../extra/test_registry"
+		}
+	}
+}

@@ -43,4 +43,4 @@ jobs:
           -f docker/Dockerfile.alpine $(pwd)
 
     - name: Test
-      run: docker run alpine-dub-image
+      run: docker run alpine-dub-image -v

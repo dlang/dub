@@ -1,7 +1,0 @@
-{
-	"name": "test",
-	"dependencies": {
-		"maven-dubpackage": "1.0.5"
-	}
-
-}

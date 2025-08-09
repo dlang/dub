@@ -1,0 +1,4 @@
+name "issue1262-version-inheritance-diamond"
+versions "Parent"
+dependency "issue1262-diamond-daughter" path="daughter"
+dependency "issue1262-diamond-son" path="son"

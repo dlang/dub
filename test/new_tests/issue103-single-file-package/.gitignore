@@ -1,0 +1,6 @@
+sample/*
+!sample/
+!sample/sdl.d
+!sample/json.d
+!sample/no-ext
+!sample/w-dep.d

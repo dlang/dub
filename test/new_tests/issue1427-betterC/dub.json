@@ -1,0 +1,4 @@
+{
+	"name": "issue1427-betterC",
+	"buildOptions": ["betterC"]
+}

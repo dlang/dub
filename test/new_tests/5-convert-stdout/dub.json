@@ -1,0 +1,9 @@
+{
+    "name": "5-convert-stdout",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

@@ -1,0 +1,8 @@
+{
+	"name": "issue1004-override-config",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

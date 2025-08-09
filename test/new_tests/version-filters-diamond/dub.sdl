@@ -1,0 +1,7 @@
+name "version-filters-diamond"
+versions "Parent"
+debugVersions "dParent"
+x:versionFilters "Parent"
+x:debugVersionFilters "dParent"
+dependency "version-filters-diamond-daughter" path="daughter"
+dependency "version-filters-diamond-son" path="son"

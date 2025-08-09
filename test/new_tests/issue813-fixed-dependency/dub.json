@@ -1,0 +1,8 @@
+{
+	"name": "issue813-fixed-dependency",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}
