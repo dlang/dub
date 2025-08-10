@@ -227,6 +227,12 @@ class Project {
 		else return null;
 	}
 
+	/// ditto
+	inout(Package) getDependency(PackageName name, bool is_optional)
+	inout {
+		return getDependency(name.toString, is_optional);
+	}
+
 	/** Returns the name of the default build configuration for the specified
 		target platform.
 
@@ -2039,9 +2045,13 @@ public class SelectedVersions {
 		is a path based selection, or its `Dependency.version_` property is
 		valid and it is a version selection.
 	*/
-	deprecated("Use the overload that accepts a `PackageName`")
 	Dependency getSelectedVersion(string packageId) const
 	{
+		// TODO: we want to deprecate this overload, however we can't really do
+		// that until the selectedPackages exposes PackageName, otherwise this
+		// doesn't work without warning, but obviously should:
+		// foreach (key; project.selections.selectedPackages)
+		//     ... = project.selections.getSelectedVersion(key);
 		const name = PackageName(packageId);
 		return this.getSelectedVersion(name);
 	}
