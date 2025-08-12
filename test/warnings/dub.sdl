@@ -1,0 +1,46 @@
+name "warnings"
+
+configuration "executable" {
+	targetType "executable"
+}
+
+configuration "executable-d" {
+	targetType "executable"
+	versions "Include_Deprecation"
+}
+
+configuration "executable-w" {
+	targetType "executable"
+	versions "Include_Warning"
+}
+
+configuration "executable-dw" {
+	targetType "executable"
+	versions "Include_Deprecation" "Include_Warning"
+}
+
+buildType "no-d" {
+	buildRequirements "silenceDeprecations"
+}
+
+buildType "de" {
+	buildOptions "deprecationErrors"
+}
+
+buildType "dw" {
+	buildOptions "deprecationWarnings"
+}
+
+buildType "de-allow" {
+	buildOptions "deprecationErrors"
+	buildRequirements "allowWarnings"
+}
+
+buildType "dw-allow" {
+	buildOptions "deprecationWarnings"
+	buildRequirements "allowWarnings"
+}
+
+buildType "allow" {
+	buildRequirements "allowWarnings"
+}
