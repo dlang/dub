@@ -1,0 +1,17 @@
+name "dynlib-monolith"
+description "A 'monolithic' dynamic library, linking all dependencies statically (except for shared druntime/Phobos) and exporting only select symbols explicitly via 'export'"
+targetType "dynamicLibrary"
+dependency "inner_dep" path="inner_dep"
+
+# With LDC, `-fvisibility=hidden` is passed down for compiling all dependencies.
+dflags "-fvisibility=hidden" platform="ldc"
+dflags "-fvisibility=hidden" platform="gdc"
+# not supported by DMD
+
+# With LDC on Windows, code ending up in a DLL is compiled with
+# `-fvisibility=public -dllimport=all` by default. So we additionally need to
+# override `-dllimport` to dllimport from the shared druntime/Phobos DLLs only
+# (used by default for dynamic libraries; with static druntime/Phobos via
+# `-link-defaultlib-shared=false`, use `-dllimport=none`).
+# This flag is also passed down to all deps.
+dflags "-dllimport=defaultLibsOnly" platform="windows-ldc"
