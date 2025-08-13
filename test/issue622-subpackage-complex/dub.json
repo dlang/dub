@@ -1,0 +1,15 @@
+{
+    "name": "test",
+    "subPackages": [
+        "./foo/",
+        {
+            "name":"test",
+            "targetType": "executable",
+            "targetName": "test",
+            "version": "~master",
+            "dependencies": {
+                "test:foo": "~master"
+            }
+        }
+    ]
+}
