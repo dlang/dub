@@ -745,7 +745,11 @@ private NativePath getMainSourceFile(in Package prj)
 
 private NativePath getTargetPath(const scope ref BuildSettings bs, const scope ref GeneratorSettings settings)
 {
-	return NativePath(bs.targetPath) ~ settings.compiler.getTargetFileName(bs, settings.platform);
+	auto targetFileName = settings.compiler.getTargetFileName(bs, settings.platform);
+
+	if (!targetFileName.length)
+		return NativePath.init;
+	return NativePath(bs.targetPath) ~ targetFileName;
 }
 
 private string shrinkPath(NativePath path, NativePath base)

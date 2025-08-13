@@ -206,34 +206,43 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
-		assert(settings.targetName.length > 0, "No target name set.");
+		import std.conv: text;
+
+		string targetName()
+		{
+			assert(settings.targetName.length > 0, "No target name set.");
+			return settings.targetName.idup;
+		}
 
 		const p = platform.platform;
 		final switch (settings.targetType) {
-			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
+			case TargetType.autodetect:
+				assert(false,
+					   text("Configurations must have a concrete target type, ", settings.targetName,
+							" has ", settings.targetType));
 			case TargetType.none: return null;
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
 				if (p.canFind("windows"))
-					return settings.targetName ~ ".exe";
+					return targetName ~ ".exe";
 				else if (p.canFind("wasm"))
-					return settings.targetName ~ ".wasm";
-				else return settings.targetName.idup;
+					return targetName ~ ".wasm";
+				else return targetName;
 			case TargetType.library:
 			case TargetType.staticLibrary:
 				if (p.canFind("windows") && !p.canFind("mingw"))
-					return settings.targetName ~ ".lib";
-				else return "lib" ~ settings.targetName ~ ".a";
+					return targetName ~ ".lib";
+				else return "lib" ~ targetName ~ ".a";
 			case TargetType.dynamicLibrary:
 				if (p.canFind("windows"))
-					return settings.targetName ~ ".dll";
+					return targetName ~ ".dll";
 				else if (p.canFind("darwin"))
-					return "lib" ~ settings.targetName ~ ".dylib";
-				else return "lib" ~ settings.targetName ~ ".so";
+					return "lib" ~ targetName ~ ".dylib";
+				else return "lib" ~ targetName ~ ".so";
 			case TargetType.object:
 				if (p.canFind("windows"))
-					return settings.targetName ~ ".obj";
-				else return settings.targetName ~ ".o";
+					return targetName ~ ".obj";
+				else return targetName ~ ".o";
 		}
 	}
 
