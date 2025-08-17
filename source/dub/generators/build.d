@@ -595,9 +595,11 @@ class BuildGenerator : ProjectGenerator {
 
 		scope (failure) {
 			logDiagnostic("FAIL %s %s %s" , buildsettings.targetPath, buildsettings.targetName, buildsettings.targetType);
-			auto tpath = getTargetPath(buildsettings, settings);
-			if (generate_binary && existsFile(tpath))
-				removeFile(tpath);
+			if (generate_binary) {
+				auto tpath = getTargetPath(buildsettings, settings);
+				if (existsFile(tpath))
+					removeFile(tpath);
+			}
 		}
 		if (settings.buildMode == BuildMode.singleFile && generate_binary) {
 			import std.parallelism, std.range : walkLength;
