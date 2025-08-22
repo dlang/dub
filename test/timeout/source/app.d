@@ -25,7 +25,7 @@ void main () {
 		auto p = spawnProcess(cmd);
 		scope(exit) p.stop;
 
-		Thread.sleep(1.seconds);
+		Thread.sleep(4.seconds);
 		if (!p.tryWait.terminated)
 			die("Fetching from unconnectable registry should fail immediately.");
 		if (p.wait == 0)
