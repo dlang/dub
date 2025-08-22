@@ -26,7 +26,7 @@ int main(string[] args) {
 		return 0;
 	}
 
-	auto testDir = buildNormalizedPath(__FILE_FULL_PATH__, "..", "..", "..", "new_tests");
+	auto testDir = buildNormalizedPath(__FILE_FULL_PATH__, "..", "..", "..");
 	chdir(testDir);
 
 	ErrorSink sink;

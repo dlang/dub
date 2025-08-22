@@ -50,7 +50,7 @@ RunnerConfig generateRunnerConfig(ErrorSink sink) {
 	}
 
 	import std.path;
-	immutable fallbackPath = buildNormalizedPath(absolutePath("../../bin/dub"));
+	immutable fallbackPath = buildNormalizedPath(absolutePath("../bin/dub"));
 	config.dubPath = environment.get("DUB", fallbackPath);
 
 	return config;
