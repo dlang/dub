@@ -3,7 +3,7 @@
 	"workingDirectory": ".",
 	"dependencies": {
 		"dub": {
-			"path": "../../../../"
+			"path": "../../../"
 		}
 	}
 }

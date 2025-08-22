@@ -28,7 +28,7 @@ int main(string[] args) {
 		return 0;
 	}
 
-	auto testDir = __FILE_FULL_PATH__.dirName.dirName.dirName.buildPath("new_tests");
+	auto testDir = __FILE_FULL_PATH__.dirName.dirName.dirName;
 	chdir(testDir);
 
 	ErrorSink sink;

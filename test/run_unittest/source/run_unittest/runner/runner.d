@@ -49,7 +49,7 @@ struct Runner {
 
 		const testCases = dirEntries(".", SpanMode.shallow)
 			.filter!`a.isDir`
-			.filter!(a => !canFind(["extra", "common"], a.baseName))
+			.filter!(a => !canFind(["extra", "common", "run_unittest"], a.baseName))
 			.filter!(entry => entry.name.matches(patterns))
 			.map!(a => a.name.baseName)
 			.array;
