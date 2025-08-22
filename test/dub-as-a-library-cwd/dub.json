@@ -1,9 +1,9 @@
 {
-	"name": "dub-as-a-library-cwd",
-	"workingDirectory": ".",
+    "name": "test-dub-as-a-library-cwd",
+    "targetType": "executable",
 	"dependencies": {
-		"dub": {
-			"path": "../.."
+		"common": {
+			"path": "../common"
 		}
 	}
 }

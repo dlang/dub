@@ -1,2 +1,3 @@
 name "pr2642-cache-db";
 targetType "executable";
+dependency "common" path="../common";

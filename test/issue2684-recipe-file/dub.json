@@ -1,9 +1,8 @@
 {
-	"authors": [
-		"Hipreme"
-	],
-	"copyright": "Copyright © 2023, Hipreme",
-	"description": "A minimal D application.",
-	"license": "public domain",
-	"name": "issue2684-recipe-file"
+	"name": "issue2684-recipe-file",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
 }

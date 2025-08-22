@@ -1,0 +1,9 @@
+/sample/**
+!/sample/
+!/sample/dub.json
+!/sample/source/
+!/sample/source/*.d
+!/sample/subpack/
+!/sample/subpack/dub.json
+!/sample/subpack/source/
+!/sample/subpack/source/*.d

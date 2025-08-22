@@ -1,0 +1,9 @@
+{
+    "name": "test-dub_test_root",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

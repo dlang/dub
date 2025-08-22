@@ -1,3 +1,8 @@
 {
-	"name": "test"
+	"name": "issue1773-lint",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
 }

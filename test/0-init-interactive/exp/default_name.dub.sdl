@@ -1,0 +1,5 @@
+name "new-package"
+description "desc"
+authors "author"
+copyright "copy"
+license "gpl"

@@ -1,2 +1,2 @@
-name "test"
-dependency "a" path="a-2.0"
+name "issue754-test"
+dependency "issue754-a" path="a-2.0"

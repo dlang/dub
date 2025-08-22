@@ -1,4 +1,8 @@
 {
-	"name": "test",
-	"stringImportPaths": ["view-$ARCH"]
+	"name": "issue1447-build-settings-vars",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
 }

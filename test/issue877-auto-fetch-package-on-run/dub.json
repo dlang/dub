@@ -1,0 +1,8 @@
+{
+	"name": "issue877-auto-fetch-package-on-run",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

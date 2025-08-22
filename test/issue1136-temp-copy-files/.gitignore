@@ -1,0 +1,6 @@
+sample/**
+!sample/
+!sample/app.d
+!sample/mylib/
+!sample/mylib/dub.sdl
+!sample/mylib/helloworld.txt

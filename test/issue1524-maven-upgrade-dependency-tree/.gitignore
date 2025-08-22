@@ -1,8 +1,7 @@
-.dub
-docs.json
-__dummy.html
-docs/
-*.exe
-*.o
-*.obj
-*.lst
+/sample/**
+!/sample/
+!/sample/dub.json
+!/sample/maven/
+!/sample/maven/**
+!/sample/source/
+!/sample/source/*.d

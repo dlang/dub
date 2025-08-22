@@ -1,4 +1,4 @@
-test
-*.o
-*.exe
-.dub
+sample/*
+!sample/
+!sample/dub.json
+!sample/source/

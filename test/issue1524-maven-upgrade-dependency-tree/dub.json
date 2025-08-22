@@ -1,6 +1,11 @@
 {
-	"name": "test",
+	"name": "issue1524-maven-upgrade-dependency-tree",
 	"dependencies": {
-		"maven-dubpackage-a": "~>1.0.5"
+		"common": {
+			"path": "../common"
+		},
+		"test_registry_helper": {
+			"path": "../extra/test_registry"
+		}
 	}
 }

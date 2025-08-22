@@ -1,0 +1,10 @@
+/sample/**
+!/sample/
+!/sample/main/
+!/sample/sub/
+!/sample/sub/sub
+!/sample/**/dub.sdl
+!/sample/**/src/
+!/sample/**/src/**
+
+!/sample/main/dub.selections.json

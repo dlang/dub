@@ -1,0 +1,4 @@
+{
+	"name": "test",
+	"stringImportPaths": ["view-$ARCH"]
+}

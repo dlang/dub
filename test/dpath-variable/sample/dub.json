@@ -1,0 +1,6 @@
+{
+	"name": "dpath-variable",
+	"dependencies": {
+		"gitcompatibledubpackage": "1.0.1"
+	}
+}

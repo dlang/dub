@@ -1,0 +1,10 @@
+{
+    "name": "root",
+    "targetType": "none",
+    "dependencies": {
+        "root:sub": "*"
+    },
+    "subPackages": [
+        "sub"
+    ]
+}

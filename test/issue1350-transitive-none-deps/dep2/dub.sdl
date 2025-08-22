@@ -1,4 +1,4 @@
-name "dep2"
+name "issue1350-dep2"
 importPaths "."
 sourceFiles "dep2.d"
-dependency "common-none" path="../common-none"
+dependency "issue1350-common-none" path="../common-none"

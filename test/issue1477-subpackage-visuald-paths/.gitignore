@@ -1,0 +1,10 @@
+/sample/**
+!/sample/
+!/sample/dub.sdl
+!/sample/source/
+!/sample/source/*.d
+!/sample/sub/
+!/sample/sub/subpackage_a/
+!/sample/sub/subpackage_a/dub.sdl
+!/sample/sub/subpackage_a/source/
+!/sample/sub/subpackage_a/source/*.d

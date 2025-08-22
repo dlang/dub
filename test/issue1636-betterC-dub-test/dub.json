@@ -1,4 +1,8 @@
 {
-	"name": "test",
-	"buildOptions": ["betterC"]
+	"name": "issue1636-betterC-dub-test",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
 }

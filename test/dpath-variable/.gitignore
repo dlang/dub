@@ -1,1 +1,4 @@
-dpath
+/sample/*
+!/sample/
+!/sample/dub.json/
+!/sample/source

@@ -1,10 +1,8 @@
 {
-	"name": "issue1037-better-dependency-messages",
+	"name": "issue1037-better-dependency-message",
 	"dependencies": {
-		"gitcompatibledubpackage": "1.0.1",
-		"b": {
-			"path": "b",
-			"version": "*"
+		"common": {
+			"path": "../common"
 		}
 	}
 }

@@ -1,0 +1,8 @@
+{
+	"name": "issue1691-build-subpkg",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

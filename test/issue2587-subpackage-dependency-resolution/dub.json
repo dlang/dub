@@ -1,0 +1,8 @@
+{
+	"name": "issue2587-subpackage-dependency-resolution",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

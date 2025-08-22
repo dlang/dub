@@ -1,4 +1,4 @@
-name "issue97-targettype-none"
+name "issue97-targettype-none-nodeps"
 targetType "none"
 subPackage "./a/"
 subPackage "./b/"

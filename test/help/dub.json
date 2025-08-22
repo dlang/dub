@@ -1,0 +1,9 @@
+{
+    "name": "test-help",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

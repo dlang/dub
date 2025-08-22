@@ -1,12 +1,11 @@
-*
-!.no_build
-!.no_test
-!.no_run
-!dub.json
-!dub.settings.json
-!source
-!source/app.d
-!deppkg
-!deppkg/dub.json
-!deppkg/source/deppkg/foo.d
+/sample/*
 
+!/sample
+!/sample/dub.json
+!/sample/dub.settings.json
+!/sample/source/
+
+!/sample/deppkg/
+!/sample/deppkg/dub.json
+!/sample/deppkg/source/
+!/sample/deppkg/dub.settings.json

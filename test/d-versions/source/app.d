@@ -1,16 +1,11 @@
-version (FromCli1)
-	enum has1 = true;
-else
-	enum has1 = false;
+import common;
 
-version (FromCli2)
-	enum has2 = true;
-else
-	enum has2 = false;
+import std.file;
+import std.path;
+import std.process;
 
-static assert(has1);
-static assert(has2);
-
-void main()
-{
+void main () {
+	auto p = spawnProcess([dub, "build", "--d-version=FromCli1", "--d-version=FromCli2"], null, Config.none, "sample");
+	if (p.wait != 0)
+		die("dub build failed");
 }

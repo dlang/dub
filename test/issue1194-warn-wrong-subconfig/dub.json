@@ -1,0 +1,8 @@
+{
+	"name": "issue1194-warn-wrong-subconfig",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

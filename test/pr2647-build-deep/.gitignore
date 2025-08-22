@@ -1,2 +1,5 @@
-dubhome/
-pr2647-build-deep
+/sample/**
+!/sample/
+!/sample/dub.sdl
+!/sample/source/
+!/sample/source/*.d

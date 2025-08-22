@@ -1,0 +1,12 @@
+/sample/**
+!/sample/
+!/sample/a/
+!/sample/b/
+!/sample/main1/
+!/sample/main2/
+
+!/sample/*/dub.sdl
+!/sample/*/src/
+!/sample/*/src/*.d
+
+!/sample/main2/dub.selections.json

@@ -1,0 +1,8 @@
+{
+	"name": "issue1531-toolchain-requirements",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

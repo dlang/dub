@@ -1,0 +1,8 @@
+{
+	"name": "issue1024-selective-upgrade",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

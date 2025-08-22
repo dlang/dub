@@ -1,3 +1,9 @@
 {
-	"name": "target-exe"
+    "name": "dub-custom-root",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
 }

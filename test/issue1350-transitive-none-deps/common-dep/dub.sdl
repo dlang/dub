@@ -1,4 +1,4 @@
-name "common-dep"
+name "issue1350-common-dep"
 targetType "library"
 importPaths "."
 sourceFiles "common.d"

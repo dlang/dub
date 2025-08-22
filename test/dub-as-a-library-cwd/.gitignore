@@ -1,1 +1,5 @@
-/dub-as-a-library-cwd
+/sample/*
+!/sample/
+!/sample/source
+!/sample/dub.json
+!/sample/subproject
