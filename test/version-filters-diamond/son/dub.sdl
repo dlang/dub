@@ -1,6 +1,6 @@
-name "son"
+name "version-filters-diamond-son"
 versions "Son"
 debugVersions "dSon"
 x:versionFilters "Son"
 x:debugVersionFilters "dSon"
-dependency "diamond" path="../diamond"
+dependency "version-filters-diamond-diamond" path="../diamond"

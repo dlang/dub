@@ -1,4 +1,9 @@
-depend.json
-depend2.json
-depen-build-settings.json
-depen-build-settings
+!/depend
+!/depend/dub.json
+!/depend/source/*
+
+!/depend/depend2/
+!/depend/depend2/dub.json
+!/depend/depend2/source/*
+
+!/dub.selections.json

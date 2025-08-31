@@ -1,0 +1,8 @@
+{
+	"name": "issue2234_copy_read_only_files",
+	"copyFiles": [
+		"files/to_be_deployed.bin",
+		"files/images"
+	],
+	"targetPath": "bin"
+}

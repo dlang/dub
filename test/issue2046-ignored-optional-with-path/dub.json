@@ -1,6 +1,8 @@
 {
-	"name": "issue2046",
+	"name": "issue2046-ignored-optional-with-path",
 	"dependencies": {
-		"libbar": "*"
+		"common": {
+			"path": "../common"
+		}
 	}
 }

@@ -1,5 +1,8 @@
 {
-    "name": "test",
-    "stringImportPaths": ["$MY_VARIABLE"]
+	"name": "issue1503-envvar-in-path",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
 }
-

@@ -1,6 +1,9 @@
 {
-	"name": "dpath-variable",
+    "name": "test-dpath-variable",
+    "targetType": "executable",
 	"dependencies": {
-		"gitcompatibledubpackage": "1.0.1"
+		"common": {
+			"path": "../common"
+		}
 	}
 }

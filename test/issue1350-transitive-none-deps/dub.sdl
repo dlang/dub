@@ -1,5 +1,5 @@
-name "test"
+name "issue1350-transitive-none-depss"
 targetType "executable"
 sourceFiles "test.d"
-dependency "dep1" path="dep1"
-dependency "dep2" path="dep2"
+dependency "issue1350-dep1" path="dep1"
+dependency "issue1350-dep2" path="dep2"

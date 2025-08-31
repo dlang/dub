@@ -1,5 +1,5 @@
 {
-    "name": "dynlib-exe-dep",
+    "name": "issue2258-dynlib-exe-dep",
 	"targetType": "executable",
     "dependencies": {
         "dynlib-simple": { "path": "../1-dynLib-simple/" }

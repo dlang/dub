@@ -1,10 +1,8 @@
 {
-    "name": "root",
-    "targetType": "none",
-    "dependencies": {
-        "root:sub": "*"
-    },
-    "subPackages": [
-        "sub"
-    ]
+	"name": "issue2086-copyfiles-subpackage-targetpath",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
 }

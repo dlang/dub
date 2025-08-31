@@ -1,5 +1,5 @@
 {
-	"name": "generated-sources-and-source-files-without-glob",
+	"name": "issue2452-generated-sources-and-source-files-without-glob",
 	"description": "Example of using pre generate commands and sourceFiles without glob.",
 	"sourceFiles": ["ext/fortytwo.d"],
 	"preGenerateCommands-posix": [

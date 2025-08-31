@@ -1,0 +1,22 @@
+{
+    "name": "issue1372",
+    "mainSourceFile": "source/app.d",
+    "configurations": [
+        {
+            "name": "normal",
+            "targetType": "executable"
+        },
+        {
+            "name": "hiddenfile",
+            "targetType": "executable",
+            "versions" : ["UseHiddenFile"],
+            "sourceFiles":["source/.compileMe/hello.d"]
+        },
+        {
+            "name": "hiddendir",
+            "targetType": "executable",
+            "versions" : ["UseHiddenFile"],
+            "sourcePaths":["source", ".hiddensource"],
+            "importPaths":["source", ".hiddensource"]
+        }]
+}

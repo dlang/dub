@@ -1,6 +1,9 @@
-.dub
-docs.json
-__dummy.html
-*.o
-*.obj
-/target-exe
+/custom-root/*
+!/custom-root/
+!/custom-root/dub.json
+!/custom-root/source/
+
+/custom-root-2/*
+!/custom-root-2/
+!/custom-root-2/dub.json
+!/custom-root-2/source/

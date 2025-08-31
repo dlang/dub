@@ -1,0 +1,12 @@
+{
+    "name": "describe-json",
+    "targetType": "executable",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		},
+		"describe-test-utils": {
+			"path": "../extra/4-describe/test-utils"
+		}
+	}
+}

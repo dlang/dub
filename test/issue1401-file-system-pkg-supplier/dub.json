@@ -1,0 +1,8 @@
+{
+	"name": "issue1401-file-system-pkg-supplier",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

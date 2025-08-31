@@ -1,0 +1,8 @@
+{
+	"name": "issue2348-postbuildcommands",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
+}

@@ -1,4 +1,8 @@
 {
-	"name": "test",
-	"extraDependencyFiles": ["dependency.txt"]
+	"name": "issue1117-extra-dependency-files",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
 }

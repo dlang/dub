@@ -1,13 +1,16 @@
+import common;
+
 import std.json;
 import std.path;
 import std.process;
-import std.stdio;
 
-string getCacheFile (in string[] program) {
-	auto p = execute(program);
+string getCacheFile (in string[] args) {
+	auto p = execute([dub, "describe"] ~ args);
 	with (p) {
 		if (status != 0) {
-			assert(false, "Failed to invoke dub describe: " ~ output);
+			log("dub describe failed. Output:");
+			log(output);
+			die("Failed to invoke dub describe");
 		}
 		return output.parseJSON["targets"][0]["cacheArtifactPath"].str;
 	}
@@ -21,20 +24,12 @@ void main()
 		string archArg = "x86";
 	else {
 		string archArg;
-		writeln("Skipping because of unsupported architecture");
-		return;
+		skip("Unsupported architecture");
 	}
 
-	const describeProgram = [
-		environment["DUB"],
-		"describe",
-		"--compiler=" ~ environment["DC"],
-		"--root=" ~ __FILE_FULL_PATH__.dirName.dirName,
-	];
-	immutable plainCacheFile = describeProgram.getCacheFile;
+	immutable plainCacheFile = getCacheFile([]);
+	immutable archCacheFile = getCacheFile(["--arch=" ~ archArg]);
 
-	const describeWithArch = describeProgram ~ [ "--arch=" ~ archArg ];
-	immutable archCacheFile = describeWithArch.getCacheFile;
-
-	assert(plainCacheFile == archCacheFile, "--arch shouldn't have modified the cache file");
+	if (plainCacheFile != archCacheFile)
+		die("--arch shouldn't have modified the cache file");
 }

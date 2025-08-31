@@ -1,10 +1,8 @@
 {
-    "name": "root",
-    "targetType": "none",
-    "dependencies": {
-        "root:sub": "*"
-    },
-    "subPackages": [
-        "sub"
-    ]
+	"name": "issue2085-target-none-visuald",
+	"dependencies": {
+		"common": {
+			"path": "../common"
+		}
+	}
 }

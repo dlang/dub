@@ -1,8 +1,5 @@
-.dub
-docs.json
-__dummy.html
-docs/
-*.exe
-*.o
-*.obj
-*.lst
+sample/*
+!sample/
+!sample/dependency.txt
+!sample/dub.json
+!sample/source

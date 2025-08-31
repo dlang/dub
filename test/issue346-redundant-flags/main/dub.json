@@ -1,7 +1,0 @@
-{
-	"name": "main",
-	"dependencies": {
-		"a": {"path": "../a"},
-		"b": {"path": "../b"}
-	}
-}

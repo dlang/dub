@@ -1,6 +1,6 @@
-name "bar"
+name "issue959-bar"
 mainSourceFile "main.d"
 targetType "executable"
 
-dependency "foo" path="foo"
-dependency "foo:baz" path="foo"
+dependency "issue959-foo" path="foo"
+dependency "issue959-foo:baz" path="foo"

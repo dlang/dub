@@ -1,7 +1,7 @@
 {
 	"fileVersion": 1,
 	"versions": {
-		"b": {"path":"b"},
-		"c": {"path":"c"}
+		"issue777-b": {"path":"b"},
+		"issue777-c": {"path":"c"}
 	}
 }

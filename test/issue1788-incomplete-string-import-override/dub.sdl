@@ -1,4 +1,4 @@
-name "a"
+name "issue1788-a"
 
-dependency "b" path="b"
-dependency "c" path="c"
+dependency "issue1788-b" path="b"
+dependency "issue1788-c" path="c"
