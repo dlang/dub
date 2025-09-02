@@ -20,4 +20,4 @@ ENV DC=$DCBIN
 
 # Finally, just run the test-suite
 WORKDIR /root/build/test/
-ENTRYPOINT [ "/root/build/test/run-unittest.sh" ]
+ENTRYPOINT [ "/root/build/bin/dub", "--root", "run_unittest", "--" ]
