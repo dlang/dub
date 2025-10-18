@@ -9,10 +9,10 @@ module dub.compilers.ldc;
 
 import dub.compilers.compiler;
 import dub.compilers.utils;
+import dub.internal.logging;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
-import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
@@ -80,6 +80,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 	{
 		string[] arch_flags;
 		bool arch_override_is_triple = false;
+		// keep the platform arguments below updated with dub-docs! (docs/dub-reference/platform_specifications.md)
 		switch (arch_override) {
 			case "": break;
 			case "x86": arch_flags = ["-march=x86"]; break;

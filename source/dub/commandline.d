@@ -11,15 +11,15 @@ import dub.compilers.compiler;
 import dub.dependency;
 import dub.dub;
 import dub.generators.generator;
+import dub.internal.logging;
+import dub.internal.utils : getClosestMatch, getDUBVersion, getTempFile;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
-import dub.internal.logging;
 import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
 import dub.project;
-import dub.internal.utils : getDUBVersion, getClosestMatch, getTempFile;
 
 import dub.internal.dyaml.stdsumtype;
 
@@ -1306,7 +1306,7 @@ abstract class PackageBuildCommand : Command {
 			"  "~["dmd", "gdc", "ldc", "gdmd", "ldmd"].join(", ")
 		]);
 		args.getopt("a|arch", &m_arch, [
-			"Force a different architecture (e.g. x86 or x86_64)"
+			"Force a different architecture (e.g. x86, x86_64 or aarch64)"
 		]);
 		args.getopt("d|debug", &m_debugVersions, [
 			"Define the specified `debug` version identifier when building - can be used multiple times"
