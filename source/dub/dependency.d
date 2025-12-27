@@ -49,10 +49,13 @@ struct PackageName
 	}
 
 	/// The base package name in which the subpackages may live
-	PackageName main() const return nothrow @nogc
+	PackageName base() const return nothrow @nogc
 	{
 		return PackageName(this.fullName[0 .. this.separator], this.separator);
 	}
+
+	deprecated("Use .base instead.")
+	alias main = base;
 
 	/// The subpackage name, or an empty string if there isn't
 	string sub() const return nothrow @nogc
