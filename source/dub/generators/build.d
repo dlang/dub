@@ -601,10 +601,21 @@ class BuildGenerator : ProjectGenerator {
 		}
 		if (settings.buildMode == BuildMode.singleFile && generate_binary) {
 			import std.parallelism, std.range : walkLength;
+			import std.algorithm : filter, startsWith;
 
 			auto lbuildsettings = buildsettings;
 			auto srcs = buildsettings.sourceFiles.filter!(f => !isLinkerFile(settings.platform, f));
 			auto objs = new string[](srcs.walkLength);
+
+			// Resolve pkg-config flags early to get C preprocessor flags for compilation.
+			// We do this on lbuildsettings first, then copy -P flags to buildsettings.
+			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)).array;
+			settings.compiler.setTarget(lbuildsettings, settings.platform);
+			settings.compiler.prepareBuildSettings(lbuildsettings, settings.platform, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
+
+			// Copy C preprocessor flags (-P...) from linker settings to compiler settings.
+			foreach (flag; lbuildsettings.dflags.filter!(f => f.startsWith("-P")))
+				buildsettings.addDFlags(flag);
 
 			void compileSource(size_t i, string src) {
 				logInfo("Compiling", Color.light_green, "%s", src);
@@ -619,9 +630,6 @@ class BuildGenerator : ProjectGenerator {
 			}
 
 			logInfo("Linking", Color.light_green, "%s", buildsettings.targetName.color(Mode.bold));
-			lbuildsettings.sourceFiles = is_static_library ? [] : lbuildsettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)).array;
-			settings.compiler.setTarget(lbuildsettings, settings.platform);
-			settings.compiler.prepareBuildSettings(lbuildsettings, settings.platform, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
 			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs, settings.linkCallback, settings.toolWorkingDirectory);
 
 		// NOTE: separate compile/link is not yet enabled for GDC.
@@ -645,6 +653,13 @@ class BuildGenerator : ProjectGenerator {
 			lbuildsettings.sourceFiles = lbuildsettings.sourceFiles.filter!(f => isLinkerFile(settings.platform, f)).array;
 			if (generate_binary) settings.compiler.setTarget(lbuildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(lbuildsettings, settings.platform, BuildSetting.commandLineSeparate|BuildSetting.sourceFiles);
+
+			// Copy C preprocessor flags (-P...) from linker settings to compiler settings.
+			// These come from pkg-config --cflags and are needed for ImportC compilation.
+			// We must copy them before clearing libs, since resolveLibs extracts them.
+			import std.algorithm : filter, startsWith;
+			foreach (flag; lbuildsettings.dflags.filter!(f => f.startsWith("-P")))
+				buildsettings.addDFlags(flag);
 
 			// setup compiler command line
 			buildsettings.libs = null;
