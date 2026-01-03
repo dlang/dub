@@ -10,7 +10,7 @@ import common;
 
 int main(string[] args)
 {
-	import std.algorithm, std.file, std.format, std.stdio, std.path, std.process, std.string;
+	import std.algorithm, std.array, std.file, std.format, std.stdio, std.path, std.process, std.string;
 	alias ProcessConfig = std.process.Config;
 
 	//** if [ -z ${DUB:-} ]; then
@@ -182,9 +182,18 @@ int main(string[] args)
 	auto logLines = readText("test.log").splitLines;
 	foreach (line; logLines)
 		writeln(line);
-	auto errCnt = logLines.count!(a => a.startsWith("[ERROR]"));
+	auto errorLines = logLines.filter!(a => a.startsWith("[ERROR]")).array;
 	auto passCnt = logLines.count!(a => a.startsWith("[INFO]") && a.endsWith("status: Ok"));
-	writeln(passCnt , "/", errCnt + passCnt, " tests succeeded.");
+	writeln();
+	writeln(passCnt , "/", errorLines.length + passCnt, " tests succeeded.");
+
+	if (errorLines.length > 0)
+	{
+		writeln();
+		writeln("Failed tests:");
+		foreach (line; errorLines)
+			writeln("  ", line);
+	}
 
 	return any_errors;
 }
