@@ -49,6 +49,7 @@ __dummy.html
 !/test/*/dub.settings.json
 !/test/*/source/
 !/test/*/src/
+!/test/*/api/
 
 # Ignore coverage files
 cov/
