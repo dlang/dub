@@ -88,6 +88,7 @@ for cmd in dustmite
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l program-status     -x -d "Expected program status code"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l program-regex      -x -d "Program output regular expression"
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l test-package       -x -d "Perform a test run"
+	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l timeout            -x -d "Timeout for each oracle invocation in seconds"
 end
 
 for cmd in fetch remove
