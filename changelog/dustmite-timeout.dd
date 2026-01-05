@@ -1,0 +1,6 @@
+Added `--timeout` option to `dub dustmite` command.
+
+Adds a timeout (in seconds) for each oracle invocation, preventing
+the dustmite process from hanging indefinitely when the test command
+does not terminate. Requires the `timeout` command to be available
+(coreutils on Linux/macOS).
