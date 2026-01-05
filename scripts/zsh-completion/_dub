@@ -255,6 +255,7 @@ _dub_dustmite() {
         '--linker-regex=[A regular expression used to match against the linker output]:regex: '
         '--program-status=[The expected status code of the built executable]:status code: '
         '--program-regex=[A regular expression used to match against the program output]:regex: '
+        '--timeout=[Timeout for each oracle invocation in seconds]:seconds: '
         '--[End of dub arguments, the following will be sent to the program]'
     )
 
