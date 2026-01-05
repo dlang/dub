@@ -2726,6 +2726,7 @@ class DustmiteCommand : PackageBuildCommand {
 		string m_strategy;
 		uint m_jobCount;		// zero means not specified
 		bool m_trace;
+		uint m_timeout;			// in seconds, zero means not specified
 	}
 
 	this() @safe pure nothrow
@@ -2757,6 +2758,7 @@ class DustmiteCommand : PackageBuildCommand {
 		args.getopt("strategy", &m_strategy, ["Set strategy (careful/lookback/pingpong/indepth/inbreadth)"]);
 		args.getopt("j", &m_jobCount, ["Set number of look-ahead processes"]);
 		args.getopt("trace", &m_trace, ["Save all attempted reductions to DIR.trace"]);
+		args.getopt("timeout", &m_timeout, ["Timeout for each oracle invocation in seconds"]);
 		super.prepare(args);
 
 		// speed up loading when in test mode
@@ -2875,6 +2877,8 @@ class DustmiteCommand : PackageBuildCommand {
 
 			logInfo("Starting", Color.light_green, "Executing dustmite...");
 			auto testcmd = appender!string();
+			if (m_timeout)
+				testcmd.formattedWrite("timeout %s ", m_timeout);
 			testcmd.formattedWrite("%s dustmite --test-package=%s --build=%s --config=%s",
 				std.file.thisExePath, prj.name, this.baseSettings.buildType, this.baseSettings.config);
 
