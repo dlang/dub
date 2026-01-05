@@ -14,7 +14,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ macos-15-intel, ubuntu-22.04, windows-2019 ]
+        # Note: macos-14 is ARM64, but LDC cross-compiles to x86_64 via -mtriple
+        os: [ macos-14, ubuntu-22.04, windows-2019 ]
         arch: [ x86_64 ]
         include:
           - { os: windows-2019, arch: i686 }
