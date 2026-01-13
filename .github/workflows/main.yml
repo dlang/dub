@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         # Latest stable version, update at will
-        os: [ macOS-13, ubuntu-22.04, windows-2022 ]
+        os: [ macOS-14, ubuntu-22.04, windows-2022 ]
         dc:
           # Always test latest as that is what we use to compile on release
           - dmd-latest
@@ -77,9 +77,9 @@ jobs:
         exclude:
           # Error with those versions:
           # ld: multiple errors: symbol count from symbol table and dynamic symbol table differ in [.../dub.o]; address=0x0 points to section(2) with no content in '[...]/osx/lib/libphobos2.a[3177](config_a68_4c3.o)'
-          - { os: macOS-13, dc: dmd-2.100.2 }
-          - { os: macOS-13, dc: dmd-2.103.1 }
-          - { os: macOS-13, dc: dmd-2.106.1 }
+          - { os: macOS-14, dc: dmd-2.100.2 }
+          - { os: macOS-14, dc: dmd-2.103.1 }
+          - { os: macOS-14, dc: dmd-2.106.1 }
 
     runs-on: ${{ matrix.os }}
     steps:
