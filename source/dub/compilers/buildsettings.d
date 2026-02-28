@@ -365,7 +365,7 @@ enum BuildRequirement {
 
 enum BuildOption {
 	none = 0,                     /// Use compiler defaults
-	debugMode = 1<<0,             /// Compile in debug mode (enables contracts, -debug)
+	debugMode = 1<<0,             /// Enables -debug flag (debug statements and identifiers)
 	releaseMode = 1<<1,           /// Compile in release mode (disables assertions and bounds checks, -release)
 	coverage = 1<<2,              /// Enable code coverage analysis (-cov)
 	debugInfo = 1<<3,             /// Enable symbolic debug information (-g)
