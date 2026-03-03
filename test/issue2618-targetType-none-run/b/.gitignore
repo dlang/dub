@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/projb
+projb.so
+projb.dylib
+projb.dll
+projb.a
+projb.lib
+projb-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst
