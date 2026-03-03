@@ -1558,7 +1558,7 @@ class BuildCommand : GenerateCommand {
 		args.getopt("n|non-interactive", &m_nonInteractive, [
 			"Don't enter interactive mode."
 		]);
-		args.getopt("d|deep", &m_deep, [
+		args.getopt("deep", &m_deep, [
 			"Build all dependencies, even when main target is a static library."
 		]);
 		super.prepare(args);
