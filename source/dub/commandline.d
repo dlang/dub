@@ -1289,7 +1289,7 @@ abstract class PackageBuildCommand : Command {
 	{
 		args.getopt("dest", &m_destPath, ["Base directory in which output atifacts will be placed"]);
 		args.getopt("b|build", &this.baseSettings.buildType, [
-			"Specifies the type of build to perform. Note that setting the DFLAGS environment variable will override the build type with custom flags.",
+			"Specifies the type of build to perform.",
 			"Possible names:",
 			"  "~builtinBuildTypes.join(", ")~" and custom types"
 		]);
@@ -1376,8 +1376,7 @@ abstract class PackageBuildCommand : Command {
 		}
 
 		if (this.baseSettings.buildType.length == 0) {
-			if (environment.get("DFLAGS") !is null) this.baseSettings.buildType = "$DFLAGS";
-			else this.baseSettings.buildType = default_build_type;
+			this.baseSettings.buildType = default_build_type;
 		}
 
 		if (!m_nodeps) {
