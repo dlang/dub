@@ -692,6 +692,7 @@ class BuildGenerator : ProjectGenerator {
 				runcwd = NativePath(buildsettings.workingDirectory);
 				if (!runcwd.absolute) runcwd = cwd ~ runcwd;
 			}
+			ensureDirectory(runcwd);
 			if (!exe_file_path.absolute) exe_file_path = cwd ~ exe_file_path;
 			runPreRunCommands(m_project.rootPackage, m_project, settings, buildsettings);
 			logInfo("Running", Color.green, "%s %s", exe_file_path.relativeTo(runcwd), run_args.join(" "));
