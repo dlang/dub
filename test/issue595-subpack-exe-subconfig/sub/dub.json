@@ -1,0 +1,15 @@
+{
+	"name": "sub",
+	"targetType": "executable",
+	"configurations": [
+		{
+			"name": "default"
+		},
+		{
+			"name": "special",
+			"versions": [
+				"special"
+			]
+		}
+	]
+}
