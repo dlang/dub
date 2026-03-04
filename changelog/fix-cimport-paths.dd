@@ -1,3 +1,0 @@
-Fix issue where cImportPaths wasn't working with dmd and ldc
-
-dub was passing -I<import path> instead of -P-I<import path> as is required by those compilers

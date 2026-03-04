@@ -1,0 +1,10 @@
+{
+	"name": "issue3029_subpack_exe_default_conf",
+	"targetType": "none",
+	"subPackages": [
+		"sub"
+	],
+	"dependencies": {
+		":sub": "*"
+	}
+}

@@ -50,7 +50,7 @@ class LDCCompiler : Compiler {
 		tuple(BuildOption.color, ["-enable-color"]),
 
 		tuple(BuildOption._docs, ["-Dd=docs"]),
-		tuple(BuildOption._ddox, ["-Xf=docs.json", "-Dd=__dummy_docs"]),
+		tuple(BuildOption._ddox, ["-Xf=docs.json", "-Dd=__dummy_docs", "-oq"]),
 	];
 
 	@property string name() const { return "ldc"; }
