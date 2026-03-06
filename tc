@@ -1,0 +1,55 @@
+[35msource/dub/commandline.d[m[36m:[m		bool m_[1;31mstringImportPaths[m = false;
+[35msource/dub/commandline.d[m[36m:[m		args.getopt("string-import-paths", &m_[1;31mstringImportPaths[m, [
+[35msource/dub/commandline.d[m[36m:[m			!(m_importPaths && m_[1;31mstringImportPaths[m),
+[35msource/dub/commandline.d[m[36m:[m			!(m_data && (m_importPaths || m_[1;31mstringImportPaths[m)),
+[35msource/dub/commandline.d[m[36m:[m		else if (m_[1;31mstringImportPaths[m) { m_data = ["string-import-paths"]; m_dataList = true; }
+[35msource/dub/compilers/buildsettings.d[m[36m:[m	string[] [1;31mstringImportPaths[m;
+[35msource/dub/compilers/buildsettings.d[m[36m:[m		addStringImportPaths(bs.[1;31mstringImportPaths[m);
+[35msource/dub/compilers/buildsettings.d[m[36m:[m	void addStringImportPaths(in string[] value...) { add([1;31mstringImportPaths[m, value); }
+[35msource/dub/compilers/buildsettings.d[m[36m:[m	void prependStringImportPaths(in string[] value...) { prepend([1;31mstringImportPaths[m, value); }
+[35msource/dub/compilers/buildsettings.d[m[36m:[m	[1;31mstringImportPaths[m = 1<<9,
+[35msource/dub/compilers/buildsettings.d[m[36m:[m	all = dflags|lflags|libs|sourceFiles|copyFiles|versions|debugVersions|importPaths|cImportPaths|[1;31mstringImportPaths[m|options|frameworks,
+[35msource/dub/compilers/buildsettings.d[m[36m:[m	dst.addStringImportFiles(collectFiles(this_.[1;31mstringImportPaths[m, "*"));
+[35msource/dub/compilers/buildsettings.d[m[36m:[m	this_.getPlatformSetting_!("[1;31mstringImportPaths[m", "addStringImportPaths")(dst, platform);
+[35msource/dub/compilers/dmd.d[m[36m:[m		if (!(fields & BuildSetting.[1;31mstringImportPaths[m)) {
+[35msource/dub/compilers/dmd.d[m[36m:[m			settings.addDFlags(settings.[1;31mstringImportPaths[m.map!(s => "-J"~s)().array());
+[35msource/dub/compilers/dmd.d[m[36m:[m			settings.[1;31mstringImportPaths[m = null;
+[35msource/dub/compilers/gdc.d[m[36m:[m		if (!(fields & BuildSetting.[1;31mstringImportPaths[m)) {
+[35msource/dub/compilers/gdc.d[m[36m:[m			settings.addDFlags(settings.[1;31mstringImportPaths[m.map!(s => "-J"~s)().array());
+[35msource/dub/compilers/gdc.d[m[36m:[m			settings.[1;31mstringImportPaths[m = null;
+[35msource/dub/compilers/ldc.d[m[36m:[m		if (!(fields & BuildSetting.[1;31mstringImportPaths[m)) {
+[35msource/dub/compilers/ldc.d[m[36m:[m			settings.addDFlags(settings.[1;31mstringImportPaths[m.map!(s => "-J"~s)().array());
+[35msource/dub/compilers/ldc.d[m[36m:[m			settings.[1;31mstringImportPaths[m = null;
+[35msource/dub/compilers/utils.d[m[36m:[m		{["-J"], `Use "[1;31mstringImportPaths[m" to specify import paths in a compiler independent way`},
+[35msource/dub/description.d[m[36m:[m	string[] [1;31mstringImportPaths[m;
+[35msource/dub/generators/build.d[m[36m:[m		foreach (ref p; buildsettings.[1;31mstringImportPaths[m) p = makeRelative(p);
+[35msource/dub/generators/build.d[m[36m:[m		foreach (ref p; buildsettings.[1;31mstringImportPaths[m) p = makeRelative(p);
+[35msource/dub/generators/cmake.d[m[36m:[m                        info.buildSettings.[1;31mstringImportPaths[m.map!(s => sanitizeSlashes(s)).join(";")
+[35msource/dub/generators/generator.d[m[36m:[m			if (!target.buildSettings.[1;31mstringImportPaths[m.length)
+[35msource/dub/generators/generator.d[m[36m:[m				target.buildSettings.prependStringImportPaths(parent.buildSettings.[1;31mstringImportPaths[m);
+[35msource/dub/generators/generator.d[m[36m:[m		parent.addStringImportPaths(child.[1;31mstringImportPaths[m);
+[35msource/dub/generators/generator.d[m[36m:[m		buildsettings.[1;31mstringImportPaths[m,
+[35msource/dub/generators/generator.d[m[36m:[m	env["STRING_IMPORT_PATHS"]   = join(build_settings.[1;31mstringImportPaths[m, " ");
+[35msource/dub/generators/visuald.d[m[36m:[m				string stringImports = join(getPathSettings!"[1;31mstringImportPaths[m"(), " ");
+[35msource/dub/package_.d[m[36m:[m		ret.[1;31mstringImportPaths[m = bs.[1;31mstringImportPaths[m;
+[35msource/dub/package_.d[m[36m:[m		if ("" !in bs.[1;31mstringImportPaths[m) {
+[35msource/dub/package_.d[m[36m:[m					bs.[1;31mstringImportPaths[m[""] ~= defvf;
+[35msource/dub/project.d[m[36m:[m		case "[1;31mstringImportPaths[m":
+[35msource/dub/project.d[m[36m:[m			else static if (attributeName == "[1;31mstringImportPaths[m")
+[35msource/dub/project.d[m[36m:[m				bs.[1;31mstringImportPaths[m = bs.[1;31mstringImportPaths[m.map!(ensureTrailingSlash).array();
+[35msource/dub/project.d[m[36m:[m			case "[1;31mstringImportPaths[m":
+[35msource/dub/project.d[m[36m:[m				attributeName == "importPaths" || attributeName == "cImportPaths" || attributeName == "[1;31mstringImportPaths[m" ||
+[35msource/dub/project.d[m[36m:[m		case "string-import-paths":        return listBuildSetting!"[1;31mstringImportPaths[m"(args);
+[35msource/dub/project.d[m[36m:[m	dst.addStringImportPaths(processVars(project, pack, gsettings, settings.[1;31mstringImportPaths[m, true, buildEnvs));
+[35msource/dub/recipe/json.d[m[36m:[m			case "[1;31mstringImportPaths[m": bs.[1;31mstringImportPaths[m[suffix] = deserializeJson!(string[])(value); break;
+[35msource/dub/recipe/json.d[m[36m:[m	foreach (suffix, arr; bs.[1;31mstringImportPaths[m) ret[withSuffix("[1;31mstringImportPaths[m", suffix)] = serializeToJson(arr);
+[35msource/dub/recipe/packagerecipe.d[m[36m:[m	@StartsWith("[1;31mstringImportPaths[m") string[][string] [1;31mstringImportPaths[m;
+[35msource/dub/recipe/sdl.d[m[36m:[m		case "[1;31mstringImportPaths[m": setting.parsePlatformStringArray(bs.[1;31mstringImportPaths[m); break;
+[35msource/dub/recipe/sdl.d[m[36m:[m	foreach (suffix, arr; bs.[1;31mstringImportPaths[m) adda("[1;31mstringImportPaths[m", suffix, arr);
+[35msource/dub/recipe/sdl.d[m[36m:[m[1;31mstringImportPaths[m "string1" "string2"
+[35msource/dub/recipe/sdl.d[m[36m:[m[1;31mstringImportPaths[m "string3"
+[35msource/dub/recipe/sdl.d[m[36m:[m	assert(rec.buildSettings.[1;31mstringImportPaths[m == ["": ["string1", "string2", "string3"]]);
+[35mtest/describe-dependency-2/dub.json[m[36m:[m    "[1;31mstringImportPaths[m": ["some-extra-string-import-path"],
+[35mtest/describe-dependency-3/dub.json[m[36m:[m    "[1;31mstringImportPaths[m": ["dep3-string-import-path"],
+[35mtest/issue1447-build-settings-vars/dub.json[m[36m:[m	"[1;31mstringImportPaths[m": ["view-$ARCH"]
+[35mtest/issue1504-envvar-in-path/dub.json[m[36m:[m    "[1;31mstringImportPaths[m": ["$MY_VARIABLE"]
