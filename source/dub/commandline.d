@@ -7,6 +7,9 @@
 */
 module dub.commandline;
 
+import std.algorithm : filter;
+import std.array : array;
+import std.algorithm.searching : canFind;
 import dub.compilers.compiler;
 import dub.dependency;
 import dub.dub;
@@ -1636,6 +1639,8 @@ class BuildCommand : GenerateCommand {
 }
 
 class RunCommand : BuildCommand {
+	bool showFullPath = false;
+
 	this() @safe pure nothrow
 	{
 		this.name = "run";
@@ -1644,17 +1649,43 @@ class RunCommand : BuildCommand {
 		this.helpText = [
 			"Builds and runs a package (uses the main package in the current working directory by default)"
 		];
-		this.acceptsAppArgs = true;
-	}
 
-	override void prepare(scope CommandArgs args)
-	{
-		super.prepare(args);
-		this.baseSettings.run = true;
+		this.acceptsAppArgs = true;
+
+		this.options ~= Option(
+			"fullpath",
+			null,
+			"Print the full path of the directory before running"
+		);
 	}
+	override void prepare(scope CommandArgs args)
+{
+    import std.algorithm : canFind, filter;
+    import std.array : array;
+
+    if (canFind(args.m_args, "--fullpath"))
+    {
+        showFullPath = true;
+
+        // remove flag so DUB doesn't complain
+        args.m_args = args.m_args.filter!(a => a != "--fullpath").array;
+    }
+
+    super.prepare(args);
+
+    this.baseSettings.run = true;
+}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
 	{
+		if (showFullPath)
+		{
+			import std.stdio;
+			import std.file;
+
+			writeln("Running from directory: ", getcwd());
+		}
+
 		return super.execute(dub, free_args, app_args);
 	}
 }
