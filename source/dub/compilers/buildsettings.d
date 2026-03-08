@@ -518,10 +518,9 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 					const hasVar = chain(buildSettingsVars, envVarCache.get.byKey).any!((string var) {
 						return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
 					});
-					if (!hasVar)
-						logWarn("Invalid source/import path: %s", path.toNativeString());
-					continue;
-				}
+					if (!hasVar && !path.toString().contains("$ROOT_PACKAGE_DIR"))
+    logWarn("Invalid source/import path: %s", path.toNativeString());
+continue;
 
 				auto pstr = path.toNativeString();
 				foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
