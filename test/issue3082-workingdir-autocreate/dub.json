@@ -1,0 +1,4 @@
+{
+    "name": "issue3082-workingdir-autocreate",
+    "workingDirectory": "bin"
+}
