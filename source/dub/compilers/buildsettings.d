@@ -518,12 +518,13 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 					const hasVar = chain(buildSettingsVars, envVarCache.get.byKey).any!((string var) {
 						return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
 					});
-					if (!hasVar && !path.toString().contains("$ROOT_PACKAGE_DIR"))
-    logWarn("Invalid source/import path: %s", path.toNativeString());
-continue;
+if (!hasVar || path.toString().contains("$ROOT_PACKAGE_DIR"))
+    continue;
 
-				auto pstr = path.toNativeString();
-				foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
+logWarn("Invalid source/import path: %s", path.toNativeString());
+
+auto pstr = path.toNativeString();
+foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
 					import std.path : baseName, pathSplitter;
 					import std.algorithm.searching : canFind;
 					// eliminate any hidden files, or files in hidden directories. But always include
