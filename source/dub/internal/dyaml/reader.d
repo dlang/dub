@@ -91,9 +91,8 @@ struct Reader
             auto endianResult = fixUTFByteOrder(buffer);
             if(endianResult.bytesStripped > 0)
             {
-                // TODO: add line and column
                 throw new ReaderException("Size of UTF-16 or UTF-32 input not aligned " ~
-                                          "to 2 or 4 bytes, respectively", Mark(name, 0, 0));
+                                          "to 2 or 4 bytes, respectively", Mark(name, line_, column_));
             }
 
             version(unittest) { endian_ = endianResult.endian; }
@@ -103,17 +102,15 @@ struct Reader
             const msg = utf8Result.errorMessage;
             if(msg !is null)
             {
-                // TODO: add line and column
-                throw new ReaderException("Error when converting to UTF-8: " ~ msg, Mark(name, 0, 0));
+                throw new ReaderException("Error when converting to UTF-8: " ~ msg, Mark(name, line_, column_));
             }
 
             buffer_ = utf8Result.utf8;
 
             characterCount_ = utf8Result.characterCount;
             // Check that all characters in buffer are printable.
-            // TODO: add line and column
             enforce(isPrintableValidUTF8(buffer_),
-                    new ReaderException("Special unicode characters are not allowed", Mark(name, 0, 0)));
+                    new ReaderException("Special unicode characters are not allowed", Mark(name, line_, column_)));
 
             checkASCII();
         }
