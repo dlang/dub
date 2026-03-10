@@ -1,0 +1,16 @@
+{
+	"dependencies": {
+		"b": {"path": "b"}
+	},
+	"configurations": [
+		{
+			"name": "main",
+			"targetType": "staticLibrary"
+		},
+		{
+			"name": "dependencies",
+			"targetType":"none"
+		}
+	],
+	"name": "issue2618"
+}

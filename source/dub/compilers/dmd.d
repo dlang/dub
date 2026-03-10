@@ -305,7 +305,13 @@ config    /etc/dmd.conf
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
 		import std.conv: text;
-		assert(settings.targetName.length > 0, "No target name set.");
+
+		string targetName()
+		{
+			assert(settings.targetName.length > 0, "No target name set.");
+			return settings.targetName.idup;
+		}
+
 		final switch (settings.targetType) {
 			case TargetType.autodetect:
 				assert(false,
@@ -315,23 +321,23 @@ config    /etc/dmd.conf
 			case TargetType.sourceLibrary: return null;
 			case TargetType.executable:
 				if (platform.isWindows())
-					return settings.targetName ~ ".exe";
-				else return settings.targetName.idup;
+					return targetName ~ ".exe";
+				else return targetName;
 			case TargetType.library:
 			case TargetType.staticLibrary:
 				if (platform.isWindows())
-					return settings.targetName ~ ".lib";
-				else return "lib" ~ settings.targetName ~ ".a";
+					return targetName ~ ".lib";
+				else return "lib" ~ targetName ~ ".a";
 			case TargetType.dynamicLibrary:
 				if (platform.isWindows())
-					return settings.targetName ~ ".dll";
+					return targetName ~ ".dll";
 				else if (platform.platform.canFind("darwin"))
-					return "lib" ~ settings.targetName ~ ".dylib";
-				else return "lib" ~ settings.targetName ~ ".so";
+					return "lib" ~ targetName ~ ".dylib";
+				else return "lib" ~ targetName ~ ".so";
 			case TargetType.object:
 				if (platform.isWindows())
-					return settings.targetName ~ ".obj";
-				else return settings.targetName ~ ".o";
+					return targetName ~ ".obj";
+				else return targetName ~ ".o";
 		}
 	}
 
