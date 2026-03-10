@@ -1259,8 +1259,10 @@ class InitCommand : Command {
 		{
 			free_args ~= m_templateType;
 		}
-		dub.createEmptyPackage(NativePath(dir), free_args, m_templateType, m_format, &depCallback, app_args);
-
+		auto targetPath = NativePath(dir.length ? dir : ".");
+		enforce(!existsFile(targetPath ~ "dub.json") && !existsFile(targetPath ~ "dub.sdl"),
+			"A dub package already exists in '%s'. Aborting.".format(targetPath.toNativeString()));
+		dub.createEmptyPackage(targetPath, free_args, m_templateType, m_format, &depCallback, app_args);
 		logInfo("Package successfully created in %s", dir.length ? dir : ".");
 		return 0;
 	}
