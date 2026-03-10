@@ -61,6 +61,7 @@ class DMDCompiler : Compiler {
 		tuple(BuildOption.ignoreDeprecations, ["-d"]),
 		tuple(BuildOption.deprecationWarnings, ["-dw"]),
 		tuple(BuildOption.deprecationErrors, ["-de"]),
+		tuple(BuildOption.deprecationWarnings | BuildOption.warningsAsErrors, ["-de"]),
 		tuple(BuildOption.property, ["-property"]),
 		tuple(BuildOption.profileGC, ["-profile=gc"]),
 		tuple(BuildOption.betterC, ["-betterC"]),
@@ -223,7 +224,7 @@ config    /etc/dmd.conf
 
 		if (!(fields & BuildSetting.options)) {
 			foreach (t; s_options)
-				if (settings.options & t[0])
+				if ((settings.options & t[0]) == BitFlags!BuildOption(t[0]))
 					settings.addDFlags(t[1]);
 		}
 
