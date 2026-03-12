@@ -151,7 +151,7 @@ _dub_generate_generic() {
     '(-c --config)'{-c,--config=}'[Builds the specified configuration]:package configuration: ' \
     '*--override-config=[ Uses the specified configuration for a certain dependency]:dependency/config: ' \
     '--compiler=[Specifies the compiler binary to use (can be a path)]:compiler:(dmd gdc ldc gdmd ldmd)' \
-    '(-a --arch)'{-a,--arch=}'[Force a different architecture (e.g. x86 or x86_64)]:architecture: ' \
+    '(-a --arch)'{-a,--arch=}'[Force a different architecture (e.g. x86, x86_64 or aarch64)]:architecture: ' \
     '(-d --debug)*'{-d,--debug=}'[Define the specified debug version identifier when building]:Debug version: ' \
     '--d-version=[Define the specified version identifier when building]:Version identifier: ' \
     '--nodeps[Do not resolve missing dependencies before building]' \
