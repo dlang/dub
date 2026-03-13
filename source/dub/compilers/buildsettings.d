@@ -523,8 +523,8 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 					logWarn("Invalid source/import path: %s", path.toNativeString());
 					continue;
 				}
-					auto pstr = path.toNativeString();
-					foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
+				auto pstr = path.toNativeString();
+				foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
 					import std.algorithm.searching : canFind;
 					// eliminate any hidden files, or files in hidden directories. But always include
 					// files that are listed inside hidden directories that are specifically added to
