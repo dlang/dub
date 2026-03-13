@@ -518,13 +518,13 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 					const hasVar = chain(buildSettingsVars, envVarCache.get.byKey).any!((string var) {
 						return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
 					});
-					if (hasVar) continue;
+					if (hasVar)
+						continue;
 					logWarn("Invalid source/import path: %s", path.toNativeString());
 					continue;
 				}
-auto pstr = path.toNativeString();
-foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
-					import std.path : baseName, pathSplitter;
+					auto pstr = path.toNativeString();
+					foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
 					import std.algorithm.searching : canFind;
 					// eliminate any hidden files, or files in hidden directories. But always include
 					// files that are listed inside hidden directories that are specifically added to
@@ -669,6 +669,5 @@ enum Flags!BuildOption inheritedBuildOptions =
 
 deprecated("Use `Flags!BuildOption` instead")
 public alias BuildOptions = Flags!BuildOption;
-
 deprecated("Use `Flags!BuildRequirement` instead")
 public alias BuildRequirements = Flags!BuildRequirement;
