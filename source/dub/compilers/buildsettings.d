@@ -518,11 +518,11 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 					const hasVar = chain(buildSettingsVars, envVarCache.get.byKey).any!((string var) {
 						return spath.find("$"~var).length > 0 || spath.find("${"~var~"}").length > 0;
 					});
-					if (!hasVar)
-						logWarn("Invalid source/import path: %s", path.toNativeString());
+					if (hasVar)
+						continue;
+					logWarn("Invalid source/import path: %s", path.toNativeString());
 					continue;
 				}
-
 				auto pstr = path.toNativeString();
 				foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
 					import std.path : baseName, pathSplitter;
@@ -670,6 +670,5 @@ enum Flags!BuildOption inheritedBuildOptions =
 
 deprecated("Use `Flags!BuildOption` instead")
 public alias BuildOptions = Flags!BuildOption;
-
 deprecated("Use `Flags!BuildRequirement` instead")
 public alias BuildRequirements = Flags!BuildRequirement;
