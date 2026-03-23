@@ -148,6 +148,13 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 					} else if (f.startsWith("-Wl,")) settings.addLFlags(f[4 .. $].split(","));
 					else settings.addLFlags(f);
 				}
+
+				// Also extract C preprocessor flags from pkg-config --cflags
+				auto cflags = execute([pkgconfig_bin, "--cflags"] ~ pkgconfig_libs);
+				if (cflags.status == 0) {
+					logDiagnostic("Using pkg-config to resolve C preprocessor flags for %s.", pkgconfig_libs.join(", "));
+					applyPkgConfigCFlags(settings, cflags.output);
+				}
 			}
 			if (settings.libs.length) logDiagnostic("Using direct -l... flags for %s.", settings.libs.array.join(", "));
 		} catch (Exception e) {
@@ -157,6 +164,68 @@ void resolveLibs(ref BuildSettings settings, const scope ref BuildPlatform platf
 				"'lflags' directly.");
 		}
 	}
+}
+
+
+/**
+	Parses pkg-config --cflags output and applies C preprocessor flags to build settings.
+
+	All C preprocessor flags (-I, -D, -U, -include, -isystem, -idirafter) are passed
+	to the D compiler via -P prefix (for DMD/LDC) so they get forwarded to the C preprocessor.
+	This is called from resolveLibs() which runs after cImportPaths are already processed,
+	so we add directly to dflags with the -P prefix.
+*/
+package void applyPkgConfigCFlags(ref BuildSettings settings, string cflagsOutput)
+{
+	import std.algorithm : splitter, startsWith;
+
+	// Note: We split by whitespace for consistency with --libs parsing above.
+	// This won't handle shell-quoted paths with spaces, but neither does --libs.
+	foreach (f; cflagsOutput.splitter()) {
+		if (f.startsWith("-I") || f.startsWith("-D") || f.startsWith("-U") ||
+		    f.startsWith("-include") || f.startsWith("-isystem") ||
+		    f.startsWith("-idirafter")) {
+			// Pass all C preprocessor flags via -P (for DMD/LDC)
+			settings.addDFlags("-P" ~ f);
+		}
+	}
+}
+
+unittest {
+	BuildSettings settings;
+
+	// Test -I flag extraction (passed via -P prefix)
+	applyPkgConfigCFlags(settings, "-I/usr/include/foo -I/usr/include/bar");
+	assert(settings.dflags == ["-P-I/usr/include/foo", "-P-I/usr/include/bar"]);
+
+	// Test preprocessor define flags
+	settings = BuildSettings.init;
+	applyPkgConfigCFlags(settings, "-DFOO=1 -DBAR -UBAZ");
+	assert(settings.dflags == ["-P-DFOO=1", "-P-DBAR", "-P-UBAZ"]);
+
+	// Test mixed flags
+	settings = BuildSettings.init;
+	applyPkgConfigCFlags(settings, "-I/usr/include -DVERSION=2 -isystem/usr/local/include");
+	assert(settings.dflags == ["-P-I/usr/include", "-P-DVERSION=2", "-P-isystem/usr/local/include"]);
+
+	// Test -idirafter flag (attached path)
+	settings = BuildSettings.init;
+	applyPkgConfigCFlags(settings, "-idirafter/fallback/include");
+	assert(settings.dflags == ["-P-idirafter/fallback/include"]);
+
+	// Note: -include with space-separated argument (e.g., "-include config.h") is not
+	// fully supported - the flag is passed but the argument may be lost if space-separated.
+	// Most pkg-config files use attached arguments (e.g., -I/path, -DFOO).
+
+	// Test empty input
+	settings = BuildSettings.init;
+	applyPkgConfigCFlags(settings, "");
+	assert(settings.dflags.length == 0);
+
+	// Test unknown flags are ignored (e.g., -pthread which is for linker)
+	settings = BuildSettings.init;
+	applyPkgConfigCFlags(settings, "-I/inc -pthread -Wall");
+	assert(settings.dflags == ["-P-I/inc"]);
 }
 
 

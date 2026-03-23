@@ -15,7 +15,7 @@ LOG="$DM_TEST.log"
 
 rm -rf $DM_TMP $DM_TMP.*
 
-$DUB --root=$DM_TEST dustmite --no-redirect --program-status=1 $DM_TMP &> $LOG || true
+$DUB --root=$DM_TEST dustmite --no-redirect --program-status=1 --timeout=60 $DM_TMP &> $LOG || true
 
 if ! grep -q "$EXPECTED" "$LOG"
 then
