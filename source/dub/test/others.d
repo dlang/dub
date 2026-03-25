@@ -120,3 +120,70 @@ unittest
     dub.loadPackage();
     assert(dub.project.hasAllDependencies());
 }
+
+// https://github.com/dlang/dub/issues/2598
+// Verify that preBuildCommands/postBuildCommands from a custom buildType
+// in the root package are NOT propagated to dependencies.
+unittest
+{
+    import dub.compilers.buildsettings : BuildSettings;
+    import dub.generators.generator : GeneratorSettings;
+
+    scope dub = new TestDub((scope Filesystem fs) {
+        fs.writeFile(TestDub.ProjectPath ~ "dub.json",
+            `{
+                "name": "a",
+                "dependencies": {"b": "~>1.0"},
+                "buildTypes": {
+                    "custom": {
+                        "preBuildCommands": ["echo root-pre"],
+                        "postBuildCommands": ["echo root-post"],
+                        "preGenerateCommands": ["echo root-pregen"],
+                        "postGenerateCommands": ["echo root-postgen"],
+                        "preRunCommands": ["echo root-prerun"],
+                        "postRunCommands": ["echo root-postrun"]
+                    }
+                }
+            }`);
+        fs.writeFile(TestDub.ProjectPath ~ "dub.selections.json",
+            `{"fileVersion":1,"versions":{"b":"1.0.0"}}`);
+        fs.writePackageFile("b", "1.0.0", `{"name":"b","version":"1.0.0"}`);
+    });
+    dub.loadPackage();
+    assert(dub.project.hasAllDependencies());
+
+    GeneratorSettings gsettings;
+    gsettings.buildType = "custom";
+
+    // For root package: commands should be present
+    BuildSettings rootSettings;
+    dub.project.addBuildTypeSettings(rootSettings, gsettings, true);
+    assert(rootSettings.preBuildCommands.length > 0,
+        "Root package should have preBuildCommands from custom buildType");
+    assert(rootSettings.postBuildCommands.length > 0,
+        "Root package should have postBuildCommands from custom buildType");
+    assert(rootSettings.preGenerateCommands.length > 0,
+        "Root package should have preGenerateCommands from custom buildType");
+    assert(rootSettings.postGenerateCommands.length > 0,
+        "Root package should have postGenerateCommands from custom buildType");
+    assert(rootSettings.preRunCommands.length > 0,
+        "Root package should have preRunCommands from custom buildType");
+    assert(rootSettings.postRunCommands.length > 0,
+        "Root package should have postRunCommands from custom buildType");
+
+    // For dependency: commands should NOT be present
+    BuildSettings depSettings;
+    dub.project.addBuildTypeSettings(depSettings, gsettings, false);
+    assert(depSettings.preBuildCommands.length == 0,
+        "Dependency should NOT have preBuildCommands from root's custom buildType");
+    assert(depSettings.postBuildCommands.length == 0,
+        "Dependency should NOT have postBuildCommands from root's custom buildType");
+    assert(depSettings.preGenerateCommands.length == 0,
+        "Dependency should NOT have preGenerateCommands from root's custom buildType");
+    assert(depSettings.postGenerateCommands.length == 0,
+        "Dependency should NOT have postGenerateCommands from root's custom buildType");
+    assert(depSettings.preRunCommands.length == 0,
+        "Dependency should NOT have preRunCommands from root's custom buildType");
+    assert(depSettings.postRunCommands.length == 0,
+        "Dependency should NOT have postRunCommands from root's custom buildType");
+}

@@ -987,6 +987,22 @@ class Project {
 				// unit tests aren't run anyway and the additional code may
 				// cause linking to fail on Windows (issue #640)
 				btsettings.removeOptions(BuildOption.unittests);
+
+				// don't propagate commands from the root package's buildType
+				// to dependencies - they should only run for the root package
+				// (issue #2598)
+				btsettings.preBuildCommands = null;
+				btsettings.postBuildCommands = null;
+				btsettings.preGenerateCommands = null;
+				btsettings.postGenerateCommands = null;
+				btsettings.preRunCommands = null;
+				btsettings.postRunCommands = null;
+				btsettings.preBuildEnvironments = null;
+				btsettings.postBuildEnvironments = null;
+				btsettings.preGenerateEnvironments = null;
+				btsettings.postGenerateEnvironments = null;
+				btsettings.preRunEnvironments = null;
+				btsettings.postRunEnvironments = null;
 			}
 
 			processVars(dst, this, m_rootPackage, btsettings, gsettings);
