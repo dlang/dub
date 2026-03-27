@@ -138,7 +138,7 @@ void writeJsonFile(NativePath path, Json json)
 void atomicWriteJsonFile(NativePath path, Json json)
 {
 	import std.random : uniform;
-	auto tmppath = path.parentPath ~ format("%s.%s.tmp", path.head, uniform(0, int.max));
+	auto tmppath = path.parentPath ~ format("%s.%s.tmp", path.head.name, uniform(0, int.max));
 	auto app = appender!string();
 	app.writePrettyJsonString(json);
 	writeFile(tmppath, app.data);
