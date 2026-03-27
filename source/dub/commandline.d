@@ -2834,31 +2834,41 @@ class DustmiteCommand : PackageBuildCommand {
 				}
 			}
 
-			static void fixPathDependency(in PackageName name, ref Dependency dep) {
-				dep.visit!(
-					(NativePath path) {
-						dep = Dependency(NativePath("../") ~ name.base.toString());
-					},
-					(any) { /* Nothing to do */ },
-				);
+			static void fixPathDependency(in PackageName name, ref Dependency dep, NativePath root_path) {
+				bool opt = dep.optional;
+				bool def = dep.default_;
+				dep = Dependency(root_path ~ name.base.toString());
+				dep.optional = opt;
+				dep.default_ = def;
 			}
 
-			void fixPathDependencies(ref PackageRecipe recipe, NativePath base_path)
+			void fixPathDependencies(Package pack, ref PackageRecipe recipe, NativePath base_path, NativePath root_path)
 			{
 				foreach (name, ref dep; recipe.buildSettings.dependencies)
-					fixPathDependency(PackageName(name), dep);
+					fixPathDependency(PackageName(name), dep, root_path);
 
 				foreach (ref cfg; recipe.configurations)
 					foreach (name, ref dep; cfg.buildSettings.dependencies)
-						fixPathDependency(PackageName(name), dep);
+						fixPathDependency(PackageName(name), dep, root_path);
 
 				foreach (ref subp; recipe.subPackages)
 					if (subp.path.length) {
 						auto sub_path = base_path ~ NativePath(subp.path);
-						auto pack = dub.packageManager.getOrLoadPackage(sub_path);
-						fixPathDependencies(pack.recipe, sub_path);
-						pack.storeInfo(sub_path);
-					} else fixPathDependencies(subp.recipe, base_path);
+						auto sub_pack = dub.packageManager.getOrLoadPackage(sub_path);
+						fixPathDependencies(sub_pack, sub_pack.recipe, sub_path, root_path ~ base_path.relativeTo(sub_path));
+						sub_pack.storeInfo(sub_path);
+					} else fixPathDependencies(null, subp.recipe, base_path, root_path);
+
+				if (pack) {
+					// remove any existing package descriptions
+					enum package_files = ["dub.sdl", "package.json", "dub.json", "dub.selections.json"];
+					foreach (pf; package_files)
+						if (existsFile(base_path ~ pf))
+							removeFile(base_path ~ pf);
+
+					// store new package description file with adjusted version information
+					pack.storeInfo(base_path);
+				}
 			}
 
 			bool[string] visited;
@@ -2871,10 +2881,7 @@ class DustmiteCommand : PackageBuildCommand {
 				copyFolderRec(pack.path, dst_path);
 
 				// adjust all path based dependencies
-				fixPathDependencies(pack.recipe, dst_path);
-
-				// overwrite package description file with additional version information
-				pack.storeInfo(dst_path);
+				fixPathDependencies(pack, pack.recipe, dst_path, NativePath(".."));
 			}
 
 			logInfo("Starting", Color.light_green, "Executing dustmite...");
