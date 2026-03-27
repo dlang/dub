@@ -9,10 +9,10 @@ module dub.compilers.dmd;
 
 import dub.compilers.compiler;
 import dub.compilers.utils;
+import dub.internal.logging;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
-import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
@@ -23,7 +23,7 @@ import std.typecons;
 version (Windows)
 private Nullable!bool isWow64() {
 	// See also: https://docs.microsoft.com/de-de/windows/desktop/api/sysinfoapi/nf-sysinfoapi-getnativesysteminfo
-	import core.sys.windows.windows : GetNativeSystemInfo, SYSTEM_INFO, PROCESSOR_ARCHITECTURE_AMD64;
+	import core.sys.windows.windows : GetNativeSystemInfo, PROCESSOR_ARCHITECTURE_AMD64, SYSTEM_INFO;
 
 	static Nullable!bool result;
 
@@ -128,6 +128,7 @@ config    /etc/dmd.conf
 	{
 		// Set basic arch flags for the probe - might be revised based on the exact value + compiler version
 		string[] arch_flags;
+		// keep the platform arguments below updated with dub-docs! (docs/dub-reference/platform_specifications.md)
 		switch (arch_override) {
 			default: throw new UnsupportedArchitectureException(arch_override);
 			case "":

@@ -9,10 +9,10 @@ module dub.compilers.gdc;
 
 import dub.compilers.compiler;
 import dub.compilers.utils;
+import dub.internal.logging;
 import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
-import dub.internal.logging;
 
 import std.algorithm;
 import std.array;
@@ -68,6 +68,7 @@ class GDCCompiler : Compiler {
 	BuildPlatform determinePlatform(ref BuildSettings settings, string compiler_binary, string arch_override)
 	{
 		string[] arch_flags;
+		// keep the platform arguments below updated with dub-docs! (docs/dub-reference/platform_specifications.md)
 		switch (arch_override) {
 			default: throw new UnsupportedArchitectureException(arch_override);
 			case "": break;
