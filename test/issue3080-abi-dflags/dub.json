@@ -1,0 +1,8 @@
+{
+	"name": "issue3080",
+	"targetType": "executable",
+	"dependencies": {
+		"dep": { "path": "dep" }
+	},
+	"dflags": ["-checkaction=halt"]
+}
