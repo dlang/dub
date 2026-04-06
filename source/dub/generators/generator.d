@@ -1124,14 +1124,17 @@ const(string[string])[] makeCommandEnvironmentVariables(CommandType type,
 	import std.process : environment, escapeShellFileName;
 
 	string[string] env;
-	// TODO: do more elaborate things here
-	// TODO: escape/quote individual items appropriately
-	env["VERSIONS"]              = join(build_settings.versions, " ");
-	env["LIBS"]                  = join(build_settings.libs, " ");
-	env["SOURCE_FILES"]          = join(build_settings.sourceFiles, " ");
-	env["IMPORT_PATHS"]          = join(build_settings.importPaths, " ");
-	env["C_IMPORT_PATHS"]        = join(build_settings.cImportPaths, " ");
-	env["STRING_IMPORT_PATHS"]   = join(build_settings.stringImportPaths, " ");
+
+	auto escapeJoin(const(string)[] args) {
+		return args.map!(escapeShellFileName).join(" ");
+	}
+
+	env["VERSIONS"]            = escapeJoin(build_settings.versions);
+	env["LIBS"]                = escapeJoin(build_settings.libs);
+	env["SOURCE_FILES"]        = escapeJoin(build_settings.sourceFiles);
+	env["IMPORT_PATHS"]        = escapeJoin(build_settings.importPaths);
+	env["C_IMPORT_PATHS"]      = escapeJoin(build_settings.cImportPaths);
+	env["STRING_IMPORT_PATHS"] = escapeJoin(build_settings.stringImportPaths);
 
 	env["DC"]                    = settings.platform.compilerBinary;
 	env["DC_BASE"]               = settings.platform.compiler;
