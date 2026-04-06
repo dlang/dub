@@ -1,0 +1,5 @@
+module dep;
+
+void greet()
+{
+}

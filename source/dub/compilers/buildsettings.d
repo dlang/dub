@@ -649,6 +649,74 @@ unittest
 }
 
 /**
+	ABI-critical dflags that must be propagated downwards to all dependencies.
+
+	These are raw compiler flags (not covered by `BuildOption`) that affect
+	calling conventions, instruction-set selection, or runtime behaviour in
+	ways that must be consistent across every compilation unit in the
+	dependency graph; otherwise the resulting binaries suffer from silent ABI
+	mismatches or linker errors.
+
+	See_Also: $(LINK2 https://github.com/dlang/dub/issues/3080)
+*/
+private immutable abiCriticalPrefixes = [
+	// LDC
+	"-mattr=",
+	"-mcpu=",
+	"-mtriple=",
+	"-checkaction=",
+	// DMD / LDC (-boundscheck=off is also extracted as a BuildOption,
+	// but -boundscheck=safeonly and -boundscheck=on stay as raw dflags)
+	"-boundscheck=",
+	// LDC – sanitizer instrumentation must be consistent
+	"-fsanitize=",
+	// GDC (GCC-style)
+	"-march=",
+	"-mfpu=",
+	"-mfloat-abi=",
+];
+
+/// Returns only the ABI-critical flags from `dflags`.
+const(string)[] filterABICriticalFlags(const string[] dflags)
+{
+	import std.algorithm.iteration : filter;
+	import std.algorithm.searching : startsWith;
+
+	return dflags.filter!(f => abiCriticalPrefixes.any!(p => f.startsWith(p))).array;
+}
+
+unittest
+{
+	auto flags = ["-mattr=+avx", "-w", "-g", "-mcpu=haswell", "-O2",
+		"-checkaction=halt", "-mtriple=x86_64-linux-gnu"];
+	auto critical = filterABICriticalFlags(flags);
+	assert(critical == ["-mattr=+avx", "-mcpu=haswell",
+		"-checkaction=halt", "-mtriple=x86_64-linux-gnu"]);
+}
+
+unittest
+{
+	// No ABI-critical flags → empty result
+	assert(filterABICriticalFlags(["-w", "-g", "-O2"]).length == 0);
+}
+
+unittest
+{
+	// GDC flags
+	auto flags = ["-march=native", "-mfpu=neon", "-mfloat-abi=hard", "-v"];
+	auto critical = filterABICriticalFlags(flags);
+	assert(critical == ["-march=native", "-mfpu=neon", "-mfloat-abi=hard"]);
+}
+
+unittest
+{
+	// -boundscheck= variants and -fsanitize=
+	auto flags = ["-boundscheck=safeonly", "-O2", "-fsanitize=address", "-w"];
+	auto critical = filterABICriticalFlags(flags);
+	assert(critical == ["-boundscheck=safeonly", "-fsanitize=address"]);
+}
+
+/**
 	All build options that will be inherited upwards in the dependency graph
 
 	Build options in this category fulfill one of the following properties:

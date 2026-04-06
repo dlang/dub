@@ -742,6 +742,10 @@ class ProjectGenerator
 		child.addVersions(parent.versions);
 		child.addDebugVersions(parent.debugVersions);
 		child.addOptions(Flags!BuildOption(parent.options & inheritedBuildOptions));
+		// Propagate ABI-critical dflags (e.g. -mattr=+avx) so that all
+		// dependencies are compiled with a consistent instruction set /
+		// calling convention.  See https://github.com/dlang/dub/issues/3080
+		child.addDFlags(filterABICriticalFlags(parent.dflags));
 	}
 
 	private static void mergeFromDependency(const scope ref BuildSettings child, ref BuildSettings parent, const scope ref BuildPlatform platform)
