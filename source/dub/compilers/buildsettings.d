@@ -545,6 +545,14 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 	// collect source files. Note: D source from 'sourcePaths' and C sources from 'cSourcePaths' are joint into 'sourceFiles'
 	dst.addSourceFiles(collectFiles(this_.sourcePaths, "*.d"));
 	dst.addSourceFiles(collectFiles(this_.cSourcePaths, "*.{c,i}"));
+	version (Windows) {
+		import std.path : buildNormalizedPath;
+		import std.algorithm : map;
+		import std.array : array;
+		dst.sourceFiles = dst.sourceFiles.map!buildNormalizedPath.array;
+		if (!dst.mainSourceFile.empty)
+			dst.mainSourceFile = buildNormalizedPath(dst.mainSourceFile);
+	}
 	auto sourceFiles = dst.sourceFiles.sort();
 
 	// collect import files and remove sources
