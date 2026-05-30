@@ -9,6 +9,7 @@ module dub.generators.generator;
 
 import dub.compilers.compiler;
 import dub.generators.cmake;
+import dub.generators.ninja;  
 import dub.generators.build;
 import dub.generators.sublimetext;
 import dub.generators.visuald;
@@ -742,10 +743,6 @@ class ProjectGenerator
 		child.addVersions(parent.versions);
 		child.addDebugVersions(parent.debugVersions);
 		child.addOptions(Flags!BuildOption(parent.options & inheritedBuildOptions));
-		// Propagate ABI-critical dflags (e.g. -mattr=+avx) so that all
-		// dependencies are compiled with a consistent instruction set /
-		// calling convention.  See https://github.com/dlang/dub/issues/3080
-		child.addDFlags(filterABICriticalFlags(parent.dflags));
 	}
 
 	private static void mergeFromDependency(const scope ref BuildSettings child, ref BuildSettings parent, const scope ref BuildPlatform platform)
@@ -952,8 +949,11 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 			logDebug("Creating SublimeText generator.");
 			return new SublimeTextGenerator(project);
 		case "cmake":
-			logDebug("Creating CMake generator.");
-			return new CMakeGenerator(project);
+    		logDebug("Creating CMake generator.");
+    		return new CMakeGenerator(project);
+		case "ninja":
+    		logDebug("Creating Ninja generator.");
+    		return new NinjaGenerator(project);
 	}
 }
 
