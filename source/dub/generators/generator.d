@@ -955,6 +955,9 @@ ProjectGenerator createProjectGenerator(string generator_type, Project project)
 		case "cmake":
 			logDebug("Creating CMake generator.");
 			return new CMakeGenerator(project);
+		case "ninja":
+			logDebug("Creating Ninja generator.");
+			return new NinjaGenerator(project);
 	}
 }
 
