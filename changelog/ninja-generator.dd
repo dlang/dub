@@ -1,0 +1,5 @@
+Added `dub generate ninja` command.
+
+Introduces a Ninja build backend for DUB. Running `dub generate ninja`
+produces a `build.ninja` file with compile and link rules for all source
+files in the project, using the correct flag syntax for DMD, LDC, and GDC.
