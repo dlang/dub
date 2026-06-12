@@ -1,0 +1,9 @@
+Fixed `--conf` options not being passed to LDC's linker step.
+
+Packages can now use `--conf` as a dflag to modify LDC's linker
+behavior for a package.
+
+Example:
+-------
+dflags "--conf=$KON_PACKAGE_DIR/55-wasm-wasi.conf" platform="wasm32"
+-------
