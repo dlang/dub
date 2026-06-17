@@ -360,7 +360,8 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 				    || arg.startsWith("-linker=")
 				    || arg.startsWith("-march=")
 				    || arg.startsWith("-mscrtlib=")
-				    || arg.startsWith("-mtriple=");
+				    || arg.startsWith("-mtriple=")
+				    || arg.startsWith("-conf=");
 		}
 	}
 
