@@ -1,4 +1,5 @@
 {
     "name": "ninja-generator",
-    "targetType": "executable"
+    "targetType": "executable",
+    "stringImportPaths": ["views"]
 }
