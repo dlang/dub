@@ -1,0 +1,14 @@
+{
+    "name": "ninja-subpackage",
+    "targetType": "executable",
+    "dependencies": {
+        "ninja-subpackage:mylib": "*"
+    },
+    "subPackages": [
+        {
+            "name": "mylib",
+            "targetType": "staticLibrary",
+            "sourcePaths": ["lib/source"]
+        }
+    ]
+}
