@@ -34,4 +34,18 @@ fi
 if ! grep "^build build.ninja: regen" build.ninja | grep -q "dub.json"; then
     die $LINENO 'build.ninja self-regeneration edge missing dub.json dependency!'
 fi
+
+# Behavioral: verify build.ninja regenerates when dub.json changes
+ninja -t clean
+if ! ninja 2>&1; then
+    die $LINENO 'initial ninja build failed for regen test!'
+fi
+
+touch dub.json
+ninja_regen=$(ninja 2>&1 || true)
+if ! echo "$ninja_regen" | grep -q "Regenerating build.ninja"; then
+    die $LINENO 'ninja did not attempt to regenerate build.ninja after touching dub.json!'
+fi
+
+ninja -t clean
 rm -f build.ninja
