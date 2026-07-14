@@ -307,7 +307,26 @@ class VisualDGenerator : ProjectGenerator {
 				ret.formattedWrite("    <imppath>%s</imppath>\n", combinedImports);
 				ret.formattedWrite("    <fileImppath>%s</fileImppath>\n", stringImports);
 
-				ret.formattedWrite("    <program>%s</program>\n", "$(DMDInstallDir)windows\\bin\\dmd.exe"); // FIXME: use the actually selected compiler!
+				ret.formattedWrite("    <program>%s</program>\n", settings.compiler.name);
+				string program;
+
+				final switch (settings.compiler.name)
+				{
+				case "ldc":
+				case "ldc2":
+					program = "$(LDCInstallDir)bin\\ldc2.exe";
+					break;
+
+				case "gdc":
+					program = "$(GDCInstallDir)bin\\gdc.exe";
+					break;
+
+				case "dmd":
+					program = "$(DMDInstallDir)windows\\bin\\dmd.exe";
+					break;
+				}
+
+				ret.formattedWrite("    <program>%s</program>\n", program);
 				ret.formattedWrite("    <additionalOptions>%s</additionalOptions>\n", getSettings!"dflags"().join(" "));
 
 				// Add version identifiers
