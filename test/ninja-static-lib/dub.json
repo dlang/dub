@@ -1,0 +1,4 @@
+{
+    "name": "ninja-static-lib",
+    "targetType": "staticLibrary"
+}
