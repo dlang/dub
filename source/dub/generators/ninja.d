@@ -76,7 +76,14 @@ class NinjaGenerator : ProjectGenerator
             }
             f.writeln();
 
-            auto outBin = bs.targetName.length ? bs.targetName : name;
+            string[] depLibs;
+            foreach (dep; info.linkDependencies)
+            {
+                if (dep in targets)
+                    depLibs ~= libName(targets[dep].buildSettings.targetName, sanitizeName(dep));
+            }
+
+            auto outBin = bs.targetName.length ? bs.targetName : sanitizeName(name);
 
             if (bs.targetType == TargetType.staticLibrary ||
                 bs.targetType == TargetType.library)
@@ -85,7 +92,8 @@ class NinjaGenerator : ProjectGenerator
             }
             else
             {
-                f.writeln("build ", outBin, ": link ", objs.join(" "));
+                auto linkInputs = (objs ~ depLibs).join(" ");
+                f.writeln("build ", outBin, ": link ", linkInputs);
                 if (lflags.length)
                     f.writeln("  lflags = ", lflags);
                 f.writeln();
@@ -103,6 +111,12 @@ class NinjaGenerator : ProjectGenerator
             .replace(":", "_") ~ ".o";
     }
 
+    private static string libName(string targetName, string fallback)
+    {
+        auto base = targetName.length ? targetName : fallback;
+        return base ~ ".a";
+    }
+
     private static string versionFlag(string cname)
     {
         if (cname.startsWith("ldc")) return "--d-version=";
@@ -116,4 +130,9 @@ class NinjaGenerator : ProjectGenerator
         if (cname.startsWith("gdc")) return "-fdebug=";
         return "-debug=";
     }
+    private static string sanitizeName(string name)
+    {
+        return name.replace(":", "_").replace("/", "_");
+    }
+
 }
