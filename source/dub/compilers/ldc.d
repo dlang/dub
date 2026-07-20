@@ -336,7 +336,7 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	private auto escapeArgs(in string[] args)
 	{
-		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
+		return args.map!(escapeResponseFileArg);
 	}
 
 	static bool isLinkerDFlag(string arg)

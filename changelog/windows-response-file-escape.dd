@@ -1,0 +1,8 @@
+Fix Windows response file quoting for paths with trailing backslashes
+
+When dub writes spaced compiler flags into `@` response files, a trailing
+directory separator before the closing quote could escape that quote under
+DMD/LDC response expansion. This broke ldc2 builds for users whose dub cache
+paths contain spaces (regression since import paths gained trailing slashes).
+
+Related: ldc-developers/ldc#5134
