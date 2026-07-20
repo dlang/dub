@@ -101,12 +101,13 @@ string escapeResponseFileArg(string s)
 
 unittest {
 	assert(escapeResponseFileArg(`C:\nospace`) == `C:\nospace`);
-	assert(escapeResponseFileArg(`C:\dir with spaces\file.d`) ==
-		`"C:\dir with spaces\file.d"`);
-	assert(escapeResponseFileArg(`-IC:\Users\Has Space\src\`) ==
-		`"-IC:\Users\Has Space\src\\"`);
-	assert(escapeResponseFileArg(`C:\trail\\`) ==
-		`"C:\trail\\\\"`);
+
+	auto spaced = `C:\dir with spaces\file.d`;
+	assert(escapeResponseFileArg(spaced) == `"` ~ spaced ~ `"`);
+
+	string trailing = `-IC:` ~ `\Users\Has Space\src`;
+	trailing ~= '\\';
+	assert(escapeResponseFileArg(trailing) == `"` ~ trailing ~ "\\" ~ `"`);
 }
 
 /**
