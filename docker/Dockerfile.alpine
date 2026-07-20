@@ -14,6 +14,11 @@ RUN dub test --compiler=$DCBIN && dub build --compiler=$DCBIN
 # Remove dub to avoid the risk of using the wrong binary
 RUN apk del dub
 
+# Alpine's ldc package does not ship shared Phobos/druntime for -shared tests.
+RUN if [ "$DCBIN" = "ldc2" ]; then \
+	rm -rf test/1-dynLib-simple test/2-dynLib-dep test/2-dynLib-with-staticLib-dep; \
+	fi
+
 # Used by the `run-unittest.sh` script
 ENV DUB=/root/build/bin/dub
 ENV DC=$DCBIN

@@ -100,14 +100,16 @@ string escapeResponseFileArg(string s)
 }
 
 unittest {
-	assert(escapeResponseFileArg(`C:\nospace`) == `C:\nospace`);
+	assert(escapeResponseFileArg("C:\\nospace") == "C:\\nospace");
 
-	auto spaced = `C:\dir with spaces\file.d`;
-	assert(escapeResponseFileArg(spaced) == `"` ~ spaced ~ `"`);
+	enum spaced = "C:\\dir with spaces\\file.d";
+	assert(escapeResponseFileArg(spaced) == `"` ~ spaced ~ `"');
 
-	string trailing = `-IC:` ~ `\Users\Has Space\src`;
-	trailing ~= '\\';
-	assert(escapeResponseFileArg(trailing) == `"` ~ trailing ~ "\\" ~ `"`);
+	assert(escapeResponseFileArg("-IC:\\Users\\Has Space\\src\\") ==
+		"\"-IC:\\Users\\Has Space\\src\\\\\"");
+
+	assert(escapeResponseFileArg("C:\\trail\\\\") ==
+		"\"C:\\trail\\\\\\\\\"");
 }
 
 /**
