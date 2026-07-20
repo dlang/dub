@@ -103,7 +103,7 @@ unittest {
 	assert(escapeResponseFileArg("C:\\nospace") == "C:\\nospace");
 
 	enum spaced = "C:\\dir with spaces\\file.d";
-	assert(escapeResponseFileArg(spaced) == `"` ~ spaced ~ `"');
+	assert(escapeResponseFileArg(spaced) == `"` ~ spaced ~ `"`);
 
 	assert(escapeResponseFileArg("-IC:\\Users\\Has Space\\src\\") ==
 		"\"-IC:\\Users\\Has Space\\src\\\\\"");
