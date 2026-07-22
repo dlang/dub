@@ -100,16 +100,19 @@ string escapeResponseFileArg(string s)
 }
 
 unittest {
-	assert(escapeResponseFileArg("C:\\nospace") == "C:\\nospace");
+	// No spaces: leave the argument untouched (including trailing backslashes).
+	assert(escapeResponseFileArg(`C:\nospace`) == `C:\nospace`);
+	assert(escapeResponseFileArg(`C:\trail\\`) == `C:\trail\\`);
 
-	enum spaced = "C:\\dir with spaces\\file.d";
+	enum spaced = `C:\dir with spaces\file.d`;
 	assert(escapeResponseFileArg(spaced) == `"` ~ spaced ~ `"`);
 
-	assert(escapeResponseFileArg("-IC:\\Users\\Has Space\\src\\") ==
-		"\"-IC:\\Users\\Has Space\\src\\\\\"");
-
-	assert(escapeResponseFileArg("C:\\trail\\\\") ==
-		"\"C:\\trail\\\\\\\\\"");
+	// Trailing directory separators must be doubled inside the quotes so the
+	// closing quote is not escaped by response-file expansion.
+	assert(escapeResponseFileArg(`-IC:\Users\Has Space\src\`) ==
+		`"-IC:\Users\Has Space\src\\"`);
+	assert(escapeResponseFileArg(`C:\dir with spaces\trail\\`) ==
+		`"C:\dir with spaces\trail\\\\"`);
 }
 
 /**
