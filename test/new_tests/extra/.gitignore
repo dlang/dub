@@ -1,0 +1,7 @@
+*
+!/*.d
+!/*/
+!/*/dub.json
+!/*/dub.sdl
+!/*/source/
+!/*/.gitignore

@@ -1,0 +1,5 @@
+{
+	"description": "Dub test runner",
+	"license": "MIT",
+	"name": "run_unittest"
+}
