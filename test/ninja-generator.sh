@@ -25,7 +25,7 @@ if ! ninja 2>&1; then
     die $LINENO 'initial ninja build failed for regen test!'
 fi
 
-touch dub.json
+sleep 1 && touch dub.json
 ninja_regen=$(ninja 2>&1 || true)
 if ! echo "$ninja_regen" | grep -q "Regenerating build.ninja"; then
     die $LINENO 'ninja did not attempt to regenerate build.ninja after touching dub.json!'
@@ -44,7 +44,7 @@ if ! ninja 2>&1; then
     die $LINENO 'initial ninja build failed for selections regen test!'
 fi
 
-touch dub.selections.json
+sleep 1 && touch dub.selections.json
 ninja_selections_regen=$(ninja 2>&1 || true)
 if ! echo "$ninja_selections_regen" | grep -q "Regenerating build.ninja"; then
     die $LINENO 'ninja did not attempt to regenerate build.ninja after touching dub.selections.json!'
