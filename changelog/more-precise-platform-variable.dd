@@ -1,0 +1,4 @@
+More precise platform variables:
+
+The environment variables `$PLATFORM` and `$PLATFORM_POSIX` contains now the most specific platform identifier.
+As an example, `$PLATFORM` is now "android" instead of "linux" on a android target.
