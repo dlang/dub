@@ -52,7 +52,8 @@ jobs:
       fail-fast: false
       matrix:
         # Latest stable version, update at will
-        os: [ macOS-13, ubuntu-22.04, windows-2022 ]
+        # Note: macos-14 is ARM64. For Intel use macos-14-large (paid) or macos-15-intel
+        os: [ macos-14, ubuntu-22.04, windows-2022 ]
         dc:
           # Always test latest as that is what we use to compile on release
           - dmd-latest
@@ -72,14 +73,14 @@ jobs:
           - { dc: ldc-latest, do_test: true }
           - { dc: dmd-master, do_test: true }
           - { dc: ldc-master, do_test: true }
-          # Test on ARM64
-          - { os: macOS-14, dc: ldc-latest, do_test: true }
         exclude:
-          # Error with those versions:
-          # ld: multiple errors: symbol count from symbol table and dynamic symbol table differ in [.../dub.o]; address=0x0 points to section(2) with no content in '[...]/osx/lib/libphobos2.a[3177](config_a68_4c3.o)'
-          - { os: macOS-13, dc: dmd-2.100.2 }
-          - { os: macOS-13, dc: dmd-2.103.1 }
-          - { os: macOS-13, dc: dmd-2.106.1 }
+          # TODO: DMD doesn't support ARM64 yet - remove these excludes when ARM support lands
+          - { os: macos-14, dc: dmd-latest }
+          - { os: macos-14, dc: dmd-master }
+          - { os: macos-14, dc: dmd-2.100.2 }
+          - { os: macos-14, dc: dmd-2.103.1 }
+          - { os: macos-14, dc: dmd-2.106.1 }
+          - { os: macos-14, dc: dmd-2.109.1 }
 
     runs-on: ${{ matrix.os }}
     steps:
