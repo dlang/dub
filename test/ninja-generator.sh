@@ -19,22 +19,6 @@ if ! grep -q "rule link" build.ninja; then
     die $LINENO 'build.ninja missing link rule!'
 fi
 
-if ! grep -q "rule regen" build.ninja; then
-    die $LINENO 'build.ninja missing regen rule!'
-fi
-
-if ! grep -q "generator = 1" build.ninja; then
-    die $LINENO 'build.ninja missing generator attribute on regen rule!'
-fi
-
-if ! grep -q "^build build.ninja: regen" build.ninja; then
-    die $LINENO 'build.ninja missing self-regeneration build edge!'
-fi
-
-if ! grep "^build build.ninja: regen" build.ninja | grep -q "dub.json"; then
-    die $LINENO 'build.ninja self-regeneration edge missing dub.json dependency!'
-fi
-
 # Behavioral: verify build.ninja regenerates when dub.json changes
 ninja -t clean
 if ! ninja 2>&1; then
@@ -47,5 +31,24 @@ if ! echo "$ninja_regen" | grep -q "Regenerating build.ninja"; then
     die $LINENO 'ninja did not attempt to regenerate build.ninja after touching dub.json!'
 fi
 
+# Behavioral: verify build.ninja regenerates when dub.selections.json changes
+echo '{"fileVersion": 1, "versions": {}}' > dub.selections.json
+$DUB generate ninja --compiler=$DC 2>&1
+
+if ! grep "^build build.ninja: regen" build.ninja | grep -q "dub.selections.json"; then
+    die $LINENO 'build.ninja self-regeneration edge missing dub.selections.json dependency!'
+fi
+
 ninja -t clean
-rm -f build.ninja
+if ! ninja 2>&1; then
+    die $LINENO 'initial ninja build failed for selections regen test!'
+fi
+
+touch dub.selections.json
+ninja_selections_regen=$(ninja 2>&1 || true)
+if ! echo "$ninja_selections_regen" | grep -q "Regenerating build.ninja"; then
+    die $LINENO 'ninja did not attempt to regenerate build.ninja after touching dub.selections.json!'
+fi
+
+ninja -t clean
+rm -f build.ninja dub.selections.json
