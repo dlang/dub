@@ -19,15 +19,19 @@ import std.exception;
 import std.string;
 
 /// Represents a fully-qualified package name
-public struct PackageName
+struct PackageName
 {
-	/// The underlying full name of the package
-	private string fullName;
-	/// Where the separator lies, if any
-	private size_t separator;
+	private {
+		/// The underlying full name of the package
+		string fullName;
+		/// Where the separator lies, if any
+		size_t separator;
+	}
+
+ @safe pure:
 
 	/// Creates a new instance of this struct
-	public this(string fn) @safe pure
+	this(string fn)
 	{
 		this.fullName = fn;
 		if (auto idx = fn.indexOf(':'))
@@ -38,20 +42,23 @@ public struct PackageName
 	}
 
 	/// Private constructor to have nothrow / @nogc
-	private this(string fn, size_t sep) @safe pure nothrow @nogc
+	private this(string fn, size_t sep) nothrow @nogc
 	{
 		this.fullName = fn;
 		this.separator = sep;
 	}
 
 	/// The base package name in which the subpackages may live
-	public PackageName main () const return @safe pure nothrow @nogc
+	PackageName base() const return nothrow @nogc
 	{
 		return PackageName(this.fullName[0 .. this.separator], this.separator);
 	}
 
+	deprecated("Use .base instead.")
+	alias main = base;
+
 	/// The subpackage name, or an empty string if there isn't
-	public string sub () const return @safe pure nothrow @nogc
+	string sub() const return nothrow @nogc
 	{
 		// Return `null` instead of an empty string so that
 		// it can be used in a boolean context, e.g.
@@ -62,20 +69,20 @@ public struct PackageName
 	}
 
 	/// Human readable representation
-	public string toString () const return scope @safe pure nothrow @nogc
+	string toString() const return scope nothrow @nogc
 	{
 		return this.fullName;
 	}
 
     ///
-    public int opCmp (in PackageName other) const scope @safe pure nothrow @nogc
+    int opCmp(in PackageName other) const scope nothrow @nogc
     {
         import core.internal.string : dstrcmp;
         return dstrcmp(this.toString(), other.toString());
     }
 
     ///
-    public bool opEquals (in PackageName other) const scope @safe pure nothrow @nogc
+    bool opEquals(in PackageName other) const scope nothrow @nogc
     {
         return this.toString() == other.toString();
     }

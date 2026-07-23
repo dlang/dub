@@ -469,7 +469,7 @@ class Project {
 			pack.simpleLint();
 
 			foreach (d; pack.getAllDependencies()) {
-				auto basename = d.name.main;
+				auto basename = d.name.base;
 				d.spec.visit!(
 					(NativePath path) { /* Valid */ },
 					(Repository repo) { /* Valid */ },
@@ -530,7 +530,7 @@ class Project {
 			Dependency vspec = dep.spec;
 			Package p;
 
-			auto basename = dep.name.main;
+			auto basename = dep.name.base;
 			auto subname = dep.name.sub;
 
 			// non-optional and optional-default dependencies (if no selections file exists)
@@ -564,8 +564,8 @@ class Project {
 						return m_packageManager.getPackage(dep.name, vspec.version_);
 					},
 				);
-			} else if (m_dependencies.canFind!(d => PackageName(d.name).main == basename)) {
-				auto idx = m_dependencies.countUntil!(d => PackageName(d.name).main == basename);
+			} else if (m_dependencies.canFind!(d => PackageName(d.name).base == basename)) {
+				auto idx = m_dependencies.countUntil!(d => PackageName(d.name).base == basename);
 				auto bp = m_dependencies[idx].basePackage;
 				vspec = Dependency(bp.path);
 				p = resolveSubPackage(bp, subname, false);
@@ -1955,11 +1955,11 @@ public class SelectedVersions {
 	void selectVersion(in PackageName name, Version version_, in IntegrityTag tag = IntegrityTag.init)
 	{
 		auto dep = SelectedDependency(Dependency(version_), tag);
-		if (auto pdep = name.main.toString() in this.m_selections.versions) {
+		if (auto pdep = name.base.toString() in this.m_selections.versions) {
 			if (*pdep == dep)
 				return;
 		}
-		this.m_selections.versions[name.main.toString()] = dep;
+		this.m_selections.versions[name.base.toString()] = dep;
 		this.m_dirty = true;
 	}
 
@@ -1996,11 +1996,11 @@ public class SelectedVersions {
 	/// Internal implementation of selectVersion
 	private void selectVersionInternal(in PackageName name, in Dependency dep)
 	{
-		if (auto pdep = name.main.toString() in m_selections.versions) {
+		if (auto pdep = name.base.toString() in m_selections.versions) {
 			if (*pdep == dep)
 				return;
 		}
-		m_selections.versions[name.main.toString()] = dep;
+		m_selections.versions[name.base.toString()] = dep;
 		m_dirty = true;
 	}
 
@@ -2021,7 +2021,7 @@ public class SelectedVersions {
 	/// Ditto
 	void deselectVersion(in PackageName name)
 	{
-		m_selections.versions.remove(name.main.toString());
+		m_selections.versions.remove(name.base.toString());
 		m_dirty = true;
 	}
 
@@ -2035,7 +2035,7 @@ public class SelectedVersions {
 	/// Ditto
 	bool hasSelectedVersion(in PackageName name) const
 	{
-		return (name.main.toString() in m_selections.versions) !is null;
+		return (name.base.toString() in m_selections.versions) !is null;
 	}
 
 	/** Returns the selection for a particular package.
@@ -2056,13 +2056,13 @@ public class SelectedVersions {
 	Dependency getSelectedVersion(in PackageName name) const
 	{
 		enforce(hasSelectedVersion(name));
-		return m_selections.versions[name.main.toString()];
+		return m_selections.versions[name.base.toString()];
 	}
 
 	/// Returns: The `IntegrityTag` associated to the version, or `.init` if none
 	IntegrityTag getIntegrityTag(in PackageName name) const
 	{
-		if (auto ptr = name.main.toString() in this.m_selections.versions)
+		if (auto ptr = name.base.toString() in this.m_selections.versions)
 			return (*ptr).integrity;
 		return typeof(return).init;
 	}

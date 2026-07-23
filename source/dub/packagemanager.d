@@ -406,7 +406,7 @@ class PackageManager {
 		if (!nameString.empty) {
 			nameToResolve = PackageName(nameString);
 			const loadedName = PackageName(pack.name);
-			enforce(loadedName == nameToResolve || loadedName == nameToResolve.main,
+			enforce(loadedName == nameToResolve || loadedName == nameToResolve.base,
 				"Package %s loaded from '%s' does not match expected name %s".format(
 					loadedName, path.toNativeString(), nameToResolve));
 		}
@@ -1353,7 +1353,7 @@ symlink_exit:
 	/// Returns null if the sub-package doesn't exist.
 	private Package addPackagesAndResolveSubPackage(ref Package[] dst_repos, Package pack,
 		in PackageName nameToResolve)
-	in(pack.name == nameToResolve.main.toString(),
+	in(pack.name == nameToResolve.base.toString(),
 		"nameToResolve must be the added package or one of its sub-packages")
 	{
 		this.addPackages(dst_repos, pack);
@@ -1784,12 +1784,12 @@ package struct Location {
 		if (!mgr.fs.existsDirectory(path))
 			return null;
 
-		logDiagnostic("Lazily loading package %s:%s from %s", name.main, vers, path);
+		logDiagnostic("Lazily loading package %s:%s from %s", name.base, vers, path);
 		auto p = mgr.load(path);
 		enforce(
 			p.version_ == vers,
 			format("Package %s located in %s has a different version than its path: Got %s, expected %s",
-				name.main, path, p.version_, vers));
+				name.base, path, p.version_, vers));
 		return mgr.addPackagesAndResolveSubPackage(this.fromPath, p, name);
 	}
 
@@ -1815,8 +1815,8 @@ package struct Location {
 	 */
 	NativePath getPackagePath (in PackageName name, string vers)
 	{
-		NativePath result = this.packagePath ~ name.main.toString() ~ vers ~
-			name.main.toString();
+		NativePath result = this.packagePath ~ name.base.toString() ~ vers ~
+			name.base.toString();
 		result.endsWithSlash = true;
 		return result;
 	}
