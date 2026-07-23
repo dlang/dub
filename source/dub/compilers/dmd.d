@@ -421,7 +421,7 @@ config    /etc/dmd.conf
 
 	private auto escapeArgs(in string[] args)
 	{
-		return args.map!(s => s.canFind(' ') ? "\""~s~"\"" : s);
+		return args.map!(escapeResponseFileArg);
 	}
 
 	static bool isLinkerDFlag(string arg)

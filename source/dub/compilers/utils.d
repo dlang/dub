@@ -13,6 +13,8 @@ import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
 
 import std.algorithm : canFind, endsWith, filter;
+import std.array : array;
+import std.range : repeat;
 
 /**
 	Alters the build options to comply with the specified build requirements.
@@ -72,6 +74,46 @@ unittest {
 	assert(!isLinkerFile(p, "test.d"));
 }
 
+/**
+	Formats one command-line argument for a compiler response file.
+
+	DMD and LDC treat a backslash immediately before a closing double quote as
+	escaping that quote when expanding `@` files. Spaced arguments are wrapped in
+	quotes; trailing backslashes in the payload must be doubled so the closing
+	quote ends the argument (see Phobos `responseExpandFrom`, LDC
+	`driver/response.cpp`).
+*/
+string escapeResponseFileArg(string s)
+{
+	if (!s.canFind(' '))
+		return s;
+
+	size_t trailingBackslashes;
+	for (trailingBackslashes = 0;
+	     trailingBackslashes < s.length && s[$ - 1 - trailingBackslashes] == '\\';
+	     trailingBackslashes++) { }
+
+	if (trailingBackslashes)
+		s ~= '\\'.repeat(trailingBackslashes).array;
+
+	return '"' ~ s ~ '"';
+}
+
+unittest {
+	// No spaces: leave the argument untouched (including trailing backslashes).
+	assert(escapeResponseFileArg(`C:\nospace`) == `C:\nospace`);
+	assert(escapeResponseFileArg(`C:\trail\\`) == `C:\trail\\`);
+
+	enum spaced = `C:\dir with spaces\file.d`;
+	assert(escapeResponseFileArg(spaced) == `"` ~ spaced ~ `"`);
+
+	// Trailing directory separators must be doubled inside the quotes so the
+	// closing quote is not escaped by response-file expansion.
+	assert(escapeResponseFileArg(`-IC:\Users\Has Space\src\`) ==
+		`"-IC:\Users\Has Space\src\\"`);
+	assert(escapeResponseFileArg(`C:\dir with spaces\trail\\`) ==
+		`"C:\dir with spaces\trail\\\\"`);
+}
 
 /**
 	Adds a default DT_SONAME (ELF) / 'install name' (Mach-O) when linking a dynamic library.
