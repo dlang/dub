@@ -47,6 +47,7 @@ fi
 ls -la --time-style=full-iso build.ninja dub.selections.json 2>/dev/null || stat -f "%m %N" build.ninja dub.selections.json
 sleep 1 && touch dub.selections.json
 ls -la --time-style=full-iso build.ninja dub.selections.json 2>/dev/null || stat -f "%m %N" build.ninja dub.selections.json
+ninja -d explain -n
 ninja_selections_regen=$(ninja 2>&1 || true)
 if ! echo "$ninja_selections_regen" | grep -q "Regenerating build.ninja"; then
     die $LINENO 'ninja did not attempt to regenerate build.ninja after touching dub.selections.json!'
