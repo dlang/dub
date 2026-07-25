@@ -82,6 +82,7 @@ PackageRecipe parsePackageRecipe(string contents, string filename,
 	string default_package_name = null, StrictMode mode = StrictMode.Ignore)
 {
 	import std.algorithm : endsWith;
+	import std.path : baseName;
 	import dub.compilers.buildsettings : TargetType;
 	import dub.recipe.sdl : parseSDL;
 
@@ -91,6 +92,11 @@ PackageRecipe parsePackageRecipe(string contents, string filename,
 
 	if (filename.endsWith(".json"))
 	{
+		// Historic alias for dub.json; refuse npm's package.json to avoid
+		// confusing parse warnings / empty-library errors (see #3118).
+		if (baseName(filename) == "package.json")
+			enforceNotNpmPackageJson(contents, filename);
+
 		ret = parseConfigString!PackageRecipe(contents, filename, mode);
 		fixDependenciesNames(ret.name, ret);
 	}
@@ -113,6 +119,72 @@ PackageRecipe parsePackageRecipe(string contents, string filename,
 	sanitizeTargetType(ret);
 
 	return ret;
+}
+
+/** Top-level npm keys that Dub recipes never use.
+
+	Presence of any of these in a file named `package.json` means the file
+	belongs to npm (or a similar JS package manager), not Dub.
+*/
+private static immutable string[] npmPackageJsonSentinelKeys = [
+	"packageManager",
+	"scripts",
+	"devDependencies",
+	"workspaces",
+	"private",
+];
+
+/// Throws if `contents` looks like an npm `package.json` rather than a Dub recipe.
+private void enforceNotNpmPackageJson(string contents, string filename)
+{
+	import std.exception : enforce;
+	import std.format : format;
+	import dub.internal.vibecompat.data.json : Json, parseJsonString;
+
+	Json json;
+	try
+		json = parseJsonString(contents, filename);
+	catch (Exception)
+		return; // Let the normal recipe parser report JSON syntax errors.
+
+	if (json.type != Json.Type.object)
+		return;
+
+	string[] found;
+	foreach (key; npmPackageJsonSentinelKeys)
+		if (key in json)
+			found ~= key;
+
+	enforce(found.length == 0,
+		format("%s: Refusing to load npm package.json (found non-Dub key%s: %-(%s, %)). " ~
+			"Use dub.json or dub.sdl for Dub packages.",
+			filename, found.length == 1 ? "" : "s", found));
+}
+
+unittest { // issue #3118 - refuse npm package.json, keep legacy Dub package.json
+	import std.exception : assertThrown, assertNotThrown;
+
+	assertThrown!Exception(parsePackageRecipe(
+		`{ "name": "web", "private": true, "devDependencies": { "antora": "^3.1.14" }, "packageManager": "pnpm@9.15.0" }`,
+		"package.json"));
+
+	assertThrown!Exception(parsePackageRecipe(
+		`{ "name": "web", "scripts": { "build": "antora antora-playbook.yml" } }`,
+		"package.json"));
+
+	assertThrown!Exception(parsePackageRecipe(
+		`{ "name": "web", "workspaces": ["packages/*"] }`,
+		"package.json"));
+
+	// Legacy Dub recipes named package.json remain valid.
+	assertNotThrown(parsePackageRecipe(
+		`{ "name": "exec-simple", "targetType": "executable" }`,
+		"package.json"));
+
+	// Same npm-looking content is fine under dub.json (unknown keys handled by StrictMode).
+	assertNotThrown(parsePackageRecipe(
+		`{ "name": "web", "private": true }`,
+		"dub.json"));
 }
 
 
