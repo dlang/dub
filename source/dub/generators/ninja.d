@@ -15,7 +15,7 @@ import std.algorithm : map, startsWith;
 import std.array : join, replace;
 import std.path : stripExtension;
 import std.stdio : File;
-import std.file : exists;
+import std.file : exists, thisExePath;
 
 class NinjaGenerator : ProjectGenerator
 {
@@ -49,11 +49,11 @@ class NinjaGenerator : ProjectGenerator
         f.writeln("  description = Archiving $out");
         f.writeln();
 
-        auto recipePath     = m_project.rootPackage.recipePath.toNativeString();
+        const recipePath     = m_project.rootPackage.recipePath.toNativeString();
         auto selectionsPath = (m_project.rootPackage.path ~ "dub.selections.json").toNativeString();
 
         f.writeln("rule regen");
-        f.writeln("  command = dub generate ninja");
+        f.writeln("  command = ", thisExePath(), " generate ninja");
         f.writeln("  generator = 1");
         f.writeln("  description = Regenerating build.ninja");
         f.writeln();
