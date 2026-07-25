@@ -1,0 +1,13 @@
+Refuse to load npm `package.json` files.
+
+For historic reasons Dub treated `package.json` as an alias for `dub.json`.
+When a Node/npm `package.json` was present and no `dub.json`/`dub.sdl` was
+found, Dub parsed it anyway, emitted confusing unknown-key warnings, and often
+failed with an empty-library / `targetType: none` error.
+
+Dub now refuses to load a file named `package.json` when it contains npm-only
+top-level keys (`packageManager`, `scripts`, `devDependencies`, `workspaces`,
+or `private`). Legacy Dub recipes that still use the `package.json` filename
+continue to work. Prefer `dub.json` or `dub.sdl` for new packages.
+
+$(LINK2 https://github.com/dlang/dub/issues/3118, #3118)
