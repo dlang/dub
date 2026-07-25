@@ -45,6 +45,7 @@ __dummy.html
 !/test/*/.min_frontend
 !/test/*/.fail_build
 !/test/*/dub.json
+!/test/*/package.json
 !/test/*/dub.sdl
 !/test/*/dub.settings.json
 !/test/*/source/

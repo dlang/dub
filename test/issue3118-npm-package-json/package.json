@@ -1,0 +1,8 @@
+{
+	"name": "npm-looking-package",
+	"private": true,
+	"devDependencies": {
+		"antora": "^3.1.14"
+	},
+	"packageManager": "pnpm@9.15.0"
+}
