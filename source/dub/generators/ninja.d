@@ -87,7 +87,7 @@ class NinjaGenerator : ProjectGenerator
             foreach (src; bs.sourceFiles)
             {
                 auto obj = objName(src);
-                f.writeln("build ", obj, ": dc ", src);
+                f.writeln("build ", obj, ": dc ", escapeNinjaPath(src));
                 if (flags.length)
                     f.writeln("  flags = ", flags);
                 objs ~= obj;
