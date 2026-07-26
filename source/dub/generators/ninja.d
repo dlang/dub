@@ -62,7 +62,7 @@ class NinjaGenerator : ProjectGenerator
         if (exists(selectionsPath))
             regenInputs ~= selectionsPath;
 
-        f.writeln("build build.ninja: regen ", regenInputs.join(" "));
+        f.writeln("build build.ninja: regen ", regenInputs.map!(p => escapeNinjaPath(p)).join(" "));
         f.writeln();
 
         foreach (name, info; targets)
@@ -119,6 +119,11 @@ class NinjaGenerator : ProjectGenerator
             }
             f.writeln();
         }
+    }
+
+    private static string escapeNinjaPath(string path)
+    {
+        return path.replace(":", "$:").replace(" ", "$ ");
     }
 
     private static string objName(string src)
