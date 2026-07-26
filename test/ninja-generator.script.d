@@ -38,8 +38,8 @@ int main()
 		return fail("dub generate ninja failed");
 
 	execute(["ninja", "-t", "clean"], null, Config.none, size_t.max, projDir);
-	if (execute(["ninja"], null, Config.none, size_t.max, projDir).status)
-		return fail("initial ninja build failed");
+	const b = execute(["ninja"], null, Config.none, size_t.max, projDir);
+	if (b.status) { writeln("DEBUG=", b.output); return fail("initial ninja build failed"); }
 
 	if (!regenerated("dub.json"))
 		return fail("no regen after touching dub.json");
