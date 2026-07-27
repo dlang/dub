@@ -1,17 +1,27 @@
 /+ dub.sdl:
    name "ninja-generator-regen"
-+/
+   dependency "common" path="./common"
+ +/
 
 module ninja_generator_regen;
 
-import std.process;
-import std.stdio;
-import std.path;
-import std.file;
+import std.process : environment, execute, Config;
+import std.path : buildPath, dirName;
+import std.file : setTimes, readText, remove;
 import std.datetime : Clock;
 import std.algorithm : canFind;
 import core.thread : Thread;
 import core.time : seconds;
+
+import common;
+
+bool regenerated(string projDir, string touchedFile)
+{
+	Thread.sleep(1.seconds);
+	setTimes(buildPath(projDir, touchedFile), Clock.currTime, Clock.currTime);
+	const result = execute(["ninja"], null, Config.none, size_t.max, projDir);
+	return result.status == 0 && result.output.canFind("Regenerating build.ninja");
+}
 
 int main()
 {
@@ -20,52 +30,35 @@ int main()
 	const curr_dir = environment.get("CURR_DIR", buildPath(__FILE_FULL_PATH__.dirName));
 	const projDir = buildPath(curr_dir, "ninja-generator");
 
-	int fail(string msg)
-	{
-		writeln("FAIL: ", msg);
-		return 1;
-	}
-
-	bool regenerated(string touchedFile)
-	{
-		Thread.sleep(1.seconds);
-		std.file.setTimes(buildPath(projDir, touchedFile), Clock.currTime, Clock.currTime);
-		const result = execute(["ninja"], null, Config.none, size_t.max, projDir);
-	return result.status == 0 && result.output.canFind("Regenerating build.ninja");
-	}
-
 	if (execute([dub, "generate", "ninja", "--compiler", dc], null, Config.none, size_t.max, projDir).status)
-		return fail("dub generate ninja failed");
+		die("dub generate ninja failed");
 
 	execute(["ninja", "-t", "clean"], null, Config.none, size_t.max, projDir);
 	if (execute(["ninja"], null, Config.none, size_t.max, projDir).status)
-		return fail("initial ninja build failed");
+		die("initial ninja build failed");
 
-	if (!regenerated("dub.json"))
-		return fail("no regen after touching dub.json");
+	if (!regenerated(projDir, "dub.json"))
+		die("no regen after touching dub.json");
 
 	const sdlProjDir = buildPath(curr_dir, "ninja-generator-sdl");
 
 	if (execute([dub, "generate", "ninja", "--compiler", dc], null, Config.none, size_t.max, sdlProjDir).status)
-		return fail("dub generate ninja failed for dub.sdl project");
+		die("dub generate ninja failed for dub.sdl project");
 
 	const sdlBuildNinja = buildPath(sdlProjDir, "build.ninja");
 	if (!readText(sdlBuildNinja).canFind("regen") || !readText(sdlBuildNinja).canFind("dub.sdl"))
-		return fail("build.ninja regen edge missing dub.sdl dependency");
+		die("build.ninja regen edge missing dub.sdl dependency");
 
 	execute(["ninja", "-t", "clean"], null, Config.none, size_t.max, sdlProjDir);
 	if (execute(["ninja"], null, Config.none, size_t.max, sdlProjDir).status)
-		return fail("initial ninja build failed for dub.sdl project");
+		die("initial ninja build failed for dub.sdl project");
 
-	Thread.sleep(1.seconds);
-	std.file.setTimes(buildPath(sdlProjDir, "dub.sdl"), Clock.currTime, Clock.currTime);
-	const sdlResult = execute(["ninja"], null, Config.none, size_t.max, sdlProjDir);
-	if (!sdlResult.output.canFind("Regenerating build.ninja"))
-		return fail("no regen after touching dub.sdl");
+	if (!regenerated(sdlProjDir, "dub.sdl"))
+		die("no regen after touching dub.sdl");
 
 	execute(["ninja", "-t", "clean"], null, Config.none, size_t.max, sdlProjDir);
 	remove(sdlBuildNinja);
 
-	writeln("PASS");
+	log("PASS");
 	return 0;
 }
