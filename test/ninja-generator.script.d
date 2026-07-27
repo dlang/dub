@@ -31,7 +31,7 @@ int main()
 		Thread.sleep(1.seconds);
 		std.file.setTimes(buildPath(projDir, touchedFile), Clock.currTime, Clock.currTime);
 		const result = execute(["ninja"], null, Config.none, size_t.max, projDir);
-		return result.output.canFind("Regenerating build.ninja");
+	return result.status == 0 && result.output.canFind("Regenerating build.ninja");
 	}
 
 	if (execute([dub, "generate", "ninja", "--compiler", dc], null, Config.none, size_t.max, projDir).status)
