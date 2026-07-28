@@ -1,0 +1,26 @@
+Added `dub publish` command.
+
+Registers a package repository with the DUB registry from the command line
+(default action), or checks status / triggers a metadata refresh.
+
+Previously registration required submitting a repository URL through the
+website after logging in. `dub publish` automates that flow using session
+login (`POST /login`) and `POST /register_package`.
+
+-------
+# credentials via environment (preferred in CI)
+export DUB_REGISTRY_USER=myname
+export DUB_REGISTRY_PASSWORD=secret
+
+# register the current package's git origin remote
+dub publish
+
+# check whether a package exists
+dub publish status -n vibe-d
+
+# queue a metadata refresh (after pushing a SemVer tag)
+dub publish update -n mypkg --secret YOUR_PACKAGE_SECRET
+-------
+
+Use `--annotate` for a dry run. Credentials may also be stored under the DUB
+settings directory with `--save-credentials`.

@@ -12,6 +12,7 @@ import dub.dependency;
 import dub.dub;
 import dub.generators.generator;
 import dub.internal.logging;
+import dub.internal.io.realfs : RealFS;
 import dub.internal.utils : getClosestMatch, getDUBVersion, getTempFile;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
@@ -20,6 +21,7 @@ import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
 import dub.project;
+import dub.registry_auth;
 
 import dub.internal.dyaml.stdsumtype;
 
@@ -68,6 +70,7 @@ CommandGroup[] getCommands() @safe pure nothrow
 			new RemoveLocalCommand,
 			new ListCommand,
 			new SearchCommand,
+			new PublishCommand,
 			new AddOverrideCommand,
 			new RemoveOverrideCommand,
 			new ListOverridesCommand,
@@ -2957,6 +2960,214 @@ class DustmiteCommand : PackageBuildCommand {
 
 /******************************************************************************/
 /* CONVERT command                                                               */
+/******************************************************************************/
+/* PUBLISH                                                                    */
+/******************************************************************************/
+
+class PublishCommand : Command {
+	private {
+		CommonOptions m_options;
+		string m_user;
+		string m_password;
+		string m_url;
+		string m_packageName;
+		string m_secret;
+		bool m_ignoreFork;
+		bool m_saveCredentials;
+	}
+
+	this() @safe pure nothrow
+	{
+		this.name = "publish";
+		this.argumentsPattern = "[register|status|update|login]";
+		this.description = "Register a package with the DUB registry or refresh its metadata";
+		this.helpText = [
+			"Registers the current package's Git repository with a DUB registry (default: code.dlang.org),",
+			"checks registration status, or triggers a metadata refresh.",
+			"",
+			"The default action is `register`, which logs into the registry and submits the repository URL",
+			"(from `git remote origin`, or `--url`). New versions appear when SemVer tags are pushed;",
+			"the registry polls them periodically. Use `update` to queue an immediate refresh.",
+			"",
+			"Credentials: `--user` / `--password`, or environment variables `DUB_REGISTRY_USER` /",
+			"`DUB_REGISTRY_PASSWORD`, or a credentials file under the DUB settings directory.",
+			"Use `--annotate` to print what would happen without contacting the registry."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("user|u", &m_user, ["Registry username or email (or DUB_REGISTRY_USER)"]);
+		args.getopt("password|p", &m_password, ["Registry password (or DUB_REGISTRY_PASSWORD)"]);
+		args.getopt("url", &m_url, ["Repository URL (default: git remote origin)"]);
+		args.getopt("package|n", &m_packageName, ["Package name (default: from the local recipe)"]);
+		args.getopt("secret", &m_secret, ["Package update webhook secret (for unauthenticated update)"]);
+		args.getopt("ignore-fork", &m_ignoreFork, ["Register even if the repository is a fork"]);
+		args.getopt("save-credentials", &m_saveCredentials, [
+			"Store username/password in the DUB settings directory"
+		]);
+	}
+
+	override Dub prepareDub(CommonOptions options)
+	{
+		m_options = options;
+		return super.prepareDub(options);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+		enforceUsage(free_args.length <= 1, "Unexpected arguments: " ~ free_args.join(" "));
+
+		string action = free_args.length ? free_args[0] : "register";
+		if (action == "publish")
+			action = "register";
+		enforceUsage(
+			action == "register" || action == "status" || action == "update" || action == "login",
+			"Unknown publish action '" ~ action ~ "'. Expected register, status, update, or login.");
+
+		string registryOverride;
+		if (m_options.registry_urls.length)
+			registryOverride = m_options.registry_urls[0];
+
+		auto cfg = loadRegistryAuthConfig(registryOverride, m_user, m_password);
+
+		if (m_saveCredentials)
+		{
+			enforceUsage(cfg.user.length && cfg.password.length,
+				"--save-credentials needs --user and --password (or matching environment variables)");
+			saveRegistryCredentials(cfg.user, cfg.password);
+			scope fs = new RealFS();
+			logInfo("Saved credentials to %s", SpecialDirs.make(fs).userSettings.toNativeString());
+			if (action == "login")
+				return 0;
+		}
+
+		final switch (action)
+		{
+		case "login":
+			return publishLogin(cfg, dub.dryRun);
+		case "register":
+			return publishRegister(dub, cfg);
+		case "update":
+			return publishUpdate(dub, cfg);
+		case "status":
+			return publishStatus(dub, cfg);
+		}
+	}
+
+	private int publishLogin(RegistryAuthConfig cfg, bool dryRun)
+	{
+		if (dryRun)
+		{
+			logInfo("Would log in to %s as %s", cfg.registryUrl, cfg.user);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		logInfo("Logged in to %s as %s", cfg.registryUrl, cfg.user);
+		return 0;
+	}
+
+	private int publishRegister(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto url = m_url;
+		if (!url.length)
+			url = detectGitRemoteUrl("origin", dub.rootPath.toNativeString());
+		enforce(url.length,
+			"No repository URL — pass --url or run inside a Git repo with an origin remote");
+
+		string name = m_packageName;
+		if (!name.length && loadCwdPackage(dub, false))
+			name = dub.projectName;
+
+		logInfo("Registry:   %s", cfg.registryUrl);
+		logInfo("Repository: %s", url);
+		if (name.length)
+			logInfo("Package:    %s", name);
+
+		if (dub.dryRun)
+		{
+			logInfo("Dry run — not submitting (--annotate).");
+			return 0;
+		}
+
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		client.registerPackage(url, m_ignoreFork);
+
+		if (name.length)
+		{
+			import core.thread : Thread;
+			import core.time : seconds;
+			Thread.sleep(2.seconds);
+			auto ver = client.latestVersion(name);
+			if (ver !is null)
+			{
+				logInfo("Registered. Latest: %s", ver.length ? ver : "(pending)");
+				logInfo("%s/packages/%s", cfg.registryUrl, name);
+				return 0;
+			}
+			logInfo("Submitted. Package may take a minute to appear at");
+			logInfo("%s/packages/%s", cfg.registryUrl, name);
+		}
+		else
+			logInfo("Submitted. Check %s/my_packages", cfg.registryUrl);
+		return 0;
+	}
+
+	private int publishUpdate(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		if (dub.dryRun)
+		{
+			logInfo("Would trigger update for %s on %s", name, cfg.registryUrl);
+			return 0;
+		}
+
+		auto client = new RegistryAuthClient(cfg);
+		RegistryAuthResult res;
+		if (m_secret.length)
+			res = client.triggerUpdateWithSecret(name, m_secret);
+		else
+		{
+			client.login();
+			res = client.triggerUpdate(name);
+		}
+		logInfo("Update queued for %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private int publishStatus(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		if (dub.dryRun)
+		{
+			logInfo("Would check status of %s on %s", name, cfg.registryUrl);
+			return 0;
+		}
+
+		auto client = new RegistryAuthClient(cfg);
+		auto ver = client.latestVersion(name);
+		if (ver is null)
+		{
+			logError("%s: not found on %s", name, cfg.registryUrl);
+			return 2;
+		}
+		logInfo("%s: %s", name, ver);
+		logInfo("%s/packages/%s", cfg.registryUrl, name);
+		return 0;
+	}
+
+	private string resolvePackageName(Dub dub)
+	{
+		if (m_packageName.length)
+			return m_packageName;
+		enforce(loadCwdPackage(dub, true), "Package name required (--package or a local recipe)");
+		return dub.projectName;
+	}
+}
+
 /******************************************************************************/
 
 class ConvertCommand : Command {
