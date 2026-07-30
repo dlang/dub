@@ -7,20 +7,30 @@ module ninja_generator_regen;
 
 import std.process : environment, execute, Config;
 import std.path : buildPath, dirName;
-import std.file : setTimes, readText, remove;
-import std.datetime : Clock;
+import std.file : readText, remove, mkdirRecurse, rmdirRecurse, write;
 import std.algorithm : canFind;
 import core.thread : Thread;
 import core.time : seconds;
 
 import common;
 
-bool regenerated(string projDir, string touchedFile)
+bool regenUpdatesImportPath(string projDir, string recipePath, string origRecipe, string newRecipe)
 {
+	const buildNinjaPath = buildPath(projDir, "build.ninja");
+	const importDir = buildPath(projDir, "extra-imports");
+
+	mkdirRecurse(importDir);
+	scope(exit) rmdirRecurse(importDir);
+
 	Thread.sleep(1.seconds);
-	setTimes(buildPath(projDir, touchedFile), Clock.currTime, Clock.currTime);
+	write(recipePath, newRecipe);
+	scope(exit) write(recipePath, origRecipe);
+
 	const result = execute(["ninja"], null, Config.none, size_t.max, projDir);
-	return result.status == 0 && result.output.canFind("Regenerating build.ninja");
+	if (result.status != 0 || !result.output.canFind("Regenerating build.ninja"))
+		return false;
+
+	return readText(buildNinjaPath).canFind("extra-imports");
 }
 
 int main()
@@ -37,8 +47,16 @@ int main()
 	if (execute(["ninja"], null, Config.none, size_t.max, projDir).status)
 		die("initial ninja build failed");
 
-	if (!regenerated(projDir, "dub.json"))
-		die("no regen after touching dub.json");
+	const jsonRecipePath = buildPath(projDir, "dub.json");
+	const origJson = readText(jsonRecipePath);
+	const newJson = `{
+    "name": "ninja-generator",
+    "targetType": "executable",
+    "importPaths": ["extra-imports"]
+}`;
+
+	if (!regenUpdatesImportPath(projDir, jsonRecipePath, origJson, newJson))
+		die("build.ninja was not actually regenerated with the new import path after touching dub.json");
 
 	const sdlProjDir = buildPath(curr_dir, "ninja-generator-sdl");
 
@@ -53,8 +71,12 @@ int main()
 	if (execute(["ninja"], null, Config.none, size_t.max, sdlProjDir).status)
 		die("initial ninja build failed for dub.sdl project");
 
-	if (!regenerated(sdlProjDir, "dub.sdl"))
-		die("no regen after touching dub.sdl");
+	const sdlRecipePath = buildPath(sdlProjDir, "dub.sdl");
+	const origSdl = readText(sdlRecipePath);
+	const newSdl = "name \"ninja-generator-sdl\"\ntargetType \"executable\"\nimportPaths \"extra-imports\"\n";
+
+	if (!regenUpdatesImportPath(sdlProjDir, sdlRecipePath, origSdl, newSdl))
+		die("build.ninja was not actually regenerated with the new import path after touching dub.sdl");
 
 	execute(["ninja", "-t", "clean"], null, Config.none, size_t.max, sdlProjDir);
 	remove(sdlBuildNinja);

@@ -81,7 +81,7 @@ class NinjaGenerator : ProjectGenerator
             if (extraFlags.length)   parts ~= extraFlags;
             auto flags = parts.join(" ");
 
-            auto lflags = bs.lflags.join(" ");
+            auto lflags = bs.lflags.map!(f => escapeNinjaPath(f)).join(" ");
 
             string[] objs;
             foreach (src; bs.sourceFiles)
