@@ -1,9 +1,10 @@
 /**
-	Authenticated access to a DUB registry for package registration.
+	Authenticated access to a DUB registry for package registration and owner
+	settings (logo, docs URL, categories, webhooks, permissions, remove).
 
 	The public registry (code.dlang.org) registers packages via a browser form
 	(`POST /register_package` after session login). This module implements that
-	flow for the `dub publish` command.
+	flow for the `dub publish` command, plus the My packages owner actions.
 
 	Copyright: © 2026 DUB contributors
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
@@ -15,14 +16,15 @@ import dub.internal.io.realfs : RealFS;
 import dub.internal.logging;
 import dub.internal.utils : getDUBVersion;
 import dub.internal.vibecompat.inet.path;
+import dub.registry_secrets;
 
 import std.algorithm : canFind, endsWith, startsWith;
 import std.array : appender, split;
 import std.conv : to;
 import std.exception : enforce;
-import std.file : exists, mkdirRecurse, readText, write;
+import std.file : exists, mkdirRecurse, read, readText, remove, write;
 import std.process : Config, environment, execute;
-import std.string : chomp, indexOf, strip, toLower;
+import std.string : chomp, indexOf, representation, strip, toLower;
 import std.uri : encodeComponent;
 
 version (DubUseCurl) {
@@ -46,7 +48,88 @@ struct RegistryAuthResult
 	bool ok() const @safe pure nothrow { return status >= 200 && status < 400; }
 }
 
-/// Resolve config from overrides, environment, then `~/.dub` credentials.
+/// Webhook endpoint URLs (always built clean — avoids dub-registry #614 malformation).
+struct WebhookUrls
+{
+	string generic;
+	string github;
+	string gitlab;
+	string secret;
+}
+
+/// Build clean webhook URLs for a package (generic / GitHub / GitLab).
+WebhookUrls buildWebhookUrls(string registryUrl, string packageName, string secret)
+{
+	normalizeRegistryUrl(registryUrl);
+	auto base = registryUrl ~ "/api/packages/" ~ encodeComponent(packageName);
+	WebhookUrls u;
+	u.secret = secret;
+	u.generic = base ~ "/update";
+	u.github = base ~ "/update/github?secret=" ~ encodeComponent(secret);
+	u.gitlab = base ~ "/update/gitlab";
+	return u;
+}
+
+/// Thrown when register_package reports the repository is already registered.
+class AlreadyRegisteredException : Exception
+{
+	this(string msg, string file = __FILE__, size_t line = __LINE__)
+	{
+		super(msg, file, line);
+	}
+}
+
+bool isAlreadyRegisteredMessage(string alert)
+{
+	auto lower = alert.toLower;
+	return lower.canFind("already registered")
+		|| lower.canFind("already exists")
+		|| lower.canFind("is already registered");
+}
+
+/// Path to the DUB user settings directory (`~/.dub` / `%APPDATA%\dub`).
+NativePath registryUserSettingsDir()
+{
+	scope fs = new RealFS();
+	return SpecialDirs.make(fs).userSettings;
+}
+
+string credentialsPath()
+{
+	return (registryUserSettingsDir() ~ "credentials.v1").toNativeString();
+}
+
+/**
+	Default path for a one-shot plaintext password drop file.
+
+	Agents/scripts write the password here (first line), then run
+	`dub publish login --user … --save-credentials`. On success the app stores
+	it with DPAPI (Windows) / mode 0600 (elsewhere) and deletes this file.
+*/
+string passwordDropPath()
+{
+	return (registryUserSettingsDir() ~ "password.incoming").toNativeString();
+}
+
+/// Create the user settings directory if needed (so an agent can write password.incoming).
+string ensureUserSettingsDir()
+{
+	auto home = registryUserSettingsDir();
+	mkdirRecurse(home.toNativeString());
+	return home.toNativeString();
+}
+
+/// Delete the password drop file if present. Returns true when a file was removed.
+bool clearPasswordDrop()
+{
+	auto path = passwordDropPath();
+	if (!exists(path))
+		return false;
+	remove(path);
+	return true;
+}
+
+/// Resolve config from overrides, environment, then DUB user settings credentials.
 RegistryAuthConfig loadRegistryAuthConfig(string registryOverride = null,
 	string userOverride = null, string passwordOverride = null)
 {
@@ -69,22 +152,31 @@ RegistryAuthConfig loadRegistryAuthConfig(string registryOverride = null,
 	else if (auto p = environment.get("DUB_REGISTRY_PASSWORD"))
 		cfg.password = p;
 
-	scope fs = new RealFS();
-	auto home = SpecialDirs.make(fs).userSettings;
+	auto home = registryUserSettingsDir();
 	cfg.cookieJar = (home ~ "cookies.txt").toNativeString();
 
 	if (!cfg.user.length || !cfg.password.length)
 	{
-		auto credPath = (home ~ "credentials").toNativeString();
-		if (exists(credPath))
+		string loadedUser;
+		string loadedPassword;
+		bool fromLegacy;
+		if (loadStoredCredentials(loadedUser, loadedPassword, fromLegacy))
 		{
-			import std.string : lineSplitter;
-			import std.array : array;
-			auto lines = readText(credPath).lineSplitter.array;
-			if (!cfg.user.length && lines.length >= 1)
-				cfg.user = lines[0].strip;
-			if (!cfg.password.length && lines.length >= 2)
-				cfg.password = lines[1].strip;
+			if (!cfg.user.length)
+				cfg.user = loadedUser;
+			if (!cfg.password.length)
+				cfg.password = loadedPassword;
+			// Upgrade legacy plaintext files on first successful read.
+			if (fromLegacy && cfg.user.length && cfg.password.length
+				&& cfg.user == loadedUser && cfg.password == loadedPassword)
+			{
+				try
+					saveRegistryCredentials(cfg.user, cfg.password);
+				catch (Exception)
+				{
+					// Keep using the in-memory password; leave legacy file alone.
+				}
+			}
 		}
 	}
 
@@ -92,13 +184,56 @@ RegistryAuthConfig loadRegistryAuthConfig(string registryOverride = null,
 	return cfg;
 }
 
-/// Persist username/password under the user settings directory (plain text).
+/**
+	Persist username/password under the DUB user settings directory.
+
+	The password is not hashed: a hash cannot be sent to the registry on later
+	logins. On Windows the secret is protected with DPAPI (bound to the current
+	user). Elsewhere it is stored Base64-encoded under mode 0600 (OS file ACLs).
+*/
 void saveRegistryCredentials(string user, string password)
 {
-	scope fs = new RealFS();
-	auto home = SpecialDirs.make(fs).userSettings;
+	auto home = registryUserSettingsDir();
 	mkdirRecurse(home.toNativeString());
-	write((home ~ "credentials").toNativeString(), user ~ "\n" ~ password ~ "\n");
+	auto path = credentialsPath();
+	auto body_ = "version=1\n"
+		~ "user=" ~ user ~ "\n"
+		~ "password=" ~ protectSecret(password) ~ "\n";
+	write(path, body_);
+	version (Posix)
+	{
+		import core.sys.posix.sys.stat : chmod;
+		import std.conv : octal;
+		import std.string : toStringz;
+		chmod(path.toStringz, octal!600);
+	}
+	// Remove legacy plaintext file if present alongside the new format.
+	auto legacy = (home ~ "credentials").toNativeString();
+	if (legacy != path && exists(legacy))
+	{
+		try
+			remove(legacy);
+		catch (Exception)
+		{
+		}
+	}
+}
+
+/// Delete stored credentials (new + legacy filenames) and any leftover drop file.
+bool clearRegistryCredentials()
+{
+	bool removed;
+	auto home = registryUserSettingsDir();
+	foreach (name; ["credentials.v1", "credentials", "password.incoming"])
+	{
+		auto path = (home ~ name).toNativeString();
+		if (exists(path))
+		{
+			remove(path);
+			removed = true;
+		}
+	}
+	return removed;
 }
 
 void normalizeRegistryUrl(ref string url)
@@ -168,7 +303,7 @@ string normalizeRepoUrl(string url)
 
 version (DubUseCurl)
 {
-	/// HTTP client for registry login / register / update / status.
+	/// HTTP client for registry login / register / update / owner settings.
 	final class RegistryAuthClient
 	{
 		private RegistryAuthConfig cfg;
@@ -200,7 +335,7 @@ version (DubUseCurl)
 				"Login failed — check username/password (account must be activated)");
 		}
 
-		/// Register a repository URL. Set `ignoreFork` to skip the fork warning.
+		/// Register a repository URL. Throws AlreadyRegisteredException when already present.
 		RegistryAuthResult registerPackage(string repoUrl, bool ignoreFork = false)
 		{
 			enforce(repoUrl.length, "Repository URL is required");
@@ -219,15 +354,22 @@ version (DubUseCurl)
 					"Repository looks like a fork. Re-run with --ignore-fork if that is intentional.");
 			}
 			if (lower.canFind("redalert") || (res.status == 200 && lower.canFind("add new package")
-				&& lower.canFind("error")))
+				&& (lower.canFind("error") || lower.canFind("failed"))))
 			{
-				throw new Exception("Registration failed:\n" ~ extractAlert(res.body_));
+				auto alert = extractAlert(res.body_);
+				if (isAlreadyRegisteredMessage(alert))
+					throw new AlreadyRegisteredException(alert);
+				throw new Exception("Registration failed:\n" ~ alert);
 			}
-			if (res.status == 401 || res.status == 403
-				|| (res.status == 200 && lower.canFind("please enter your user name and password")))
+			// Successful registration usually redirects away from the add form.
+			if (res.status == 200 && lower.canFind("add new package")
+				&& lower.canFind("register package"))
 			{
-				throw new Exception("Not authenticated — login first");
+				throw new Exception(
+					"Registration did not complete (still on add-package form). "
+					~ "Check credentials and repository URL.\n" ~ extractAlert(res.body_));
 			}
+			enforceAuth(res, lower);
 			return res;
 		}
 
@@ -235,9 +377,7 @@ version (DubUseCurl)
 		RegistryAuthResult triggerUpdate(string packageName)
 		{
 			enforce(packageName.length, "Package name required");
-			return request(HTTP.Method.post,
-				cfg.registryUrl ~ "/my_packages/" ~ encodeComponent(packageName) ~ "/update",
-				null, null);
+			return request(HTTP.Method.post, pkgPath(packageName) ~ "/update", null, null);
 		}
 
 		/// Trigger update via package webhook secret (no login).
@@ -250,7 +390,155 @@ version (DubUseCurl)
 			return request(HTTP.Method.post, url, null, null);
 		}
 
-		/// Fetch latest version string, or `null` if the package is missing.
+		/// Enable or regenerate webhook secret. Returns plaintext secret (Accept: text/plain).
+		string regenSecret(string packageName)
+		{
+			enforce(packageName.length, "Package name required");
+			auto res = request(HTTP.Method.post, pkgPath(packageName) ~ "/regen_secret",
+				null, null, "text/plain");
+			enforce(res.ok, "regen_secret failed HTTP " ~ res.status.to!string ~ ": " ~ res.body_);
+			auto secret = res.body_.strip;
+			enforce(secret.length > 0, "Registry returned an empty webhook secret");
+			return secret;
+		}
+
+		RegistryAuthResult unsetSecret(string packageName)
+		{
+			enforce(packageName.length, "Package name required");
+			return request(HTTP.Method.post, pkgPath(packageName) ~ "/unset_secret", null, null);
+		}
+
+		RegistryAuthResult setDocumentationUrl(string packageName, string documentationUrl)
+		{
+			enforce(packageName.length, "Package name required");
+			auto form = "documentation_url=" ~ encodeComponent(documentationUrl);
+			return request(HTTP.Method.post, pkgPath(packageName) ~ "/set_documentation_url",
+				form, "application/x-www-form-urlencoded");
+		}
+
+		RegistryAuthResult setCategories(string packageName, string[] categories)
+		{
+			enforce(packageName.length, "Package name required");
+			enforce(categories.length <= 4, "At most 4 categories allowed");
+			string form;
+			foreach (i, cat; categories)
+			{
+				if (form.length)
+					form ~= "&";
+				form ~= "categories_" ~ i.to!string ~ "=" ~ encodeComponent(cat);
+			}
+			// Pad to 4 slots like the web UI (empty clears unused).
+			foreach (i; categories.length .. 4)
+			{
+				if (form.length)
+					form ~= "&";
+				form ~= "categories_" ~ i.to!string ~ "=";
+			}
+			return request(HTTP.Method.post, pkgPath(packageName) ~ "/set_categories",
+				form, "application/x-www-form-urlencoded");
+		}
+
+		RegistryAuthResult setLogo(string packageName, string logoPath)
+		{
+			enforce(packageName.length, "Package name required");
+			enforce(exists(logoPath), "Logo file not found: " ~ logoPath);
+			auto bytes = cast(const(ubyte)[]) read(logoPath);
+			enforce(bytes.length < 1024 * 1024, "Logo too big (max 1 MiB)");
+			enforce(bytes.length > 0, "Logo file is empty");
+
+			import std.path : baseName;
+			auto boundary = "----dubpublishBoundary7d4a6e";
+			auto filename = baseName(logoPath);
+			auto preamble = "--" ~ boundary ~ "\r\n"
+				~ "Content-Disposition: form-data; name=\"logo\"; filename=\"" ~ filename ~ "\"\r\n"
+				~ "Content-Type: application/octet-stream\r\n\r\n";
+			auto epilogue = "\r\n--" ~ boundary ~ "--\r\n";
+			auto bodyBytes = cast(ubyte[])(preamble.representation.dup)
+				~ bytes
+				~ cast(ubyte[])(epilogue.representation);
+
+			return requestRaw(HTTP.Method.post, pkgPath(packageName) ~ "/set_logo",
+				bodyBytes, "multipart/form-data; boundary=" ~ boundary);
+		}
+
+		RegistryAuthResult deleteLogo(string packageName)
+		{
+			enforce(packageName.length, "Package name required");
+			return request(HTTP.Method.post, pkgPath(packageName) ~ "/delete_logo", null, null);
+		}
+
+		RegistryAuthResult setRepository(string packageName, string kind, string owner, string project)
+		{
+			enforce(packageName.length, "Package name required");
+			auto form = "kind=" ~ encodeComponent(kind)
+				~ "&owner=" ~ encodeComponent(owner)
+				~ "&project=" ~ encodeComponent(project);
+			return request(HTTP.Method.post, pkgPath(packageName) ~ "/set_repository",
+				form, "application/x-www-form-urlencoded");
+		}
+
+		RegistryAuthResult addSharedUser(string packageName, string username, uint permissions)
+		{
+			enforce(packageName.length, "Package name required");
+			enforce(username.length, "Username required");
+			// Multiple permissions fields with same name; encode as repeated keys.
+			string form = "username=" ~ encodeComponent(username);
+			foreach (bit; [1u, 2u, 4u, 15u])
+			{
+				if (permissions & bit)
+					form ~= "&permissions=" ~ bit.to!string;
+			}
+			return request(HTTP.Method.post, pkgPath(packageName) ~ "/add_shared_user",
+				form, "application/x-www-form-urlencoded");
+		}
+
+		/// Step 1 of owner delete — shows confirm page; we immediately follow with remove_confirm.
+		RegistryAuthResult removePackage(string packageName)
+		{
+			enforce(packageName.length, "Package name required");
+			auto step1 = request(HTTP.Method.post, pkgPath(packageName) ~ "/remove", null, null);
+			enforce(step1.ok || step1.status == 200,
+				"remove failed HTTP " ~ step1.status.to!string ~ ": " ~ extractAlert(step1.body_));
+			return request(HTTP.Method.post, pkgPath(packageName) ~ "/remove_confirm", null, null);
+		}
+
+		RegistryAuthResult leavePackage(string packageName)
+		{
+			enforce(packageName.length, "Package name required");
+			return request(HTTP.Method.post, pkgPath(packageName) ~ "/leave", null, null);
+		}
+
+		/**
+			True when the package document exists on the registry.
+
+			`/latest` 404s when the package is registered but has no versions yet.
+			`/info` returns the package document in that case.
+		*/
+		bool packageExists(string packageName)
+		{
+			auto info = request(HTTP.Method.get,
+				cfg.registryUrl ~ "/api/packages/" ~ encodeComponent(packageName) ~ "/info",
+				null, null);
+			if (info.status == 404)
+				return false;
+			if (info.ok)
+			{
+				auto body_ = info.body_.strip;
+				if (!body_.length || body_.canFind("\"statusMessage\"") && body_.canFind("not found"))
+					return false;
+				return body_.canFind("\"name\"");
+			}
+			auto res = request(HTTP.Method.get,
+				cfg.registryUrl ~ "/api/packages/" ~ encodeComponent(packageName) ~ "/latest",
+				null, null);
+			if (res.status == 404)
+				return false;
+			if (!res.ok)
+				throw new Exception("Status check failed HTTP " ~ res.status.to!string ~ ": " ~ res.body_);
+			return res.body_.strip.length > 0 && !res.body_.canFind("Package not found");
+		}
+
+		/// Fetch latest version string, or `null` if the package is missing / has no versions.
 		string latestVersion(string packageName)
 		{
 			auto res = request(HTTP.Method.get,
@@ -263,7 +551,31 @@ version (DubUseCurl)
 		}
 
 	private:
-		RegistryAuthResult request(HTTP.Method method, string url, string body_, string contentType)
+		string pkgPath(string packageName)
+		{
+			return cfg.registryUrl ~ "/my_packages/" ~ encodeComponent(packageName);
+		}
+
+		void enforceAuth(RegistryAuthResult res, string lower)
+		{
+			if (res.status == 401 || res.status == 403
+				|| (res.status == 200 && lower.canFind("please enter your user name and password")))
+			{
+				throw new Exception("Not authenticated — login first");
+			}
+		}
+
+		RegistryAuthResult request(HTTP.Method method, string url, string body_, string contentType,
+			string accept = "text/html,application/json,*/*")
+		{
+			const(ubyte)[] raw;
+			if (body_ !is null)
+				raw = cast(const(ubyte)[]) body_.representation;
+			return requestRaw(method, url, raw, contentType, accept);
+		}
+
+		RegistryAuthResult requestRaw(HTTP.Method method, string url, const(ubyte)[] bodyBytes,
+			string contentType, string accept = "text/html,application/json,*/*")
 		{
 			auto http = HTTP();
 			http.url = url;
@@ -272,14 +584,14 @@ version (DubUseCurl)
 			http.maxRedirects = 10;
 			http.addRequestHeader("User-Agent",
 				"dub/" ~ getDUBVersion() ~ " (+https://github.com/dlang/dub)");
-			http.addRequestHeader("Accept", "text/html,application/json,*/*");
+			http.addRequestHeader("Accept", accept);
 
-			if (body_ !is null)
+			if (bodyBytes !is null)
 			{
 				if (contentType.length)
-					http.setPostData(body_, contentType);
+					http.setPostData(cast(void[]) bodyBytes.dup, contentType);
 				else
-					http.postData = body_;
+					http.postData = cast(void[]) bodyBytes.dup;
 			}
 
 			auto buf = appender!string();
@@ -323,11 +635,102 @@ else
 		{
 			throw new Exception("dub publish requires curl support");
 		}
+		string regenSecret(string)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		RegistryAuthResult unsetSecret(string)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		RegistryAuthResult setDocumentationUrl(string, string)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		RegistryAuthResult setCategories(string, string[])
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		RegistryAuthResult setLogo(string, string)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		RegistryAuthResult deleteLogo(string)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		RegistryAuthResult setRepository(string, string, string, string)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		RegistryAuthResult addSharedUser(string, string, uint)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		RegistryAuthResult removePackage(string)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		RegistryAuthResult leavePackage(string)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
+		bool packageExists(string)
+		{
+			throw new Exception("dub publish requires curl support");
+		}
 		string latestVersion(string)
 		{
 			throw new Exception("dub publish requires curl support");
 		}
 	}
+}
+
+/// Load from credentials.v1 or legacy plaintext `credentials`.
+private bool loadStoredCredentials(out string user, out string password, out bool fromLegacy)
+{
+	auto home = registryUserSettingsDir();
+	auto v1 = credentialsPath();
+	if (exists(v1))
+	{
+		parseCredentialFile(readText(v1), user, password);
+		fromLegacy = false;
+		return user.length > 0 || password.length > 0;
+	}
+
+	auto legacy = (home ~ "credentials").toNativeString();
+	if (exists(legacy))
+	{
+		auto lines = splitLinesSafe(readText(legacy));
+		if (lines.length >= 1)
+			user = lines[0].strip;
+		if (lines.length >= 2)
+			password = lines[1].strip;
+		fromLegacy = true;
+		return user.length > 0 || password.length > 0;
+	}
+	return false;
+}
+
+private void parseCredentialFile(string text, out string user, out string password)
+{
+	foreach (line; splitLinesSafe(text))
+	{
+		auto s = line.strip;
+		if (!s.length || s.startsWith("#"))
+			continue;
+		if (s.startsWith("user="))
+			user = s["user=".length .. $];
+		else if (s.startsWith("password="))
+			password = unprotectSecret(s["password=".length .. $]);
+	}
+}
+
+private string[] splitLinesSafe(string text)
+{
+	import std.array : array;
+	import std.string : lineSplitter;
+	return text.lineSplitter.array;
 }
 
 private string unwrapJsonString(string s)
@@ -361,4 +764,10 @@ unittest
 	u = "dub+https://code.dlang.org";
 	normalizeRegistryUrl(u);
 	assert(u == "https://code.dlang.org");
+
+	auto hooks = buildWebhookUrls("https://code.dlang.org/", "mypkg", "sec");
+	assert(hooks.generic == "https://code.dlang.org/api/packages/mypkg/update");
+	assert(hooks.github == "https://code.dlang.org/api/packages/mypkg/update/github?secret=sec");
+	assert(hooks.gitlab == "https://code.dlang.org/api/packages/mypkg/update/gitlab");
+	assert(isAlreadyRegisteredMessage("Package is already registered"));
 }

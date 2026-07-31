@@ -1,26 +1,44 @@
 Added `dub publish` command.
 
 Registers a package repository with the DUB registry from the command line
-(default action), or checks status / triggers a metadata refresh.
+(default action), checks status, triggers a metadata refresh, or manages owner
+settings (logo, docs URL, categories, webhooks, permissions, remove).
 
-Previously registration required submitting a repository URL through the
-website after logging in. `dub publish` automates that flow using session
-login (`POST /login`) and `POST /register_package`.
+Previously registration and owner settings required the website after logging
+in. `dub publish` automates those flows using session login (`POST /login`)
+and the corresponding My packages endpoints.
+
+Actions: `register`/`publish`, `status`, `update`, `login`, `logout`,
+`remove` (requires `--yes`), `logo`, `logo-delete`, `docs-url`, `categories`,
+`hooks`, `hooks-disable`, `repo`, `perms-add`, `leave`.
+
+Registration is idempotent when the repository is already registered (then
+refreshes metadata). Ingest polling uses `/api/packages/:name/info` so packages
+with no versions yet still count as present.
 
 -------
 # credentials via environment (preferred in CI)
 export DUB_REGISTRY_USER=myname
 export DUB_REGISTRY_PASSWORD=secret
 
+# or agent-friendly drop file under the DUB settings directory:
+#   ~/.dub/password.incoming  or  %APPDATA%\dub\password.incoming
+dub publish login --user myname --save-credentials
+
 # register the current package's git origin remote
 dub publish
 
-# check whether a package exists
+# check whether a package exists (works with zero versions)
 dub publish status -n vibe-d
 
 # queue a metadata refresh (after pushing a SemVer tag)
 dub publish update -n mypkg --secret YOUR_PACKAGE_SECRET
+
+# regenerate webhook secret + clean URLs (avoids dub-registry #614)
+dub publish hooks -n mypkg
 -------
 
-Use `--annotate` for a dry run. Credentials may also be stored under the DUB
-settings directory with `--save-credentials`.
+Use `--annotate` for a dry run. Credentials are stored as `credentials.v1`
+(DPAPI on Windows; Base64 + mode 0600 elsewhere). Prefer `password.incoming`,
+`--password-file`, or `--password-stdin` over `-p` (visible in shell history /
+process lists). `logout` clears the store and any leftover drop file.
