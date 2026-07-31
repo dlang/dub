@@ -39,6 +39,6 @@ dub publish hooks -n mypkg
 -------
 
 Use `--annotate` for a dry run. Credentials are stored as `credentials.v1`
-(DPAPI on Windows; Base64 + mode 0600 elsewhere). Prefer `password.incoming`,
-`--password-file`, or `--password-stdin` over `-p` (visible in shell history /
-process lists). `logout` clears the store and any leftover drop file.
+(DPAPI on Windows; Base64 + mode 0600 elsewhere). Prefer `password.incoming` or
+`--password-file` over `-p` (visible in shell history / process lists). `logout`
+clears the store and any leftover drop file.

@@ -125,18 +125,6 @@ string readPasswordFile(string path)
 	return pw;
 }
 
-/// Read a password from stdin (first line). Use with a pipe; not for interactive TTY prompts.
-string readPasswordStdin()
-{
-	import std.stdio : stdin;
-	import std.string : chomp, strip;
-	auto line = stdin.readln();
-	enforce(line !is null, "no password on stdin");
-	auto pw = line.chomp.strip;
-	enforce(pw.length, "empty password on stdin");
-	return pw;
-}
-
 /// Read a password from the console without echoing (TTY). Opt-in via --prompt-password.
 string promptPassword(string prompt = "Password: ")
 {

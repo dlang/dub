@@ -2986,7 +2986,6 @@ class PublishCommand : Command {
 		string[] m_permFlags;
 		bool m_ignoreFork;
 		bool m_saveCredentials;
-		bool m_passwordStdin;
 		bool m_promptPassword;
 		bool m_yes;
 	}
@@ -3008,8 +3007,8 @@ class PublishCommand : Command {
 			"Credentials: prefer writing the password to `password.incoming` under the DUB settings",
 			"directory, then `dub publish login --user NAME --save-credentials` (stores DPAPI on",
 			"Windows / mode 0600 elsewhere and deletes the drop file). Or use `--password-file`,",
-			"`--password-stdin`, environment variables, or `--prompt-password`. `--password` / `-p`",
-			"works but is visible in shell history and process lists.",
+			"environment variables, or `--prompt-password`. `--password` / `-p` works but is",
+			"visible in shell history and process lists.",
 			"",
 			"Use `--annotate` to print what would happen without contacting the registry."
 		];
@@ -3024,7 +3023,6 @@ class PublishCommand : Command {
 		args.getopt("password-file", &m_passwordFile, [
 			"Read password from file (first line); preferred for scripts/agents"
 		]);
-		args.getopt("password-stdin", &m_passwordStdin, ["Read password from stdin (first line)"]);
 		args.getopt("prompt-password", &m_promptPassword, [
 			"Interactively prompt for password (TTY, no echo)"
 		]);
@@ -3077,20 +3075,11 @@ class PublishCommand : Command {
 			~ "logout, remove, logo, logo-delete, docs-url, categories, hooks, hooks-disable, "
 			~ "repo, perms-add, or leave.");
 
-		enforceUsage(!(m_passwordFile.length && m_passwordStdin),
-			"Use only one of --password-file or --password-stdin");
-
 		bool passwordFromExplicit;
 		if (m_passwordFile.length)
 		{
 			enforceUsage(!m_password.length, "Do not combine --password with --password-file");
 			m_password = readPasswordFile(m_passwordFile);
-			passwordFromExplicit = true;
-		}
-		else if (m_passwordStdin)
-		{
-			enforceUsage(!m_password.length, "Do not combine --password with --password-stdin");
-			m_password = readPasswordStdin();
 			passwordFromExplicit = true;
 		}
 		else if (m_password.length)
@@ -3143,7 +3132,7 @@ class PublishCommand : Command {
 				logError("Password required — write it to:");
 				logError("       %s", passwordDropPath());
 				logError("       then re-run with --save-credentials");
-				logError("       (or use --password-file / --password-stdin / -p / env / --prompt-password)");
+				logError("       (or use --password-file / -p / env / --prompt-password)");
 				return 2;
 			}
 		}
