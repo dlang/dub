@@ -9,11 +9,13 @@ module dub.generators.ninja;
 import dub.compilers.compiler;
 import dub.generators.generator;
 import dub.project;
+import dub.internal.vibecompat.inet.path;
 
 import std.algorithm : map, startsWith;
 import std.array : join, replace;
 import std.path : stripExtension;
 import std.stdio : File;
+import std.file : exists, thisExePath;
 
 class NinjaGenerator : ProjectGenerator
 {
@@ -47,6 +49,22 @@ class NinjaGenerator : ProjectGenerator
         f.writeln("  description = Archiving $out");
         f.writeln();
 
+        const recipePath     = m_project.rootPackage.recipePath.toNativeString();
+        auto selectionsPath = (m_project.rootPackage.path ~ "dub.selections.json").toNativeString();
+
+        f.writeln("rule regen");
+        f.writeln("  command = ", thisExePath(), " generate ninja");
+        f.writeln("  generator = 1");
+        f.writeln("  description = Regenerating build.ninja");
+        f.writeln();
+
+        string[] regenInputs = [recipePath];
+        if (exists(selectionsPath))
+            regenInputs ~= selectionsPath;
+
+        f.writeln("build build.ninja: regen ", regenInputs.map!(p => escapeNinjaPath(p)).join(" "));
+        f.writeln();
+
         foreach (name, info; targets)
         {
             auto bs = info.buildSettings;
@@ -63,13 +81,13 @@ class NinjaGenerator : ProjectGenerator
             if (extraFlags.length)   parts ~= extraFlags;
             auto flags = parts.join(" ");
 
-            auto lflags = bs.lflags.join(" ");
+            auto lflags = bs.lflags.map!(f => escapeNinjaPath(f)).join(" ");
 
             string[] objs;
             foreach (src; bs.sourceFiles)
             {
                 auto obj = objName(src);
-                f.writeln("build ", obj, ": dc ", src);
+                f.writeln("build ", obj, ": dc ", escapeNinjaPath(src));
                 if (flags.length)
                     f.writeln("  flags = ", flags);
                 objs ~= obj;
@@ -101,6 +119,11 @@ class NinjaGenerator : ProjectGenerator
             }
             f.writeln();
         }
+    }
+
+    private static string escapeNinjaPath(string path)
+    {
+        return path.replace(":", "$:").replace(" ", "$ ");
     }
 
     private static string objName(string src)
