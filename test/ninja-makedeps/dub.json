@@ -1,4 +1,4 @@
 {
-    "name": "ninja-generator",
+    "name": "ninja-makedeps",
     "targetType": "executable"
 }
