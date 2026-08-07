@@ -37,7 +37,9 @@ class NinjaGenerator : ProjectGenerator
         f.writeln("ar = ar");
         f.writeln();
         f.writeln("rule dc");
-        f.writeln("  command = ", compiler, " $flags -c $in -of=$out");
+        f.writeln("  command = ", compiler, " $flags -c $in -of=$out -makedeps=$out.dep");
+        f.writeln("  depfile = $out.dep");
+        f.writeln("  deps = gcc");
         f.writeln("  description = Compiling $in");
         f.writeln();
         f.writeln("rule link");
@@ -69,13 +71,15 @@ class NinjaGenerator : ProjectGenerator
         {
             auto bs = info.buildSettings;
 
-            auto importFlags  = bs.importPaths.map!(p => "-I" ~ p).join(" ");
+            auto importFlags  = bs.importPaths.map!(p => "-I" ~ escapeNinjaPath(p)).join(" ");
+            auto strImportFlags = bs.stringImportPaths.map!(p => "-J" ~ escapeNinjaPath(p)).join(" ");
             auto versionFlags = bs.versions.map!(v => versionFlag(cname) ~ v).join(" ");
             auto debugFlags   = bs.debugVersions.map!(v => debugFlag(cname) ~ v).join(" ");
             auto extraFlags   = bs.dflags.join(" ");
 
             string[] parts;
             if (importFlags.length)  parts ~= importFlags;
+            if (strImportFlags.length) parts ~= strImportFlags;
             if (versionFlags.length) parts ~= versionFlags;
             if (debugFlags.length)   parts ~= debugFlags;
             if (extraFlags.length)   parts ~= extraFlags;
