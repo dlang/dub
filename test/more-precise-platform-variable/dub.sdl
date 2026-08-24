@@ -1,0 +1,5 @@
+name "more-precise-platform-variable"
+
+targetType "staticLibrary"
+
+preBuildCommands "echo \"enum dub_platform_os = \\\"$DUB_PLATFORM_OS\\\";\" > source/platform.d"
