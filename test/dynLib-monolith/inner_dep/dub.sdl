@@ -1,0 +1,4 @@
+name "inner_dep"
+description "A static library depending on another static library"
+targetType "staticLibrary"
+dependency "staticlib-simple" path="../../1-staticLib-simple"

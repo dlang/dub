@@ -1,0 +1,20 @@
+LDC: Apply dflags affecting symbol visibility to all deps
+
+The `-fvisibility` (and, on Windows, `-dllimport` and `-link-defaultlib-shared`)
+flags in effect for some root project are now passed down to all (direct and indirect)
+dependencies of that root project - when using LDC. This is mainly important on
+Windows, for executables linked against shared druntime/Phobos, as well as DLLs.
+
+For Windows executables to be linked against the druntime/Phobos DLLs via
+`-link-defaultlib-shared`, this means that all its static-library dub dependencies
+are now automatically compiled with `-link-defaultlib-shared` too, thus defaulting to
+`-dllimport=defaultLibsOnly`, which is a (Windows-specific) requirement for this
+scenario.
+
+With LDC, code ending up in a Windows DLL is compiled with `-fvisibility=public
+-dllimport=all` by default (implicit flags added by dub). This can now be overridden
+via e.g. `-fvisibility=hidden -dllimport=defaultLibsOnly` to generate a DLL exporting
+only select symbols with explicit `export` visibility and linking all dub deps
+statically (but druntime/Phobos dynamically). If you want to additionally link druntime
+and Phobos statically into the DLL, use `-link-defaultlib-shared=false
+-fvisibility=hidden -dllimport=none` instead.
