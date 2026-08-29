@@ -57,8 +57,7 @@ deprecated("Open an issue if this is needed")
 /// Returns the default package recile file name.
 @property string defaultPackageFilename() { return packageInfoFiles[0].filename; }
 
-/// All built-in build type names except for the special `$DFLAGS` build type.
-/// Has the default build type (`debug`) as first index.
+/// The default build type (`debug`) is first
 static immutable string[] builtinBuildTypes = [
 	"debug",
 	"plain",
@@ -423,7 +422,6 @@ class Package {
 		} else {
 			with(BuildOption) switch (build_type) {
 				default: throw new Exception(format("Unknown build type for %s: '%s'", this.name, build_type));
-				case "$DFLAGS": break;
 				case "plain": break;
 				case "debug": settings.addOptions(debugMode, debugInfo); break;
 				case "release": settings.addOptions(releaseMode, optimize, inline); break;
