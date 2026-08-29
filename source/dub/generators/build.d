@@ -252,6 +252,32 @@ class BuildGenerator : ProjectGenerator {
 		return cached;
 	}
 
+	// Deletes any old library build artifacts (.a, .lib, .so) from the specified build path.
+	// This is done to ensure a clean build and prevent issues from stale or partial files.
+	private void cleanupLibraryFiles(NativePath buildPath)
+	{
+		import std.path : extension;
+    	import std.file : dirEntries, remove, SpanMode;
+
+		if(std.file.exists(buildPath.toNativeString()))
+		{
+			logDiagnostic("Deleting old build artifacts from %s..." , buildPath.toNativeString());
+
+			foreach (entry; std.file.dirEntries(buildPath.toNativeString() , SpanMode.shallow))
+			{
+				if(entry.isFile){
+					auto fileExtension = extension(entry.name);
+					if(fileExtension == ".a" || fileExtension == ".lib" || fileExtension == ".so")
+					{
+						auto fullPath = buildPath.toNativeString() ~ entry.name;
+						std.file.remove(fullPath);
+					}
+				}
+			}
+		}
+		
+	}
+
 	private bool performCachedBuild(GeneratorSettings settings, BuildSettings buildsettings, in Package pack, string config,
 		string build_id, in Package[] packages, in NativePath[] additional_dep_files, out NativePath target_binary_path)
 	{
@@ -279,6 +305,9 @@ class BuildGenerator : ProjectGenerator {
 			performDirectBuild(settings, buildsettings, pack, config, target_path);
 			return false;
 		}
+
+		// Clean up any existing library files from the previous build to ensure a fresh start.
+		cleanupLibraryFiles(target_path);
 
 		logInfo("Building", Color.light_green, "%s %s: building configuration [%s]", pack.name.color(Mode.bold), pack.version_, config.color(Color.blue));
 
