@@ -1,0 +1,2 @@
+name "0-init-fail"
+dependency "common" path="../common"

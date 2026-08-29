@@ -1,0 +1,2 @@
+name "0-init-interactive"
+dependency "common" path="../common"
