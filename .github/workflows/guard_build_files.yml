@@ -1,0 +1,27 @@
+name: Guardian
+on:
+  pull_request:
+    branches:
+      - master
+      - stable
+jobs:
+  check_if_up-to-date:
+    name: Check if `build-files.txt` is up-to-date.
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+    - name: Created updated `build-files.txt`
+      run: |
+        find source -name '*.d' \
+          | \
+            LANG="" \
+            LC_ALL="" \
+            LC_CTYPE="" \
+            sort > build-files.txt.expected
+    - name: Show difference(s)
+      run: diff -u build-files.txt build-files.txt.expected
+    - name: Test whether `build-files.txt` is up-to-date
+      run: cmp build-files.txt build-files.txt.expected
