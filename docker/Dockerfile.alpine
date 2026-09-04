@@ -1,4 +1,4 @@
-FROM alpine:edge AS Builder
+FROM alpine:edge AS builder
 
 # DCPKG is the name of the package, DCBIN the name of the binary
 # We need this because of the ldc / ldc2 disparity
