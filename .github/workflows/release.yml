@@ -14,11 +14,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ macOS-13, ubuntu-22.04, windows-2019 ]
+        os: [ macos-15-intel, ubuntu-22.04, windows-2022 ]
         arch: [ x86_64 ]
         include:
           - { os: windows-2019, arch: i686 }
-          - { os: macOS-latest, arch: arm64 }
+          - { os: macos-latest, arch: arm64 }
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -35,11 +35,11 @@ jobs:
 
       ## Boileterplate (compiler/repo)
       - name: Install compiler
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
         with:
           compiler: ldc-latest
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.release.tag_name }}
 
