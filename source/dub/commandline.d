@@ -12,6 +12,7 @@ import dub.dependency;
 import dub.dub;
 import dub.generators.generator;
 import dub.internal.logging;
+import dub.internal.io.realfs : RealFS;
 import dub.internal.utils : getClosestMatch, getDUBVersion, getTempFile;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
@@ -20,6 +21,8 @@ import dub.package_;
 import dub.packagemanager;
 import dub.packagesuppliers;
 import dub.project;
+import dub.registry_auth;
+import dub.registry_secrets;
 
 import dub.internal.dyaml.stdsumtype;
 
@@ -68,6 +71,7 @@ CommandGroup[] getCommands() @safe pure nothrow
 			new RemoveLocalCommand,
 			new ListCommand,
 			new SearchCommand,
+			new PublishCommand,
 			new AddOverrideCommand,
 			new RemoveOverrideCommand,
 			new ListOverridesCommand,
@@ -2958,6 +2962,625 @@ class DustmiteCommand : PackageBuildCommand {
 
 /******************************************************************************/
 /* CONVERT command                                                               */
+/******************************************************************************/
+/* PUBLISH                                                                    */
+/******************************************************************************/
+
+class PublishCommand : Command {
+	private {
+		CommonOptions m_options;
+		string m_user;
+		string m_password;
+		string m_passwordFile;
+		string m_url;
+		string m_packageName;
+		string m_secret;
+		string m_logoPath;
+		string m_docsUrl;
+		string m_hooksOut;
+		string m_secretOut;
+		string m_repoKind;
+		string m_repoOwner;
+		string m_repoProject;
+		string m_sharedUsername;
+		string[] m_categories;
+		string[] m_permFlags;
+		bool m_ignoreFork;
+		bool m_saveCredentials;
+		bool m_promptPassword;
+		bool m_yes;
+	}
+
+	this() @safe pure nothrow
+	{
+		this.name = "publish";
+		this.argumentsPattern = "[register|status|update|login|logout|remove|logo|logo-delete|docs-url|categories|hooks|hooks-disable|repo|perms-add|leave]";
+		this.description = "Register a package with the DUB registry or manage owner settings";
+		this.helpText = [
+			"Registers the current package's Git repository with a DUB registry (default: code.dlang.org),",
+			"checks registration status, triggers a metadata refresh, or manages owner settings",
+			"(logo, docs URL, categories, webhooks, permissions, remove).",
+			"",
+			"The default action is `register`, which logs into the registry and submits the repository URL",
+			"(from `git remote origin`, or `--url`). New versions appear when SemVer tags are pushed;",
+			"the registry polls them periodically. Use `update` to queue an immediate refresh.",
+			"",
+			"Credentials: prefer writing the password to `password.incoming` under the DUB settings",
+			"directory, then `dub publish login --user NAME --save-credentials` (stores DPAPI on",
+			"Windows / mode 0600 elsewhere and deletes the drop file). Or use `--password-file`,",
+			"environment variables, or `--prompt-password`. `--password` / `-p` works but is",
+			"visible in shell history and process lists.",
+			"",
+			"Use `--annotate` to print what would happen without contacting the registry."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		args.getopt("user|u", &m_user, ["Registry username or email (or DUB_REGISTRY_USER)"]);
+		args.getopt("password|p", &m_password, [
+			"Registry password (or DUB_REGISTRY_PASSWORD). Visible in shell history / process list"
+		]);
+		args.getopt("password-file", &m_passwordFile, [
+			"Read password from file (first line); preferred for scripts/agents"
+		]);
+		args.getopt("prompt-password", &m_promptPassword, [
+			"Interactively prompt for password (TTY, no echo)"
+		]);
+		args.getopt("url", &m_url, ["Repository URL (default: git remote origin)"]);
+		args.getopt("package|n", &m_packageName, ["Package name (default: from the local recipe)"]);
+		args.getopt("secret", &m_secret, ["Package update webhook secret (for unauthenticated update)"]);
+		args.getopt("logo-file", &m_logoPath, ["Path to logo image (png/jpeg/gif/bmp, max 1 MiB)"]);
+		args.getopt("docs-url", &m_docsUrl, ["Documentation URL (http/https)"]);
+		args.getopt("category", &m_categories, ["Category id (repeatable, max 4)"]);
+		args.getopt("hooks-out", &m_hooksOut, ["Write webhook URLs to this file"]);
+		args.getopt("secret-out", &m_secretOut, [
+			"Write webhook secret to this file (default: <userSettings>/hooks/<pkg>.secret)"
+		]);
+		args.getopt("kind", &m_repoKind, ["Repository kind (github|gitlab|bitbucket|gitea|forgejo)"]);
+		args.getopt("owner", &m_repoOwner, ["Repository owner"]);
+		args.getopt("project", &m_repoProject, ["Repository project/name"]);
+		args.getopt("username", &m_sharedUsername, ["code.dlang.org username for perms-add"]);
+		args.getopt("perm", &m_permFlags, [
+			"Permission flag for perms-add: update|metadata|source|admin (repeatable)"
+		]);
+		args.getopt("ignore-fork", &m_ignoreFork, ["Register even if the repository is a fork"]);
+		args.getopt("save-credentials", &m_saveCredentials, [
+			"Store username/password locally (DPAPI on Windows; mode 0600 elsewhere); consumes password.incoming"
+		]);
+		args.getopt("yes|y", &m_yes, ["Confirm destructive actions (remove)"]);
+	}
+
+	override Dub prepareDub(CommonOptions options)
+	{
+		m_options = options;
+		return super.prepareDub(options);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(app_args.length == 0, "Unexpected application arguments.");
+		enforceUsage(free_args.length <= 1, "Unexpected arguments: " ~ free_args.join(" "));
+
+		enum knownActions = [
+			"register", "publish", "status", "update", "login", "logout",
+			"remove", "logo", "logo-delete", "docs-url", "categories",
+			"hooks", "hooks-disable", "repo", "perms-add", "leave"
+		];
+
+		string action = free_args.length ? free_args[0] : "register";
+		if (action == "publish")
+			action = "register";
+		enforceUsage(knownActions.canFind(action),
+			"Unknown publish action '" ~ action ~ "'. Expected register, status, update, login, "
+			~ "logout, remove, logo, logo-delete, docs-url, categories, hooks, hooks-disable, "
+			~ "repo, perms-add, or leave.");
+
+		bool passwordFromExplicit;
+		if (m_passwordFile.length)
+		{
+			enforceUsage(!m_password.length, "Do not combine --password with --password-file");
+			m_password = readPasswordFile(m_passwordFile);
+			passwordFromExplicit = true;
+		}
+		else if (m_password.length)
+			passwordFromExplicit = true;
+
+		string registryOverride;
+		if (m_options.registry_urls.length)
+			registryOverride = m_options.registry_urls[0];
+
+		auto cfg = loadRegistryAuthConfig(registryOverride, m_user, m_password);
+
+		if (action == "logout")
+		{
+			if (dub.dryRun)
+			{
+				logInfo("Would clear stored credentials under %s",
+					registryUserSettingsDir().toNativeString());
+				return 0;
+			}
+			if (clearRegistryCredentials())
+				logInfo("Cleared stored credentials under %s",
+					registryUserSettingsDir().toNativeString());
+			else
+				logInfo("No stored credentials found under %s",
+					registryUserSettingsDir().toNativeString());
+			return 0;
+		}
+
+		// Default drop file: consumed with --save-credentials when no CLI/env password.
+		// Prefer drop over an already-stored credential so agents can rotate.
+		bool fromEnv = !passwordFromExplicit
+			&& environment.get("DUB_REGISTRY_PASSWORD", "").length > 0;
+		if (m_saveCredentials && !passwordFromExplicit && !fromEnv
+			&& std.file.exists(passwordDropPath()))
+		{
+			cfg.password = readPasswordFile(passwordDropPath());
+		}
+
+		if (!cfg.password.length && m_promptPassword)
+		{
+			cfg.password = promptPassword("DUB registry password: ");
+			enforceUsage(cfg.password.length > 0, "Empty password");
+		}
+
+		if (m_saveCredentials || action == "login")
+		{
+			enforceUsage(cfg.user.length > 0, "Pass --user (or DUB_REGISTRY_USER)");
+			if (!cfg.password.length)
+			{
+				logError("Password required — write it to:");
+				logError("       %s", passwordDropPath());
+				logError("       then re-run with --save-credentials");
+				logError("       (or use --password-file / -p / env / --prompt-password)");
+				return 2;
+			}
+		}
+
+		if (m_saveCredentials)
+		{
+			auto saveRc = persistCredentialsVerified(cfg, dub.dryRun);
+			if (saveRc != 0)
+				return saveRc;
+			if (action == "login")
+				return 0;
+		}
+
+		switch (action)
+		{
+		case "login":
+			return publishLogin(cfg, dub.dryRun);
+		case "register":
+			return publishRegister(dub, cfg);
+		case "update":
+			return publishUpdate(dub, cfg);
+		case "status":
+			return publishStatus(dub, cfg);
+		case "remove":
+			return publishRemove(dub, cfg);
+		case "logo":
+			return publishLogo(dub, cfg);
+		case "logo-delete":
+			return publishLogoDelete(dub, cfg);
+		case "docs-url":
+			return publishDocsUrl(dub, cfg);
+		case "categories":
+			return publishCategories(dub, cfg);
+		case "hooks":
+			return publishHooks(dub, cfg);
+		case "hooks-disable":
+			return publishHooksDisable(dub, cfg);
+		case "repo":
+			return publishRepo(dub, cfg);
+		case "perms-add":
+			return publishPermsAdd(dub, cfg);
+		case "leave":
+			return publishLeave(dub, cfg);
+		default:
+			enforceUsage(false, "Unknown publish action '" ~ action ~ "'");
+			return 2;
+		}
+	}
+
+	/// Verify registry login, then write the protected store and delete password.incoming.
+	private int persistCredentialsVerified(RegistryAuthConfig cfg, bool dryRun)
+	{
+		if (dryRun)
+		{
+			logInfo("Would verify login as %s on %s", cfg.user, cfg.registryUrl);
+			logInfo("Would save credentials under %s", registryUserSettingsDir().toNativeString());
+			if (std.file.exists(passwordDropPath()))
+				logInfo("Would remove password drop file %s", passwordDropPath());
+			return 0;
+		}
+		try
+		{
+			auto client = new RegistryAuthClient(cfg);
+			client.login();
+		}
+		catch (Exception e)
+		{
+			logError("%s", e.msg);
+			logError("Not saving credentials; password drop file left in place if present.");
+			return 1;
+		}
+		ensureUserSettingsDir();
+		saveRegistryCredentials(cfg.user, cfg.password);
+		version (Windows)
+			logInfo("Saved credentials (Windows DPAPI) under %s",
+				registryUserSettingsDir().toNativeString());
+		else
+			logInfo("Saved credentials (mode 0600) under %s",
+				registryUserSettingsDir().toNativeString());
+		if (clearPasswordDrop())
+			logInfo("Removed password drop file %s", passwordDropPath());
+		logInfo("Logged in to %s as %s", cfg.registryUrl, cfg.user);
+		return 0;
+	}
+
+	private int publishLogin(RegistryAuthConfig cfg, bool dryRun)
+	{
+		if (dryRun)
+		{
+			logInfo("Would log in to %s as %s", cfg.registryUrl, cfg.user);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		logInfo("Logged in to %s as %s", cfg.registryUrl, cfg.user);
+		return 0;
+	}
+
+	private int publishRegister(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto url = m_url;
+		if (!url.length)
+			url = detectGitRemoteUrl("origin", dub.rootPath.toNativeString());
+		enforce(url.length,
+			"No repository URL — pass --url or run inside a Git repo with an origin remote");
+
+		string name = m_packageName;
+		if (!name.length && loadCwdPackage(dub, false))
+			name = dub.projectName;
+
+		logInfo("Registry:   %s", cfg.registryUrl);
+		logInfo("Repository: %s", url);
+		if (name.length)
+			logInfo("Package:    %s", name);
+
+		if (dub.dryRun)
+		{
+			logInfo("Dry run — not submitting (--annotate).");
+			return 0;
+		}
+
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+
+		bool already = false;
+		try
+			client.registerPackage(url, m_ignoreFork);
+		catch (AlreadyRegisteredException e)
+		{
+			already = true;
+			logInfo("Already registered: %s", e.msg);
+		}
+
+		if (name.length)
+		{
+			import core.thread : Thread;
+			import core.time : seconds;
+			if (!already)
+				Thread.sleep(5.seconds);
+			foreach (attempt; 0 .. 12)
+			{
+				if (client.packageExists(name))
+				{
+					auto upd = client.triggerUpdate(name);
+					logInfo(already ? "Refreshing existing package." : "Registered.");
+					logInfo("Update queued (HTTP %s)", upd.status);
+					auto ver = client.latestVersion(name);
+					logInfo("Latest: %s", ver.length ? ver : "(pending)");
+					logInfo("%s/packages/%s", cfg.registryUrl, name);
+					return upd.ok ? 0 : 1;
+				}
+				if (attempt < 11)
+				{
+					logInfo("Waiting for registry to ingest package… (%s/12)", attempt + 1);
+					Thread.sleep(10.seconds);
+				}
+			}
+			logInfo(already
+				? "Already registered, but package name was not found — check the root recipe name."
+				: "Submitted, but package never appeared. Check My packages and recipe name at repo root.");
+			logInfo("%s/packages/%s", cfg.registryUrl, name);
+			logInfo("%s/my_packages", cfg.registryUrl);
+			return 1;
+		}
+
+		logInfo(already
+			? "Already registered. Check " ~ cfg.registryUrl ~ "/my_packages"
+			: "Submitted. Check " ~ cfg.registryUrl ~ "/my_packages");
+		return 0;
+	}
+
+	private int publishUpdate(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		if (dub.dryRun)
+		{
+			logInfo("Would trigger update for %s on %s", name, cfg.registryUrl);
+			return 0;
+		}
+
+		auto client = new RegistryAuthClient(cfg);
+		RegistryAuthResult res;
+		if (m_secret.length)
+			res = client.triggerUpdateWithSecret(name, m_secret);
+		else
+		{
+			client.login();
+			res = client.triggerUpdate(name);
+		}
+		logInfo("Update queued for %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private int publishStatus(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		if (dub.dryRun)
+		{
+			logInfo("Would check status of %s on %s", name, cfg.registryUrl);
+			return 0;
+		}
+
+		auto client = new RegistryAuthClient(cfg);
+		if (!client.packageExists(name))
+		{
+			logError("%s: not found on %s", name, cfg.registryUrl);
+			return 2;
+		}
+		auto ver = client.latestVersion(name);
+		logInfo("%s: %s", name, ver.length ? ver : "(registered, no versions yet)");
+		logInfo("%s/packages/%s", cfg.registryUrl, name);
+		return 0;
+	}
+
+	private int publishRemove(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		if (!m_yes && !dub.dryRun)
+		{
+			logError("Refusing to remove '%s' without --yes", name);
+			return 2;
+		}
+		if (dub.dryRun)
+		{
+			logInfo("Would remove package %s from %s", name, cfg.registryUrl);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto res = client.removePackage(name);
+		logInfo("Removed %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private int publishLogo(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		enforceUsage(m_logoPath.length > 0, "--logo-file PATH is required");
+		if (dub.dryRun)
+		{
+			logInfo("Would upload logo %s for %s", m_logoPath, name);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto res = client.setLogo(name, m_logoPath);
+		logInfo("Logo uploaded for %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private int publishLogoDelete(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		if (dub.dryRun)
+		{
+			logInfo("Would delete logo for %s", name);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto res = client.deleteLogo(name);
+		logInfo("Logo reset for %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private int publishDocsUrl(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		// getopt leaves null when unset; empty string when --docs-url= (clears).
+		enforceUsage(m_docsUrl !is null, "--docs-url URL is required (use empty string to clear via \"\")");
+		if (dub.dryRun)
+		{
+			logInfo("Would set documentation URL for %s to %s", name, m_docsUrl);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto res = client.setDocumentationUrl(name, m_docsUrl);
+		logInfo("Documentation URL updated for %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private int publishCategories(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		enforceUsage(m_categories.length > 0, "Pass one or more --category ID (max 4)");
+		enforceUsage(m_categories.length <= 4, "At most 4 categories");
+		if (dub.dryRun)
+		{
+			logInfo("Would set categories for %s: %s", name, m_categories.join(", "));
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto res = client.setCategories(name, m_categories);
+		logInfo("Categories updated for %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private int publishHooks(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		if (dub.dryRun)
+		{
+			logInfo("Would enable/regenerate webhooks for %s", name);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto secret = client.regenSecret(name);
+		auto hooks = buildWebhookUrls(cfg.registryUrl, name, secret);
+
+		logInfo("Webhook secret (shown once):");
+		logInfo("%s", secret);
+		logInfo("Generic POST:  %s", hooks.generic);
+		logInfo("GitHub webhook: %s", hooks.github);
+		logInfo("GitLab webhook: %s", hooks.gitlab);
+		logInfo("(GitLab: set X-Gitlab-Token to the secret in the GitLab webhook UI)");
+
+		auto home = registryUserSettingsDir();
+		string secretOut = m_secretOut;
+		if (!secretOut.length)
+			secretOut = (home ~ "hooks" ~ (name ~ ".secret")).toNativeString();
+		auto secretDir = NativePath(secretOut).parentPath;
+		if (!secretDir.empty)
+			std.file.mkdirRecurse(secretDir.toNativeString());
+		std.file.write(secretOut, secret ~ "\n");
+		logInfo("Saved secret to %s", secretOut);
+
+		string hooksOut = m_hooksOut;
+		if (!hooksOut.length)
+			hooksOut = (home ~ "hooks" ~ (name ~ ".hooks.txt")).toNativeString();
+		auto hooksDir = NativePath(hooksOut).parentPath;
+		if (!hooksDir.empty)
+			std.file.mkdirRecurse(hooksDir.toNativeString());
+		auto text = "generic=" ~ hooks.generic ~ "\n"
+			~ "github=" ~ hooks.github ~ "\n"
+			~ "gitlab=" ~ hooks.gitlab ~ "\n"
+			~ "secret_file=" ~ secretOut ~ "\n";
+		std.file.write(hooksOut, text);
+		logInfo("Saved webhook URLs to %s", hooksOut);
+		return 0;
+	}
+
+	private int publishHooksDisable(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		if (dub.dryRun)
+		{
+			logInfo("Would disable webhooks for %s", name);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto res = client.unsetSecret(name);
+		logInfo("Webhooks disabled for %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private int publishRepo(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		enforceUsage(m_repoKind.length && m_repoOwner.length && m_repoProject.length,
+			"--kind, --owner, and --project are required");
+		if (dub.dryRun)
+		{
+			logInfo("Would set repository for %s to %s/%s/%s",
+				name, m_repoKind, m_repoOwner, m_repoProject);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto res = client.setRepository(name, m_repoKind, m_repoOwner, m_repoProject);
+		logInfo("Repository updated for %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private uint parsePermFlags(string[] flags)
+	{
+		uint perms;
+		foreach (f; flags)
+		{
+			auto key = f.strip.toLower;
+			switch (key)
+			{
+			case "update":
+				perms |= 1u << 0;
+				break;
+			case "metadata", "meta":
+				perms |= 1u << 1;
+				break;
+			case "source", "repo", "repository":
+				perms |= 1u << 2;
+				break;
+			case "admin":
+				perms |= (1u << 3) | 0b111;
+				break;
+			default:
+				throw new Exception("Unknown --perm value: " ~ f
+					~ " (use update|metadata|source|admin)");
+			}
+		}
+		return perms;
+	}
+
+	private int publishPermsAdd(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		enforceUsage(m_sharedUsername.length > 0, "--username is required");
+		auto perms = parsePermFlags(m_permFlags);
+		enforceUsage(perms != 0, "Pass at least one --perm update|metadata|source|admin");
+		if (dub.dryRun)
+		{
+			logInfo("Would add %s to %s with perms %s", m_sharedUsername, name, perms);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto res = client.addSharedUser(name, m_sharedUsername, perms);
+		logInfo("Shared user added for %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private int publishLeave(Dub dub, RegistryAuthConfig cfg)
+	{
+		auto name = resolvePackageName(dub);
+		if (dub.dryRun)
+		{
+			logInfo("Would leave package %s", name);
+			return 0;
+		}
+		auto client = new RegistryAuthClient(cfg);
+		client.login();
+		auto res = client.leavePackage(name);
+		logInfo("Left package %s (HTTP %s)", name, res.status);
+		return res.ok ? 0 : 1;
+	}
+
+	private string resolvePackageName(Dub dub)
+	{
+		if (m_packageName.length)
+			return m_packageName;
+		enforce(loadCwdPackage(dub, true), "Package name required (--package or a local recipe)");
+		return dub.projectName;
+	}
+}
+
 /******************************************************************************/
 
 class ConvertCommand : Command {
