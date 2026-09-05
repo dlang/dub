@@ -101,7 +101,7 @@ jobs:
           echo "artifacts_directory=$HOME/artifacts" >> $GITHUB_OUTPUT
 
       - name: Update release artifacts
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
           tag: ${{ github.event.release.tag_name }}
