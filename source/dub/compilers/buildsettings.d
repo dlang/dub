@@ -14,7 +14,7 @@ import dub.internal.vibecompat.inet.path;
 import dub.platform : BuildPlatform, matchesSpecification;
 import dub.recipe.packagerecipe;
 
-import std.array : appender, array;
+import std.array : appender, array, replace;
 import std.algorithm : filter, any, sort;
 import std.path : globMatch;
 import std.typecons : BitFlags;
@@ -534,7 +534,9 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 						.canFind!(name => name.length && name[0] == '.'))
 						continue;
 					auto src = NativePath(d.name).relativeTo(base_path);
-					files ~= src.toNativeString();
+					// Discovered paths are literal filesystem values, but are processed
+					// together with variable-bearing recipe settings later on.
+					files ~= src.toNativeString().replace("$", "$$");
 				}
 			}
 		}
