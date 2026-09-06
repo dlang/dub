@@ -15,8 +15,11 @@ trap 'kill $PID 2>/dev/null || true' exit
 
 echo "Trying to download gitcompatibledubpackage (1.0.4)"
 timeout 1s ${DUB} fetch gitcompatibledubpackage@1.0.4 --skip-registry=all --registry=http://localhost:$PORT
-if [ $? -eq 124 ]; then
+rc=$?
+if [ $rc -eq 124 ]; then
     die $LINENO 'Fetching from responsive registry should not time-out.'
+elif [ $rc -ne 0 ]; then
+    die $LINENO "A timeout check failed with status code ${rc}."
 fi
 ${DUB} remove gitcompatibledubpackage@1.0.4
 
@@ -31,6 +34,8 @@ if ! zipCount=$(grep -Fc 'Failed to extract zip archive' <<<"$zipOut") || [ "$zi
     die $LINENO 'DUB should have tried to download the zip archive multiple times.'
 elif [ $rc -eq 124 ]; then
     die $LINENO 'DUB timed out unexpectedly.'
+elif [ $rc -ne 0 ]; then
+    die $LINENO "A timeout check failed with status code ${rc}."
 fi
 if ${DUB} remove gitcompatibledubpackage --non-interactive 2>/dev/null; then
     die $LINENO 'DUB should not have installed a broken package.'
@@ -46,6 +51,8 @@ if ! retryCount=$(echo "$retryOut" | grep -Fc 'Bad Gateway') || [ "$retryCount" 
     die $LINENO "DUB should have retried download on server error multiple times, but only tried $retryCount times."
 elif [ $rc -eq 124 ]; then
     die $LINENO 'DUB timed out unexpectedly.'
+elif [ $rc -ne 0 ]; then
+    die $LINENO "A timeout check failed with status code ${rc}."
 fi
 if ${DUB} remove gitcompatibledubpackage --non-interactive 2>/dev/null; then
     die $LINENO 'DUB should not have installed a package.'
@@ -53,7 +60,10 @@ fi
 
 echo "HTTP status errors on downloads should retry with fallback mirror - gitcompatibledubpackage (1.0.2)"
 timeout 1s "$DUB" fetch gitcompatibledubpackage@1.0.2 --skip-registry=all --registry="http://localhost:$PORT http://localhost:$PORT/fallback"
-if [ $? -eq 124 ]; then
+rc=$?
+if [ $rc -eq 124 ]; then
     die $LINENO 'Fetching from responsive registry should not time-out.'
+elif [ $rc -ne 0 ]; then
+    die $LINENO "A timeout check failed with status code ${rc}."
 fi
 ${DUB} remove gitcompatibledubpackage@1.0.2
