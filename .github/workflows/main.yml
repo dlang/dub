@@ -97,6 +97,7 @@ jobs:
         # Without them we may get slightly different behavior in tests and hard-to-track failures
         brew install bash coreutils diffutils
         echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig/" >> $GITHUB_ENV
+        echo "PATH=\"/usr/local/opt/coreutils/libexec/gnubin:$PATH\"" >> $GITHUB_ENV
 
     - name: '[Linux] Install dependencies'
       if: runner.os == 'Linux'
