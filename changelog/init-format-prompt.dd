@@ -1,0 +1,4 @@
+Skip format selection when initializing with `--format`
+
+Interactive `dub init` no longer asks for a package recipe format when the
+format was already selected with `--format`.
