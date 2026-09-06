@@ -51,7 +51,9 @@ $DUB add-local "$CURR_DIR/version-spec/oldfoo"
 [[ $($DUB run -n foo@1.0.0 | tail -n 1) == 'new-foo' ]]
 [[ $($DUB run -n foo@0.1.0 | tail -n 1) == 'old-foo' ]]
 
-[[ $($DUB list foo | wc -l) == '4' ]] || die $LINENO "Expected 4 lines, but got \`$($DUB list foo)\`."
+[[ $($DUB list foo | wc -l) == '4' ]] \
+    && echo "Great, got \`$($DUB list foo)\`." \
+    || die $LINENO "Expected 4 lines, but got \`$($DUB list foo)\`."
 [[ $($DUB list foo@0.1.0 | wc -l) == '3' ]]
 [[ $($DUB list foo@'>0.1.0' | head -n 2 | tail -n 1) == *"/newfoo"* ]]
 
