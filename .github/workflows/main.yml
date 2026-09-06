@@ -105,13 +105,13 @@ jobs:
 
     # Compiler to test with
     - name: Prepare compiler
-      uses: dlang-community/setup-dlang@v1
+      uses: dlang-community/setup-dlang@v2
       with:
         compiler: ${{ matrix.dc }}
 
     # Checkout the repository
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: '[POSIX] Test'
       if: runner.os != 'Windows'
