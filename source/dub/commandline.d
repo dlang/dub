@@ -998,7 +998,14 @@ class InitCommand : Command {
 	private{
 		string m_templateType = "minimal";
 		PackageFormat m_format = PackageFormat.json;
+		bool m_formatSpecified;
 		bool m_nonInteractive;
+	}
+
+	private void parseFormat(string, string value) @safe
+	{
+		m_format = value.to!PackageFormat;
+		m_formatSpecified = true;
 	}
 	this() @safe pure nothrow
 	{
@@ -1026,7 +1033,7 @@ class InitCommand : Command {
 			"deimos  - skeleton for C header bindings",
 			"custom  - custom project provided by dub package",
 		]);
-		args.getopt("f|format", &m_format, [
+		args.getopt("f|format", &m_format, &parseFormat, [
 			"Sets the format to use for the package description file. Possible values:",
 			"  " ~ [__traits(allMembers, PackageFormat)].map!(f => f == m_format.init.to!string ? f ~ " (default)" : f).join(", ")
 		]);
@@ -1228,7 +1235,8 @@ class InitCommand : Command {
 			if (m_nonInteractive) return;
 
 			enum free_choice = true;
-			fmt = select("a package recipe format", !free_choice, fmt.to!string, "sdl", "json").to!PackageFormat;
+			if (!m_formatSpecified)
+				fmt = select("a package recipe format", !free_choice, fmt.to!string, "sdl", "json").to!PackageFormat;
 			auto author = p.authors.join(", ");
 			while (true) {
 				// Tries getting the name until a valid one is given.
