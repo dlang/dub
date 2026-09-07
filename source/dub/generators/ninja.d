@@ -1,6 +1,8 @@
 /**
     Generator for Ninja build scripts
 
+    Copyright: © 2026 Hariprakash V
+
     License: Subject to the terms of the MIT license
     Authors: Hariprakash V
 */
