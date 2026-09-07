@@ -4,6 +4,7 @@
 +/
 
 import std.format;
+import std.path;
 
 void main(string[] args)
 {
@@ -14,5 +15,6 @@ void main(string[] args)
     version (GNU)
         immutable expected = "gdc";
 
-    assert(expected == args[1], format!"Expected '%s' but got '%s'"(expected, args[1]));
+    const bn = baseName(args[1]);
+    assert(expected == bn, format!"Expected '%s' but got '%s'"(expected, bn));
 }

@@ -33,7 +33,7 @@ jobs:
     steps:
     # Checkout the repository
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Build
       run: |
