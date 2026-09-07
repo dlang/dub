@@ -157,4 +157,4 @@ jobs:
 
     - name: Codecov
       if: matrix.do_test && runner.os != 'Windows'
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v7
