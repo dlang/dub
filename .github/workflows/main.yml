@@ -95,8 +95,9 @@ jobs:
       run: |
         # We need to install GNU utils as the test-suite scripts expect it.
         # Without them we may get slightly different behavior in tests and hard-to-track failures
-        brew install coreutils diffutils
+        brew install bash coreutils diffutils
         echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig/" >> $GITHUB_ENV
+        echo "PATH=\"/usr/local/opt/coreutils/libexec/gnubin:$PATH\"" >> $GITHUB_ENV
 
     - name: '[Linux] Install dependencies'
       if: runner.os == 'Linux'
@@ -105,13 +106,19 @@ jobs:
 
     # Compiler to test with
     - name: Prepare compiler
+      if: runner.os != 'Windows'
+      uses: dlang-community/setup-dlang@v2
+      with:
+        compiler: ${{ matrix.dc }}
+    - name: Prepare compiler
+      if: runner.os == 'Windows'
       uses: dlang-community/setup-dlang@v1
       with:
         compiler: ${{ matrix.dc }}
 
     # Checkout the repository
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: '[POSIX] Test'
       if: runner.os != 'Windows'
@@ -150,4 +157,4 @@ jobs:
 
     - name: Codecov
       if: matrix.do_test && runner.os != 'Windows'
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v7

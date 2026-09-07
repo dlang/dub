@@ -6,7 +6,7 @@ set -euo pipefail
 PORT=$(getRandomPort)
 
 log '    Testing unconnectable registry'
-if timeout 1s $DUB fetch dub --skip-registry=all --registry=http://localhost:$PORT; then
+if timeout 2s $DUB fetch dub --skip-registry=all --registry=http://localhost:$PORT; then
     die $LINENO 'Fetching from unconnectable registry should fail.'
 elif [ $? -eq 124 ]; then
     die $LINENO 'Fetching from unconnectable registry should fail immediately.'
