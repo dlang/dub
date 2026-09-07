@@ -10,8 +10,9 @@ function cleanup {
 function runTest {
     local inp=$1
     local comp=$2
+    shift 2
     local dub_ext=${comp##*.}
-    local outp=$(echo -e $inp | $DUB init $packname)
+    local outp=$(echo -e $inp | $DUB init "$@" $packname)
     if [ ! -e $packname/dub.$dub_ext ]; then # it failed
         cleanup
         die $LINENO "No dub.$dub_ext file has been generated for test $comp with input '$inp'. Output: $outp"
@@ -37,6 +38,9 @@ runTest '1\n\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.default_name.dub.s
 runTest '2\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.json
 # default package format
 runTest '\ntest\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.json
+# explicit package format skips format selection
+runTest 'test\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.sdl --format=sdl
+runTest 'test\ndesc\nauthor\ngpl\ncopy\n\n' 0-init-interactive.dub.json --format=json
 # select license
 runTest '1\ntest\ndesc\nauthor\n6\n3\ncopy\n\n' 0-init-interactive.license_gpl3.dub.sdl
 # select license (with description)
