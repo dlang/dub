@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -euxo pipefail
+
 DIR=$(dirname "${BASH_SOURCE[0]}")
 
 . "$DIR"/common.sh
