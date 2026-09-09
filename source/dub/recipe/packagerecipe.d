@@ -48,7 +48,7 @@ deprecated @safe unittest
 
 	In case of a top level package, the qualified name is returned unmodified.
 */
-deprecated("Use `dub.dependency : PackageName(arg).main` instead")
+deprecated("Use `dub.dependency : PackageName(arg).base` instead")
 string getBasePackageName(string package_name) @safe pure
 {
 	return package_name.findSplit(":")[0];
