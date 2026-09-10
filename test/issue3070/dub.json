@@ -1,0 +1,7 @@
+﻿{
+  "name": "issue3070",
+  "description": "Test mixed path separators do not duplicate mainSourceFile",
+  "targetType": "executable",
+  "sourcePaths": ["src"],
+  "mainSourceFile": "src/main.d"
+}
