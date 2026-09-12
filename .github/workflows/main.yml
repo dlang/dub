@@ -77,6 +77,9 @@ jobs:
           - { os: macos-15, dc: ldc-latest, do_test: true }
           - { os: ubuntu-26.04-arm, dc: ldc-latest, do_test: true }
           - { os: windows-11-arm, dc: ldc-latest, do_test: true }
+          # GDC, but the tests fail
+          - { os: ubuntu-26.04, dc: gdc-16, do_test: false }
+          - { os: ubuntu-24.04, dc: gdc-14, do_test: false }
         exclude:
           # Error with those versions:
           # ld: multiple errors: symbol count from symbol table and dynamic symbol table differ in [.../dub.o]; address=0x0 points to section(2) with no content in '[...]/osx/lib/libphobos2.a[3177](config_a68_4c3.o)'
