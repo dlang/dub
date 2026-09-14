@@ -261,8 +261,8 @@ public struct IntegrityTag
 				.format(this.value.length));
 			break;
 		case "sha256":
-			enforce(this.value.length == 40,
-				"Excepted a base64-encoded sha256 digest of 40 characters, not %s"
+			enforce(this.value.length == 44,
+				"Expected a base64-encoded sha256 digest of 44 characters, not %s"
 				.format(this.value.length));
 			break;
 		default:
@@ -341,6 +341,21 @@ public struct IntegrityTag
     }
 }
 
+// Generated integrity tags must be accepted by the parser.
+unittest
+{
+    const ubyte[] data = [ 't', 'e', 's', 't' ];
+    foreach (algorithm; ["sha256", "sha384", "sha512"])
+    {
+        const tag = IntegrityTag.make(data, algorithm);
+        const parsed = IntegrityTag(tag.algorithm ~ "-" ~ tag.value);
+        assert(parsed == tag);
+        assert(parsed.matches(data));
+    }
+
+    assertThrown!Exception(IntegrityTag("sha256-abcdefghijklmnopqrstuvwxyz0123456789+/=="));
+}
+
 // Ensure we can read all type of dependencies
 unittest
 {
@@ -351,7 +366,7 @@ unittest
     "versions": {
         "simple": "1.5.6",
         "complex": { "version": "1.2.3" },
-        "digest": { "version": "1.2.3", "integrity": "sha256-abcdefghijklmnopqrstuvwxyz0123456789+/==" },
+        "digest": { "version": "1.2.3", "integrity": "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=" },
         "digest1": { "version": "1.2.3", "integrity": "sha384-Li9vy3DqF8tnTXuiaAJuML3ky+er10rcgNR/VqsVpcw+ThHmYcwiB1pbOxEbzJr7" },
         "digest2": { "version": "1.2.3", "integrity": "sha512-Q2bFTOhEALkN8hOms2FKTDLy7eugP2zFZ1T8LCvX42Fp3WoNr3bjZSAHeOsHrbV1Fu9/A0EzCinRE7Af1ofPrw==" },
         "branch": "~master",
