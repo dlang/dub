@@ -696,12 +696,12 @@ class Dub {
 
 		if (options & UpgradeOptions.dryRun) {
 			bool any = false;
-			string rootbasename = PackageName(m_project.rootPackage.name).main.toString();
+			string rootbasename = PackageName(m_project.rootPackage.name).base.toString();
 
 			foreach (p, ver; versions) {
 				if (!ver.path.empty || !ver.repository.empty) continue;
 
-				auto basename = p.main;
+				auto basename = p.base;
 				if (basename.toString() == rootbasename) continue;
 
 				if (!m_project.selections.hasSelectedVersion(basename)) {
@@ -1028,7 +1028,7 @@ class Dub {
 		PackageSupplier supplier;
 		foreach(ps; m_packageSuppliers){
 			try {
-				pinfo = ps.fetchPackageRecipe(name.main, range, (options & FetchOptions.usePrerelease) != 0);
+				pinfo = ps.fetchPackageRecipe(name.base, range, (options & FetchOptions.usePrerelease) != 0);
 				if (pinfo.type == Json.Type.null_)
 					continue;
 				supplier = ps;
@@ -1049,7 +1049,7 @@ class Dub {
 			if (existing && existing.version_ != ver)
 				logInfo("A new version for %s is available (%s -> %s). Run \"%s\" to switch.",
                     name.toString().color(Mode.bold), existing, ver,
-					text("dub upgrade ", name.main).color(Mode.bold));
+					text("dub upgrade ", name.base).color(Mode.bold));
 			return null;
 		}
 
@@ -1078,17 +1078,17 @@ class Dub {
 		{
 			import std.zip : ZipException;
 
-			auto data = supplier.fetchPackage(name.main, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
+			auto data = supplier.fetchPackage(name.base, range, (options & FetchOptions.usePrerelease) != 0); // Q: continue on fail?
 			if (tag !is IntegrityTag.init)
 				enforce(tag.matches(data), ("Hash of downloaded package does " ~
 					"not match integrity tag for %s@%s - This can happen if " ~
-					"the version has been re-tagged").format(name.main, range));
+					"the version has been re-tagged").format(name.base, range));
 			else
 				tag = IntegrityTag.make(data);
 			logDiagnostic("Placing to %s...", location.toString());
 
 			try {
-				return m_packageManager.store(data, location, name.main, ver);
+				return m_packageManager.store(data, location, name.base, ver);
 			} catch (ZipException e) {
 				logInfo("Failed to extract zip archive for %s@%s...", name, ver);
 				// re-throw the exception at the end of the loop
@@ -1138,9 +1138,9 @@ class Dub {
 	void remove(in PackageName name, PlacementLocation location,
 		scope size_t delegate(in Package[] packages) resolve_version)
 	{
-		enforce(name.main.toString().length);
+		enforce(name.base.toString().length);
 		enforce(!name.sub.length, "Cannot remove subpackage %s, remove %s instead"
-			.format(name, name.main));
+			.format(name, name.base));
 		if (location == PlacementLocation.local) {
 			logInfo("To remove a locally placed package, make sure you don't have any data"
 					~ "\nleft in it's directory and then simply remove the whole directory.");
@@ -1915,7 +1915,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		auto basepack = pack.basePackage;
 
 		foreach (d; pack.getAllDependenciesRange()) {
-			auto dbasename = d.name.main.toString();
+			auto dbasename = d.name.base.toString();
 
 			// detect dependencies to the root package (or sub packages thereof)
 			if (dbasename == basepack.name) {
@@ -1926,7 +1926,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 					auto desireddeppath = basepack.path;
 					desireddeppath.endsWithSlash = true;
 
-					auto altdeppath = d.name == d.name.main ? basepack.path : subpack.path;
+					auto altdeppath = d.name == d.name.base ? basepack.path : subpack.path;
 					altdeppath.endsWithSlash = true;
 
 					if (!d.spec.path.empty && absdeppath != desireddeppath)
@@ -1950,14 +1950,14 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 			Dependency dspec = d.spec.mapToPath(pack.path);
 
 			// if not upgrading, use the selected version
-			if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(d.name.main))
-				dspec = m_selectedVersions.getSelectedVersion(d.name.main);
+			if (!(m_options & UpgradeOptions.upgrade) && m_selectedVersions.hasSelectedVersion(d.name.base))
+				dspec = m_selectedVersions.getSelectedVersion(d.name.base);
 
 			// keep selected optional dependencies and avoid non-selected optional-default dependencies by default
 			if (!m_selectedVersions.bare) {
-				if (dt == DependencyType.optionalDefault && !m_selectedVersions.hasSelectedVersion(d.name.main))
+				if (dt == DependencyType.optionalDefault && !m_selectedVersions.hasSelectedVersion(d.name.base))
 					dt = DependencyType.optional;
-				else if (dt == DependencyType.optional && m_selectedVersions.hasSelectedVersion(d.name.main))
+				else if (dt == DependencyType.optional && m_selectedVersions.hasSelectedVersion(d.name.base))
 					dt = DependencyType.optionalDefault;
 			}
 
@@ -1988,9 +1988,9 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 
 		// for sub packages, first try to get them from the base package
 		// FIXME: avoid this, PackageManager.getSubPackage() is costly
-		if (name.main != name) {
+		if (name.base != name) {
 			auto subname = name.sub;
-			auto basepack = getPackage(name.main, dep);
+			auto basepack = getPackage(name.base, dep);
 			if (!basepack) return null;
 			if (auto sp = m_dub.m_packageManager.getSubPackage(basepack, subname, true))
 				return sp;
@@ -1999,7 +1999,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		}
 
 		// shortcut if the referenced package is the root package
-		if (name.main.toString() == m_rootPackage.basePackage.name)
+		if (name.base.toString() == m_rootPackage.basePackage.name)
 			return m_rootPackage.basePackage;
 
 		if (!dep.repository.empty) {
@@ -2029,7 +2029,7 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 		auto prerelease = (m_options & UpgradeOptions.preRelease) != 0;
 
 		foreach (ps; m_dub.m_packageSuppliers) {
-			if (name.main == name) {
+			if (name.base == name) {
 				try {
 					auto desc = ps.fetchPackageRecipe(name, VersionRange(vers, vers), prerelease);
 					if (desc.type == Json.Type.null_)
@@ -2048,16 +2048,16 @@ private class DependencyVersionResolver : DependencyResolver!(Dependency, Depend
 				try {
 					FetchOptions fetchOpts;
 					fetchOpts |= prerelease ? FetchOptions.usePrerelease : FetchOptions.none;
-					m_dub.fetch(name.main, vers, fetchOpts, m_dub.defaultPlacementLocation, "need sub package description");
+					m_dub.fetch(name.base, vers, fetchOpts, m_dub.defaultPlacementLocation, "need sub package description");
 					auto ret = m_dub.m_packageManager.getBestPackage(name, vers);
 					if (!ret) {
-						logWarn("Package %s %s doesn't have a sub package %s", name.main, dep, name);
+						logWarn("Package %s %s doesn't have a sub package %s", name.base, dep, name);
 						return null;
 					}
 					m_remotePackages[key] = ret;
 					return ret;
 				} catch (Exception e) {
-					logDiagnostic("Package %s could not be downloaded from %s: %s", name.main, ps.description, e.msg);
+					logDiagnostic("Package %s could not be downloaded from %s: %s", name.base, ps.description, e.msg);
 					logDebug("Full error: %s", e.toString().sanitize);
 				}
 			}

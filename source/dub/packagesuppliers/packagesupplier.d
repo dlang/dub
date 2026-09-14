@@ -122,6 +122,6 @@ package Json getBestPackage(Json metadata, in PackageName name,
 		bestver = Version(cast(string)best["version"]);
 	}
 	enforce(best != null,
-		"No package candidate found for %s@%s".format(name.main, dep));
+		"No package candidate found for %s@%s".format(name.base, dep));
 	return best;
 }
