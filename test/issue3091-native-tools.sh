@@ -26,5 +26,13 @@ void main() { write("lint-ran", "native tool executed"); }
 EOF
 
 "$DUB" add-local "$work_dir/dscanner"
-(cd "$work_dir/project" && "$DUB" lint --skip-registry=all)
+# Package setup also resolves its target before lint builds the tool. Override
+# that target so DMD (which cannot target wasm) can reach makeAppSettings. The
+# project's default remains wasm and must not leak into the tool settings.
+native_arch=$(uname -m)
+case "$native_arch" in
+    arm64) native_arch=aarch64 ;;
+    i?86) native_arch=x86 ;;
+esac
+(cd "$work_dir/project" && "$DUB" lint --arch="$native_arch" --skip-registry=all)
 test "$(cat "$work_dir/project/lint-ran")" = "native tool executed"
