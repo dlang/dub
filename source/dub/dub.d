@@ -1606,8 +1606,9 @@ class Dub {
 		settings.config = "application";
 		settings.buildType = "debug";
 		settings.compiler = getCompiler(compiler_binary);
+		// Tools run on the host, independently of the project's target architecture.
 		settings.platform = settings.compiler.determinePlatform(
-			settings.buildSettings, compiler_binary, this.defaultArchitecture);
+			settings.buildSettings, compiler_binary);
 		if (this.defaultLowMemory)
 			settings.buildSettings.options |= BuildOption.lowmem;
 		if (this.defaultEnvironments)
