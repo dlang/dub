@@ -143,7 +143,7 @@ unittest {
 */
 bool cloneRepository(string remote, string reference, string destination)
 {
-	import std.process : Pid, spawnProcess, wait;
+	import std.process : Pid, execute, spawnProcess, wait;
 
 	Pid command;
 
@@ -156,6 +156,13 @@ bool cloneRepository(string remote, string reference, string destination)
 			return false;
 		}
 	}
+
+	// A non-default branch only has a remote-tracking ref after cloning.
+	// checkout's implicit local branch creation is incompatible with --detach.
+	// Prefer existing refs (including tags) before trying the remote branch.
+	if (execute(["git", "-C", destination, "rev-parse", "--verify", "--quiet",
+		reference ~ "^{commit}"]).status != 0)
+		reference = "refs/remotes/origin/" ~ reference;
 
 	string[] args = ["git", "-C", destination, "checkout", "--detach"];
 	if (getLogLevel > LogLevel.diagnostic) args ~= "-q";
