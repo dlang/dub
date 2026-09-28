@@ -210,7 +210,9 @@ private void download(string url, string filename, uint timeout = 8)
 			throw new HTTPStatusException(sl.code,
 				"Downloading %s failed with %d (%s).".format(url, sl.code, sl.reason));
 	} else version (Have_vibe_d_http) {
+		import vibe.http.client : HTTPClient;
 		import vibe.inet.urltransfer;
+		HTTPClient.setUserAgentString(dubUserAgent());
 		vibe.inet.urltransfer.download(url, filename);
 	} else assert(false);
 }
@@ -228,8 +230,10 @@ private ubyte[] download(string url, uint timeout = 8)
 		logDebug("Getting %s...", url);
 		return get!(HTTP, ubyte)(url, conn);
 	} else version (Have_vibe_d_http) {
+		import vibe.http.client : HTTPClient;
 		import vibe.inet.urltransfer;
 		import vibe.stream.operations;
+		HTTPClient.setUserAgentString(dubUserAgent());
 		ubyte[] ret;
 		vibe.inet.urltransfer.download(url, (scope input) { ret = input.readAll(); });
 		return ret;
@@ -414,6 +418,67 @@ public NativePath getDUBExePath(in string compilerBinary=null)
 }
 
 
+/// Environment variables whose presence marks a CI environment
+private immutable ciEnvironmentVariables = [
+	"DUB_NO_DOWNLOAD_STATS", "CI", "GITHUB_ACTIONS", "GITLAB_CI",
+	"BUILDKITE", "TRAVIS", "CIRCLECI", "APPVEYOR", "TF_BUILD",
+	"JENKINS_URL", "BITBUCKET_BUILD_NUMBER",
+];
+
+/**
+	Determines whether DUB is running inside a CI environment.
+
+	Returns `true` if one of the environment variables commonly set by CI
+	services is present, or if `DUB_NO_DOWNLOAD_STATS` is set to explicitly
+	opt out of the registry download statistics.
+*/
+bool isCIEnvironment()
+{
+	foreach (v; ciEnvironmentVariables)
+		if (v in environment)
+			return true;
+	return false;
+}
+
+/**
+	Returns the User-Agent string sent with every HTTP request.
+
+	Requests made from a CI environment are tagged with `; ci`, so that the
+	registry can exclude them from the download statistics.
+*/
+string dubUserAgent()
+{
+	version (DubUseCurl) enum backend = "std.net.curl";
+	else enum backend = "vibe.d";
+	return "dub/" ~ getDUBVersion() ~ " (" ~ backend ~ (isCIEnvironment() ? "; ci" : "")
+		~ "; +https://github.com/rejectedsoftware/dub)";
+}
+
+unittest
+{
+	string[string] saved;
+	foreach (v; ciEnvironmentVariables) {
+		if (auto val = environment.get(v)) saved[v] = val;
+		environment.remove(v);
+	}
+	scope (exit) {
+		foreach (v; ciEnvironmentVariables) environment.remove(v);
+		foreach (k, val; saved) environment[k] = val;
+	}
+
+	assert(!isCIEnvironment());
+	assert(dubUserAgent().startsWith("dub/"));
+	assert(!dubUserAgent().canFind("; ci"));
+
+	environment["GITHUB_ACTIONS"] = "true";
+	assert(isCIEnvironment());
+	assert(dubUserAgent().canFind("; ci;"));
+	environment.remove("GITHUB_ACTIONS");
+
+	environment["DUB_NO_DOWNLOAD_STATS"] = "1";
+	assert(isCIEnvironment());
+}
+
 version(DubUseCurl) {
 	void setupHTTPClient(ref HTTP conn, uint timeout)
 	{
@@ -435,7 +500,7 @@ version(DubUseCurl) {
 			conn.handle.set(CurlOption.low_speed_time, timeout);
 		}
 
-		conn.addRequestHeader("User-Agent", "dub/"~getDUBVersion()~" (std.net.curl; +https://github.com/rejectedsoftware/dub)");
+		conn.addRequestHeader("User-Agent", dubUserAgent());
 
 		enum CURL_NETRC_OPTIONAL = 1;
 		conn.handle.set(CurlOption.netrc, CURL_NETRC_OPTIONAL);
