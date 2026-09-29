@@ -1,0 +1,6 @@
+{
+	"name": "none-root",
+	"targetType": "none",
+	"subPackages": [ "./lib/" ],
+	"dependencies": { "none-root:lib": "*" }
+}
