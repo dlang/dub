@@ -207,7 +207,10 @@ config    /etc/ldc2.conf (x86_64-pc-linux-gnu)
 
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
-		assert(settings.targetName.length > 0, "No target name set.");
+		assert(settings.targetName.length > 0
+			|| settings.targetType == TargetType.none
+			|| settings.targetType == TargetType.sourceLibrary,
+			"No target name set.");
 
 		const p = platform.platform;
 		final switch (settings.targetType) {

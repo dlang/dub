@@ -177,7 +177,10 @@ class GDCCompiler : Compiler {
 
 	string getTargetFileName(in BuildSettings settings, in BuildPlatform platform)
 	const {
-		assert(settings.targetName.length > 0, "No target name set.");
+		assert(settings.targetName.length > 0
+			|| settings.targetType == TargetType.none
+			|| settings.targetType == TargetType.sourceLibrary,
+			"No target name set.");
 		final switch (settings.targetType) {
 			case TargetType.autodetect: assert(false, "Configurations must have a concrete target type.");
 			case TargetType.none: return null;
