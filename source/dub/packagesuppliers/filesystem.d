@@ -28,12 +28,12 @@ class FileSystemPackageSupplier : PackageSupplier {
 		import std.conv : to;
 		import dub.semver : isValidVersion;
 		Version[] ret;
-        const zipFileGlob = name.main.toString() ~ "?*.zip";
+        const zipFileGlob = name.base.toString() ~ "?*.zip";
 		foreach (DirEntry d; dirEntries(m_path.toNativeString(), zipFileGlob, SpanMode.shallow)) {
 			NativePath p = NativePath(d.name);
-			auto vers = p.head.name[name.main.toString().length+1..$-4];
+			auto vers = p.head.name[name.base.toString().length+1..$-4];
 			if (!isValidVersion(vers)) {
-				logDebug("Ignoring entry '%s' because it isn't a version of package '%s'", p, name.main);
+				logDebug("Ignoring entry '%s' because it isn't a version of package '%s'", p, name.base);
 				continue;
 			}
 			logDebug("Entry: %s", p);
@@ -48,7 +48,7 @@ class FileSystemPackageSupplier : PackageSupplier {
 		in VersionRange dep, bool pre_release)
 	{
 		import dub.internal.vibecompat.core.file : readFile, existsFile;
-		logInfo("Storing package '%s', version requirements: %s", name.main, dep);
+		logInfo("Storing package '%s', version requirements: %s", name.base, dep);
 		auto filename = bestPackageFile(name, dep, pre_release);
 		enforce(existsFile(filename));
 		return readFile(filename);
@@ -71,9 +71,9 @@ class FileSystemPackageSupplier : PackageSupplier {
 		Json json = toJson(recipe);
 		auto basename = filePath.head.name;
 		enforce(basename.endsWith(".zip"), "Malformed package filename: " ~ filePath.toNativeString);
-		enforce(basename.startsWith(name.main.toString()),
+		enforce(basename.startsWith(name.base.toString()),
 			"Malformed package filename: " ~ filePath.toNativeString);
-		json["version"] = basename[name.main.toString().length + 1 .. $-4];
+		json["version"] = basename[name.base.toString().length + 1 .. $-4];
 		return json;
 	}
 
@@ -90,10 +90,10 @@ class FileSystemPackageSupplier : PackageSupplier {
 		import std.array : array;
 		import std.format : format;
 		NativePath toPath(Version ver) {
-			return m_path ~ "%s-%s.zip".format(name.main, ver);
+			return m_path ~ "%s-%s.zip".format(name.base, ver);
 		}
 		auto versions = getVersions(name).filter!(v => dep.matches(v)).array;
-		enforce(versions.length > 0, format("No package %s found matching %s", name.main, dep));
+		enforce(versions.length > 0, format("No package %s found matching %s", name.base, dep));
 		foreach_reverse (ver; versions) {
 			if (pre_release || !ver.isPreRelease)
 				return toPath(ver);

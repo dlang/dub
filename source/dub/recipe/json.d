@@ -121,7 +121,7 @@ Json toJson(const scope ref PackageRecipe recipe)
 private void parseSubPackages(ref PackageRecipe recipe, in PackageName parent, Json[] subPackagesJson)
 {
 	enforce(!parent.sub, format("'subPackages' found in '%s'. This is only supported in the main package file for '%s'.",
-		parent, parent.main));
+		parent, parent.base));
 
 	recipe.subPackages = new SubPackage[subPackagesJson.length];
 	foreach (i, subPackageJson; subPackagesJson) {
