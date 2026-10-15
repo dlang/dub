@@ -669,6 +669,49 @@ unittest
 	}
 }
 
+unittest
+{
+	import std.path : buildPath;
+	import std.uuid : randomUUID;
+
+	const root = buildPath(tempDir(), "dub-file-patterns-" ~ randomUUID().toString());
+	mkdirRecurse(buildPath(root, ".explicit", ".excluded"));
+	mkdirRecurse(buildPath(root, ".explicit", "nested"));
+	scope(exit) rmdirRecurse(root);
+	foreach (name; ["text.txt", "extensionless", "native.c", "preprocessed.i", "header.h",
+		".explicit/nested/text.txt", ".explicit/nested/extensionless",
+		".explicit/nested/native.c", ".explicit/nested/preprocessed.i",
+		".explicit/nested/header.h", ".explicit/.excluded/hidden.c",
+		".explicit/.excluded/hidden.h", ".explicit/.excluded/secret"])
+		std.file.write(buildPath(root, name), "");
+
+	BuildSettingsTemplate settings;
+	settings.cSourcePaths[""] = ["."];
+	settings.cImportPaths[""] = ["."];
+	settings.stringImportPaths[""] = ["."];
+	BuildSettings result;
+	settings.getPlatformSettings(result, BuildPlatform.init, NativePath(root));
+	assert(result.sourceFiles == ["native.c", "preprocessed.i"]);
+	assert(result.importFiles == ["header.h"]);
+	assert(result.stringImportFiles.dup.sort.release ==
+		["extensionless", "header.h", "native.c", "preprocessed.i", "text.txt"]);
+
+	settings.cSourcePaths[""] = [".explicit"];
+	settings.cImportPaths[""] = [".explicit"];
+	settings.stringImportPaths[""] = [".explicit"];
+	result = BuildSettings.init;
+	settings.getPlatformSettings(result, BuildPlatform.init, NativePath(root));
+	assert(result.sourceFiles == [buildPath(".explicit", "nested", "native.c"),
+		buildPath(".explicit", "nested", "preprocessed.i")]);
+	assert(result.importFiles == [buildPath(".explicit", "nested", "header.h")]);
+	assert(result.stringImportFiles.dup.sort.release ==
+		[buildPath(".explicit", "nested", "extensionless"),
+		 buildPath(".explicit", "nested", "header.h"),
+		 buildPath(".explicit", "nested", "native.c"),
+		 buildPath(".explicit", "nested", "preprocessed.i"),
+		 buildPath(".explicit", "nested", "text.txt")]);
+}
+
 unittest { // issue #1407 - duplicate main source file
 	{
 		BuildSettingsTemplate t;
