@@ -524,20 +524,26 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 					continue;
 				}
 				auto pstr = path.toNativeString();
-				foreach (d; dirEntries(pstr, pattern, SpanMode.depth)) {
-					import std.path : baseName, pathSplitter;
-					import std.algorithm.searching : canFind;
-					// eliminate any hidden files, or files in hidden directories. But always include
-					// files that are listed inside hidden directories that are specifically added to
-					// the project.
-					if (d.isDir || pathSplitter(d.name[pstr.length .. $])
-						.canFind!(name => name.length && name[0] == '.'))
-						continue;
-					auto src = NativePath(d.name).relativeTo(base_path);
-					// Discovered paths are literal filesystem values, but are processed
-					// together with variable-bearing recipe settings later on.
-					files ~= src.toNativeString().replace("$", "$$");
+				void collectDirectory(string directory) {
+					import std.path : baseName;
+
+					foreach (d; dirEntries(directory, SpanMode.shallow)) {
+						const name = baseName(d.name);
+						// Ignore hidden descendants before entering them. A hidden
+						// directory explicitly listed as a root is still scanned.
+						if (name.length && name[0] == '.') continue;
+						if (d.isDir) {
+							collectDirectory(d.name);
+							continue;
+						}
+						if (!globMatch(name, pattern)) continue;
+						auto src = NativePath(d.name).relativeTo(base_path);
+						// Discovered paths are literal filesystem values, but are processed
+						// together with variable-bearing recipe settings later on.
+						files ~= src.toNativeString().replace("$", "$$");
+					}
 				}
+				collectDirectory(pstr);
 			}
 		}
 
@@ -595,6 +601,72 @@ void getPlatformSettings(in BuildSettingsTemplate this_, ref BuildSettings dst,
 	this_.getPlatformSetting_!("postRunEnvironments", "addPostRunEnvironments")(dst, platform);
 	this_.getPlatformSetting_!("buildRequirements", "addRequirements")(dst, platform);
 	this_.getPlatformSetting_!("buildOptions", "addOptions")(dst, platform);
+}
+
+unittest
+{
+	import std.path : buildPath;
+	import std.conv : octal;
+	import std.uuid : randomUUID;
+
+	const root = buildPath(tempDir(), "dub-source-scan-" ~ randomUUID().toString());
+	mkdirRecurse(buildPath(root, "visible", "nested"));
+	mkdirRecurse(buildPath(root, ".hidden", "nested"));
+	scope(exit) rmdirRecurse(root);
+	foreach (name; ["root.d", "root.di", "ignore.txt", ".hidden.d",
+		"visible/nested/module.d", "visible/nested/module.di",
+		".hidden/nested/explicit.d", ".hidden/nested/explicit.di"])
+		std.file.write(buildPath(root, name), "");
+
+	BuildSettingsTemplate settings;
+	settings.sourcePaths[""] = ["."];
+	settings.importPaths[""] = ["."];
+	BuildSettings result;
+	settings.getPlatformSettings(result, BuildPlatform.init, NativePath(root));
+	assert(result.sourceFiles == ["root.d", buildPath("visible", "nested", "module.d")]);
+	assert(result.importFiles == ["root.di", buildPath("visible", "nested", "module.di")]);
+
+	settings.sourcePaths[""] = [".hidden"];
+	settings.importPaths[""] = [".hidden"];
+	result = BuildSettings.init;
+	settings.getPlatformSettings(result, BuildPlatform.init, NativePath(root));
+	assert(result.sourceFiles == [buildPath(".hidden", "nested", "explicit.d")]);
+	assert(result.importFiles == [buildPath(".hidden", "nested", "explicit.di")]);
+
+	version (Posix) {
+		import core.sys.posix.sys.stat : chmod;
+		import std.string : toStringz;
+
+		const hidden = buildPath(root, ".hidden");
+		assert(chmod(hidden.toStringz(), 0) == 0);
+		scope(exit) assert(chmod(hidden.toStringz(), octal!700) == 0);
+		settings.sourcePaths[""] = ["."];
+		settings.importPaths[""] = ["."];
+		result = BuildSettings.init;
+		settings.getPlatformSettings(result, BuildPlatform.init, NativePath(root));
+		assert(result.sourceFiles == ["root.d", buildPath("visible", "nested", "module.d")]);
+
+		std.file.symlink(buildPath(root, "visible"), buildPath(root, "linked"));
+		std.file.symlink(buildPath(root, "visible"), buildPath(root, ".linked"));
+		result = BuildSettings.init;
+		settings.getPlatformSettings(result, BuildPlatform.init, NativePath(root));
+		assert(result.sourceFiles == [buildPath("linked", "nested", "module.d"),
+			"root.d", buildPath("visible", "nested", "module.d")]);
+		assert(result.importFiles == [buildPath("linked", "nested", "module.di"),
+			"root.di", buildPath("visible", "nested", "module.di")]);
+
+		import core.sys.posix.unistd : geteuid;
+		import std.exception : assertThrown;
+
+		if (geteuid() != 0) {
+			const visible = buildPath(root, "visible");
+			assert(chmod(visible.toStringz(), 0) == 0);
+			scope(exit) assert(chmod(visible.toStringz(), octal!700) == 0);
+			result = BuildSettings.init;
+			assertThrown!FileException(settings.getPlatformSettings(result,
+				BuildPlatform.init, NativePath(root)));
+		}
+	}
 }
 
 unittest { // issue #1407 - duplicate main source file
