@@ -208,3 +208,59 @@ dependency "b" version="~>1.0.0"
     assert(dub.project.selections.getSelectedVersion(PackageName("b"))
         == Dependency(Version("1.0.0")), "Non-specified dependency got upgraded.");
 }
+
+// https://github.com/dlang/dub/issues/361
+// Optional dependencies are only selected when they are either marked
+// `default=true` or already present in an existing selections file.
+// Ported from test/issue361-optional-deps.sh
+unittest
+{
+    // No selections file: only the optional+default dependency is selected
+    scope dub = new TestDub((scope Filesystem root) {
+            root.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "main1"
+dependency "a" version="*" optional=true
+dependency "b" version="*" optional=true default=true
+`);
+    });
+    foreach (name; ["a", "b"])
+        dub.getRegistry().add(Version("1.0.0"), (scope Filesystem pkg) {
+            pkg.writeFile(NativePath(`dub.sdl`), `name "` ~ name ~ `"`);
+        });
+    dub.loadPackage();
+
+    dub.upgrade(UpgradeOptions.select);
+
+    assert(!dub.project.selections.hasSelectedVersion(PackageName("a")),
+        "Non-default optional dependency got selected");
+    assert(dub.project.selections.getSelectedVersion(PackageName("b"))
+        == Dependency(Version("1.0.0")),
+        "Default optional dependency was not selected");
+}
+
+// https://github.com/dlang/dub/issues/361
+// With an existing selections file, a selected optional dependency is kept
+// and a non-selected optional+default dependency is not added.
+unittest
+{
+    scope dub = new TestDub((scope Filesystem root) {
+            root.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "main2"
+dependency "a" version="*" optional=true
+dependency "b" version="*" optional=true default=true
+`);
+            root.writeFile(TestDub.ProjectPath ~ "dub.selections.json",
+`{ "fileVersion": 1, "versions": { "a": "1.0.0" } }`);
+    });
+    foreach (name; ["a", "b"])
+        dub.getRegistry().add(Version("1.0.0"), (scope Filesystem pkg) {
+            pkg.writeFile(NativePath(`dub.sdl`), `name "` ~ name ~ `"`);
+        });
+    dub.loadPackage();
+
+    dub.upgrade(UpgradeOptions.select);
+
+    assert(dub.project.selections.getSelectedVersion(PackageName("a"))
+        == Dependency(Version("1.0.0")),
+        "Selected optional dependency was dropped");
+    assert(!dub.project.selections.hasSelectedVersion(PackageName("b")),
+        "Non-selected optional dependency got added to the selections");
+}

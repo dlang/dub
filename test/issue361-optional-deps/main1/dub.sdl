@@ -1,3 +1,0 @@
-name "main1"
-dependency "a" version="*" optional=true
-dependency "b" version="*" optional=true default=true
