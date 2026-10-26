@@ -177,3 +177,34 @@ version "0.0.1"`, PackageFormat.sdl);
     assert(dub.project.hasAllDependencies(), "project have missing dependencies");
     assert(dub.project.getDependency("c", true).version_ == Version("0.0.0"));
 }
+
+// https://github.com/dlang/dub/issues/1024
+// `dub upgrade <pkg>` upgrades only the specified dependency,
+// leaving other selected versions untouched.
+unittest
+{
+    scope dub = new TestDub((scope Filesystem root) {
+            root.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "main"
+dependency "a" version="~>1.0.0"
+dependency "b" version="~>1.0.0"
+`);
+            root.writeFile(TestDub.ProjectPath ~ "dub.selections.json",
+`{ "fileVersion": 1, "versions": { "a": "1.0.0", "b": "1.0.0" } }`);
+    });
+    dub.loadPackage();
+
+    foreach (vers; ["1.0.0", "1.0.1"]) {
+        foreach (name; ["a", "b"]) {
+            dub.getRegistry().add(Version(vers), (scope Filesystem pkg) {
+                pkg.writeFile(NativePath(`dub.sdl`), `name "` ~ name ~ `"`);
+            });
+        }
+    }
+
+    dub.upgrade(UpgradeOptions.select | UpgradeOptions.upgrade, ["a"]);
+
+    assert(dub.project.selections.getSelectedVersion(PackageName("a"))
+        == Dependency(Version("1.0.1")), "Specified dependency was not upgraded.");
+    assert(dub.project.selections.getSelectedVersion(PackageName("b"))
+        == Dependency(Version("1.0.0")), "Non-specified dependency got upgraded.");
+}
