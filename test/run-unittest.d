@@ -10,7 +10,7 @@ import common;
 
 int main(string[] args)
 {
-	import std.algorithm, std.file, std.format, std.stdio, std.path, std.process, std.string;
+	import std.algorithm, std.array, std.file, std.format, std.stdio, std.path, std.process, std.string;
 	alias ProcessConfig = std.process.Config;
 
 	//** if [ -z ${DUB:-} ]; then
@@ -71,7 +71,7 @@ int main(string[] args)
 			if (exists(min_frontend) && frontend.length && cmp(frontend, min_frontend.readText) < 0) continue;
 			log("Running " ~ script ~ "...");
 			if (spawnShell(script.name, ["DUB":dub, "DC":dc, "CURR_DIR":curr_dir]).wait)
-				logError("Script failure.");
+				logError(script.name.baseName, ": Script failure.");
 			else
 				log(script.name.baseName, " status: Ok");
 		}
@@ -86,7 +86,7 @@ int main(string[] args)
 		if (frontend.length && exists(min_frontend) && cmp(frontend, min_frontend.readText) < 0) continue;
 		log("Running " ~ script ~ "...");
 		if (spawnProcess([dub, script.name], ["DUB":dub, "DC":dc, "CURR_DIR":curr_dir]).wait)
-			logError("Script failure.");
+			logError(script.name.baseName, ": Script failure.");
 		else
 			log(script.name, " status: Ok");
 	}
@@ -123,13 +123,13 @@ int main(string[] args)
 				if (spawnProcess([dub, "build", "--force", "--compiler", dc], ["DUB":dub, "DC":dc, "CURR_DIR":curr_dir], ProcessConfig.none, pack.name).wait)
 					log(pack.name.baseName, " status: Ok");
 				else
-					logError("Failure expected, but build passed.");
+					logError(pack.name.baseName, ": Failure expected, but build passed.");
 			}
 			else
 			{
 				log("Building ", pack.name.baseName, "...");
 				if (spawnProcess([dub, "build", "--force", "--compiler", dc], ["DUB":dub, "DC":dc, "CURR_DIR":curr_dir], ProcessConfig.none, pack.name).wait)
-					logError("Script failure.");
+					logError(pack.name.baseName, ": Build failure.");
 				else
 					log(pack.name.baseName, " status: Ok");
 			}
@@ -150,7 +150,7 @@ int main(string[] args)
 		{
 			log("Running ", pack.name.baseName, "...");
 			if (spawnProcess([dub, "run", "--force", "--compiler", dc], ["DUB":dub, "DC":dc, "CURR_DIR":curr_dir], ProcessConfig.none, pack.name).wait)
-				logError("Run failure.");
+				logError(pack.name.baseName, ": Run failure.");
 			else
 				log(pack.name.baseName, " status: Ok");
 		}
@@ -167,7 +167,7 @@ int main(string[] args)
 		{
 			log("Testing ", pack.name.baseName, "...");
 			if (spawnProcess([dub, "test", "--force", "--root", pack.name, "--compiler", dc], ["DUB":dub, "DC":dc, "CURR_DIR":curr_dir]).wait)
-				logError("Test failure.");
+				logError(pack.name.baseName, ": Test failure.");
 			else
 				log(pack.name.baseName, " status: Ok");
 		}
@@ -182,9 +182,18 @@ int main(string[] args)
 	auto logLines = readText("test.log").splitLines;
 	foreach (line; logLines)
 		writeln(line);
-	auto errCnt = logLines.count!(a => a.startsWith("[ERROR]"));
+	auto errorLines = logLines.filter!(a => a.startsWith("[ERROR]")).array;
 	auto passCnt = logLines.count!(a => a.startsWith("[INFO]") && a.endsWith("status: Ok"));
-	writeln(passCnt , "/", errCnt + passCnt, " tests succeeded.");
+	writeln();
+	writeln(passCnt , "/", errorLines.length + passCnt, " tests succeeded.");
+
+	if (errorLines.length > 0)
+	{
+		writeln();
+		writeln("Failed tests:");
+		foreach (line; errorLines)
+			writeln("  ", line);
+	}
 
 	return any_errors;
 }
