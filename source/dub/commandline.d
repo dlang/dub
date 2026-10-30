@@ -54,6 +54,7 @@ CommandGroup[] getCommands() @safe pure nothrow
 			new LintCommand,
 			new GenerateCommand,
 			new DescribeCommand,
+			new TreeCommand,
 			new CleanCommand,
 			new DustmiteCommand
 		),
@@ -271,7 +272,7 @@ unittest {
 	handler.commandGroups = getCommands();
 
 	assert(handler.commandNames == ["init", "run", "build", "test", "lint", "generate",
-		"describe", "clean", "dustmite", "fetch", "add", "remove",
+		"describe", "tree", "clean", "dustmite", "fetch", "add", "remove",
 		"upgrade", "add-path", "remove-path", "add-local", "remove-local", "list", "search",
 		"add-override", "remove-override", "list-overrides", "clean-caches", "convert"]);
 }
@@ -1968,6 +1969,138 @@ class DescribeCommand : PackageBuildCommand {
 		}
 
 		return 0;
+	}
+}
+
+class TreeCommand : PackageBuildCommand {
+	private {
+		string m_invert;
+	}
+
+	this() @safe pure nothrow
+	{
+		this.name = "tree";
+		this.argumentsPattern = "[<package>[@<version-spec>]]";
+		this.description = "Prints the dependency tree of the current project";
+		this.helpText = [
+			"Prints the resolved dependency tree of the current package, including the selected version and the file system path each dependency is loaded from. This makes it easy to tell path based packages (e.g. referenced with a path dependency or registered with \"dub add-path\") apart from packages loaded from the package cache.",
+			"",
+			"Use --invert=<package> to print the tree in reverse, listing all packages that (directly or indirectly) depend on the given package instead.",
+			"",
+			"All usual options that are also used for build/run/generate apply, so that the printed tree matches the selected configuration, build type and platform. Dependencies closing a cycle are marked with (*)."
+		];
+	}
+
+	override void prepare(scope CommandArgs args)
+	{
+		super.prepare(args);
+
+		args.getopt("invert", &m_invert, [
+			"Prints an inverted dependency tree for the given package, listing the packages that depend on it instead of its own dependencies"
+		]);
+	}
+
+	override int execute(Dub dub, string[] free_args, string[] app_args)
+	{
+		enforceUsage(free_args.length <= 1, "Expected one or zero arguments.");
+		enforceUsage(app_args.length == 0, "The tree command supports no application arguments.");
+
+		// disable all log output to stdout and use "writeln" to output the tree
+		auto ll = getLogLevel();
+		setLogLevel(max(ll, LogLevel.warn));
+		scope (exit) setLogLevel(ll);
+
+		string str_package_info;
+		if (free_args.length >= 1) str_package_info = free_args[0];
+		setupVersionPackage(dub, str_package_info);
+
+		m_defaultConfig = dub.project.getDefaultConfiguration(this.baseSettings.platform);
+
+		GeneratorSettings settings = this.baseSettings;
+		if (!settings.config.length)
+			settings.config = m_defaultConfig;
+
+		// Collect the dependency edges between all packages, honoring the
+		// configuration selected for each of them. Optional dependencies that
+		// were not selected are omitted, since they are not part of the build.
+		auto configs = dub.project.getPackageConfigs(settings.platform, settings.config);
+		Package[string] packages;
+		packages[dub.project.rootPackage.name] = dub.project.rootPackage;
+		foreach (p; dub.project.dependencies)
+			packages[p.name] = dub.project.getDependency(p.name, false);
+		Package[][string] dependenciesOf;
+		foreach (name, p; packages) {
+			Package[] deps;
+			auto depnames = p.getDependencies(configs[name]).keys;
+			depnames.sort();
+			foreach (depname; depnames) {
+				auto pp = depname in packages;
+				if (pp is null) continue; // optional dependency that was not selected
+				deps ~= *pp;
+			}
+			dependenciesOf[name] = deps;
+		}
+
+		Package root;
+		Package[][string] treeEdges;
+		if (m_invert.length) {
+			auto rp = m_invert in packages;
+			enforceUsage(rp !is null, "Package '"~m_invert~"' is not part of the dependency tree.");
+			root = *rp;
+
+			// invert the dependency edges to list the dependees of each package
+			foreach (name, deps; dependenciesOf)
+				foreach (d; deps) {
+					auto dependee = packages[name];
+					auto dl = d.name in treeEdges;
+					if (dl is null) treeEdges[d.name] = [dependee];
+					else if (!(*dl).canFind(dependee)) *dl ~= dependee;
+				}
+			foreach (ref deps; treeEdges)
+				deps.sort!((a, b) => a.name < b.name);
+		} else {
+			root = dub.project.rootPackage;
+			treeEdges = dependenciesOf;
+		}
+
+		printTreeNode(root, treeEdges, "", true, null);
+
+		return 0;
+	}
+
+	private static void printTreeNode(in Package pack, in Package[][string] edges, string prefix, bool isLast, string[] ancestors)
+	{
+		import dub.internal.colorize.cwrite : cwrite;
+
+		// Use ASCII connectors on Windows, as legacy consoles don't render
+		// Unicode box drawing characters correctly.
+		version (Windows) {
+			enum lastConnector = "`- ";
+			enum nextConnector = "+- ";
+			enum lastIndent = "   ";
+			enum nextIndent = "|  ";
+		} else {
+			enum lastConnector = "└─ ";
+			enum nextConnector = "├─ ";
+			enum lastIndent = "   ";
+			enum nextIndent = "│  ";
+		}
+
+		immutable isCycle = ancestors.canFind(pack.name);
+		// Write through "cwrite" so that escape sequences are translated for
+		// legacy Windows consoles.
+		stdout.cwrite(prefix.length ? prefix.color(Color.yellow) : prefix,
+			ancestors.length ? (isLast ? lastConnector : nextConnector).color(Color.yellow) : "",
+			pack.name.color(Mode.bold), " ",
+			pack.version_.toString().color(Color.yellow), " ",
+			pack.path.toNativeString(),
+			isCycle ? " (*)" : "", '\n');
+		if (isCycle) return;
+
+		auto deps = edges.get(pack.name, null);
+		foreach (i, dep; deps)
+			printTreeNode(dep, edges, prefix ~ (ancestors.length ? (isLast ? lastIndent : nextIndent) : ""),
+				i + 1 == deps.length, ancestors ~ pack.name);
 	}
 }
 
