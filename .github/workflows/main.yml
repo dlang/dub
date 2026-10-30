@@ -98,9 +98,11 @@ jobs:
       run: |
         # We need to install GNU utils as the test-suite scripts expect it.
         # Without them we may get slightly different behavior in tests and hard-to-track failures
-        brew install bash coreutils diffutils
-        echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig/" >> $GITHUB_ENV
-        echo "PATH=\"/usr/local/opt/coreutils/libexec/gnubin:$PATH\"" >> $GITHUB_ENV
+        brew install bash coreutils diffutils openssl@3
+        echo "LIBRARY_PATH=$(brew --prefix openssl@3)/lib${LIBRARY_PATH:+:$LIBRARY_PATH}" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
+        # Use $(brew --prefix) so this works on both Intel (/usr/local) and ARM (/opt/homebrew) runners
+        echo "PATH=\"$(brew --prefix coreutils)/libexec/gnubin:$PATH\"" >> $GITHUB_ENV
 
     - name: '[Linux] Install dependencies'
       if: runner.os == 'Linux'
