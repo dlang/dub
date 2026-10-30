@@ -4,7 +4,7 @@
 		"diet-ng": "1.8.2",
 		"eventcore": "0.9.35",
 		"mir-linux-kernel": "1.2.1",
-		"openssl": "3.3.4",
+		"openssl": "3.4.0",
 		"openssl-static": "1.0.5+3.0.8",
 		"stdx-allocator": "2.77.5",
 		"taggedalgebraic": "0.11.23",
@@ -14,6 +14,6 @@
 		"vibe-http": "1.2.1",
 		"vibe-inet": "1.1.0",
 		"vibe-serialization": "1.0.7",
-		"vibe-stream": "1.1.1"
+		"vibe-stream": "1.5.1"
 	}
 }
