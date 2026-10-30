@@ -27,10 +27,23 @@ bool regenUpdatesImportPath(string projDir, string recipePath, string origRecipe
 	scope(exit) write(recipePath, origRecipe);
 
 	const result = execute(["ninja"], null, Config.none, size_t.max, projDir);
-	if (result.status != 0 || !result.output.canFind("Regenerating build.ninja"))
+	if (result.status != 0)
+	{
+		log("`ninja` failed with status ", result.status, ":\n", result.output);
 		return false;
+	}
+	if (!result.output.canFind("Regenerating build.ninja"))
+	{
+		log("build.ninja was not regenerated after touching the recipe, `ninja` output:\n", result.output);
+		return false;
+	}
+	if (!readText(buildNinjaPath).canFind("extra-imports"))
+	{
+		log("regenerated build.ninja does not contain the new import path:\n", readText(buildNinjaPath));
+		return false;
+	}
 
-	return readText(buildNinjaPath).canFind("extra-imports");
+	return true;
 }
 
 int main()
@@ -40,12 +53,24 @@ int main()
 	const curr_dir = environment.get("CURR_DIR", buildPath(__FILE_FULL_PATH__.dirName));
 	const projDir = buildPath(curr_dir, "ninja-generator");
 
-	if (execute([dub, "generate", "ninja", "--compiler", dc], null, Config.none, size_t.max, projDir).status)
-		die("dub generate ninja failed");
+	{
+		const result = execute([dub, "generate", "ninja", "--compiler", dc], null, Config.none, size_t.max, projDir);
+		if (result.status)
+		{
+			log("`dub generate ninja` failed with status ", result.status, ":\n", result.output);
+			die("dub generate ninja failed");
+		}
+	}
 
 	execute(["ninja", "-t", "clean"], null, Config.none, size_t.max, projDir);
-	if (execute(["ninja"], null, Config.none, size_t.max, projDir).status)
-		die("initial ninja build failed");
+	{
+		const result = execute(["ninja"], null, Config.none, size_t.max, projDir);
+		if (result.status)
+		{
+			log("Initial `ninja` invocation failed with status ", result.status, ":\n", result.output);
+			die("initial ninja build failed");
+		}
+	}
 
 	const jsonRecipePath = buildPath(projDir, "dub.json");
 	const origJson = readText(jsonRecipePath);
@@ -60,16 +85,28 @@ int main()
 
 	const sdlProjDir = buildPath(curr_dir, "ninja-generator-sdl");
 
-	if (execute([dub, "generate", "ninja", "--compiler", dc], null, Config.none, size_t.max, sdlProjDir).status)
-		die("dub generate ninja failed for dub.sdl project");
+	{
+		const result = execute([dub, "generate", "ninja", "--compiler", dc], null, Config.none, size_t.max, sdlProjDir);
+		if (result.status)
+		{
+			log("`dub generate ninja` failed with status ", result.status, ":\n", result.output);
+			die("dub generate ninja failed for dub.sdl project");
+		}
+	}
 
 	const sdlBuildNinja = buildPath(sdlProjDir, "build.ninja");
 	if (!readText(sdlBuildNinja).canFind("regen") || !readText(sdlBuildNinja).canFind("dub.sdl"))
 		die("build.ninja regen edge missing dub.sdl dependency");
 
 	execute(["ninja", "-t", "clean"], null, Config.none, size_t.max, sdlProjDir);
-	if (execute(["ninja"], null, Config.none, size_t.max, sdlProjDir).status)
-		die("initial ninja build failed for dub.sdl project");
+	{
+		const result = execute(["ninja"], null, Config.none, size_t.max, sdlProjDir);
+		if (result.status)
+		{
+			log("Initial `ninja` invocation failed with status ", result.status, ":\n", result.output);
+			die("initial ninja build failed for dub.sdl project");
+		}
+	}
 
 	const sdlRecipePath = buildPath(sdlProjDir, "dub.sdl");
 	const origSdl = readText(sdlRecipePath);

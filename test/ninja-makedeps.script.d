@@ -21,8 +21,14 @@ int main()
 	const curr_dir = environment.get("CURR_DIR", buildPath(__FILE_FULL_PATH__.dirName));
 	const projDir = buildPath(curr_dir, "ninja-makedeps");
 
-	if (execute([dub, "generate", "ninja", "--compiler", dc], null, Config.none, size_t.max, projDir).status)
-		die("dub generate ninja failed");
+	{
+		const result = execute([dub, "generate", "ninja", "--compiler", dc], null, Config.none, size_t.max, projDir);
+		if (result.status)
+		{
+			log("`dub generate ninja` failed with status ", result.status, ":\n", result.output);
+			die("dub generate ninja failed");
+		}
+	}
 
 	const buildNinjaPath = buildPath(projDir, "build.ninja");
 	if (!readText(buildNinjaPath).canFind("-makedeps"))
@@ -31,8 +37,14 @@ int main()
 		die("build.ninja missing depfile directive on dc rule");
 
 	execute(["ninja", "-t", "clean"], null, Config.none, size_t.max, projDir);
-	if (execute(["ninja"], null, Config.none, size_t.max, projDir).status)
-		die("initial ninja build failed");
+	{
+		const result = execute(["ninja"], null, Config.none, size_t.max, projDir);
+		if (result.status)
+		{
+			log("Initial `ninja` invocation failed with status ", result.status, ":\n", result.output);
+			die("initial ninja build failed");
+		}
+	}
 
 	// Locate the actual app.o produced, since the generator encodes the full
 	// source path into the object filename.
@@ -58,8 +70,14 @@ int main()
 	write(helperPath, origHelper ~ "\n// touched\n");
 	scope(exit) write(helperPath, origHelper);
 
-	if (execute(["ninja"], null, Config.none, size_t.max, projDir).status)
-		die("rebuild after touching helper.d failed");
+	{
+		const result = execute(["ninja"], null, Config.none, size_t.max, projDir);
+		if (result.status)
+		{
+			log("`ninja` rebuild failed with status ", result.status, ":\n", result.output);
+			die("rebuild after touching helper.d failed");
+		}
+	}
 
 	const mtimeAfter = timeLastModified(objPath);
 
