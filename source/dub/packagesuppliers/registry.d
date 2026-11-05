@@ -62,7 +62,7 @@ class RegistryPackageSupplier : PackageSupplier {
 		{
 			auto vers = best["version"].get!string;
 			ret = m_registryUrl ~ InetPath(
-				"%s/%s/%s.zip".format(PackagesPath, name.main, vers));
+				"%s/%s/%s.zip".format(PackagesPath, name.base, vers));
 		}
 		return ret;
 	}
@@ -79,12 +79,12 @@ class RegistryPackageSupplier : PackageSupplier {
 		}
 		catch(HTTPStatusException e) {
 			if (e.status == 404) throw e;
-			else logDebug("Failed to download package %s from %s", name.main, url);
+			else logDebug("Failed to download package %s from %s", name.base, url);
 		}
 		catch(Exception e) {
-			logDebug("Failed to download package %s from %s", name.main, url);
+			logDebug("Failed to download package %s from %s", name.base, url);
 		}
-		throw new Exception("Failed to download package %s from %s".format(name.main, url));
+		throw new Exception("Failed to download package %s from %s".format(name.base, url));
 	}
 
 	override Json fetchPackageRecipe(in PackageName name, in VersionRange dep,
@@ -97,19 +97,19 @@ class RegistryPackageSupplier : PackageSupplier {
 	private Json getMetadata(in PackageName name)
 	{
 		auto now = Clock.currTime(UTC());
-		if (auto pentry = name.main in m_metadataCache) {
+		if (auto pentry = name.base in m_metadataCache) {
 			if (pentry.cacheTime + m_maxCacheTime > now)
 				return pentry.data;
-			m_metadataCache.remove(name.main);
+			m_metadataCache.remove(name.base);
 		}
 
 		auto url = m_registryUrl ~ InetPath("api/packages/infos");
 
 		url.queryString = "packages=" ~
-			encodeComponent(`["` ~ name.main.toString() ~ `"]`) ~
+			encodeComponent(`["` ~ name.base.toString() ~ `"]`) ~
 			"&include_dependencies=true&minimize=true";
 
-		logDebug("Downloading metadata for %s", name.main);
+		logDebug("Downloading metadata for %s", name.base);
 		string jsonData;
 
 		jsonData = cast(string)retryDownload(url);
@@ -120,7 +120,7 @@ class RegistryPackageSupplier : PackageSupplier {
 			logDebug("adding %s to metadata cache", pkg);
 			m_metadataCache[PackageName(pkg)] = CacheEntry(info, now);
 		}
-		return json[name.main.toString()];
+		return json[name.base.toString()];
 	}
 
 	SearchResult[] searchPackages(string query) {

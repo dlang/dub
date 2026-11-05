@@ -101,7 +101,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 	CONFIG[PackageName] resolve(TreeNode root, bool throw_on_failure = true)
 	{
-		auto rootbase = root.pack.main;
+		auto rootbase = root.pack.base;
 
 		// build up the dependency graph, eliminating as many configurations/
 		// versions as possible
@@ -180,7 +180,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 	*/
 	private void constrain(TreeNode n, ref ResolveContext context, ref ulong max_iterations)
 	{
-		auto base = n.pack.main;
+		auto base = n.pack.base;
 		assert(base in context.configs);
 		if (context.isVisited(n.pack)) return;
 		context.setVisited(n.pack);
@@ -189,7 +189,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 		foreach (dep; dependencies) {
 			// lazily load all dependency configurations
-			auto depbase = dep.pack.main;
+			auto depbase = dep.pack.base;
 			auto di = depbase in context.configs;
 			if (!di) {
 				context.configs[depbase] =
@@ -243,7 +243,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 			~ " recipe that reproduces this error.");
 
 		auto dep = &dependencies[depidx];
-		auto depbase = dep.pack.main;
+		auto depbase = dep.pack.base;
 		auto depconfigs = context.configs[depbase];
 
 		Exception first_err;
@@ -291,9 +291,9 @@ class DependencyResolver(CONFIGS, CONFIG) {
 		{
 			if (node.pack in visited) return;
 			visited[node.pack] = true;
-			required[node.pack.main] = true;
+			required[node.pack.base] = true;
 			foreach (dep; getChildren(node).filter!(dep => dep.depType != DependencyType.optional))
-				if (auto dp = dep.pack.main in configs)
+				if (auto dp = dep.pack.base in configs)
 					markRecursively(TreeNode(dep.pack, *dp));
 		}
 
@@ -314,12 +314,12 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 		this(TreeNode parent, TreeNodes dep, const scope ref ResolveContext context, string file = __FILE__, size_t line = __LINE__)
 		{
-			auto m = format("Unresolvable dependencies to package %s:", dep.pack.main);
+			auto m = format("Unresolvable dependencies to package %s:", dep.pack.base);
 			super(m, file, line);
 
 			this.failedNode = dep.pack;
 
-			auto failbase = failedNode.main;
+			auto failbase = failedNode.base;
 
 			// Get partial results
 			CONFIG[PackageName] partial_result;
@@ -332,10 +332,10 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 			// get the list of all dependencies to the failed package
 			auto deps = context.visited.byKey
-				.filter!(p => !!(p.main in partial_result))
-				.map!(p => TreeNode(p, partial_result[p.main]))
+				.filter!(p => !!(p.base in partial_result))
+				.map!(p => TreeNode(p, partial_result[p.base]))
 				.map!(n => getChildren(n)
-					.filter!(d => d.pack.main == failbase)
+					.filter!(d => d.pack.base == failbase)
 					.map!(d => tuple(n, d))
 				)
 				.join
@@ -343,7 +343,7 @@ class DependencyResolver(CONFIGS, CONFIG) {
 
 			foreach (d; deps) {
 				// filter out trivial self-dependencies
-				if (d[0].pack.main == failbase
+				if (d[0].pack.base == failbase
 					&& matches(d[1].configs, d[0].config))
 					continue;
 				msg ~= format("\n  %s %s depends on %s %s", d[0].pack, d[0].config, d[1].pack, d[1].configs);
@@ -395,7 +395,7 @@ unittest {
 			foreach (p_; m_children.byKey) {
 				// Note: We abuse subpackage notation to store configs
 				const p = PackageName(p_);
-				if (p.main != pack.main) continue;
+				if (p.base != pack.base) continue;
 				ret ~= ic(p.sub.to!uint);
 			}
 			ret.data.sort!"a>b"();
