@@ -73,7 +73,21 @@ class BuildGenerator : ProjectGenerator {
 	override void generateTargets(GeneratorSettings settings, in TargetInfo[string] targets)
 	{
 		import std.path : setExtension;
+		import core.time : MonoTime;
 		scope (exit) cleanupTemporaries();
+
+		MonoTime timingStart;
+		if (settings.reportBuildTimings) {
+			enforce(!settings.rdmd, "--build-timings is not supported with --rdmd.");
+			timingStart = MonoTime.currTime;
+			settings.buildTimings = new BuildTimingCollector;
+		}
+		bool completed;
+		scope (exit) if (settings.reportBuildTimings) {
+			// Report before application/test execution, including on build failure.
+			printBuildTimings(settings.buildTimings, MonoTime.currTime - timingStart, completed);
+		}
+		scope (success) completed = true;
 
 		void checkPkgRequirements(const(Package) pkg)
 		{

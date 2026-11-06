@@ -1,0 +1,37 @@
+Add optional compiler invocation timing reports
+
+$(TT dub build), $(TT dub run), and $(TT dub test) now accept
+$(TT --build-timings). The report is printed to standard error, including with
+$(TT --quiet), after the direct build stage and before application or test execution.
+If compilation or linking fails, a partial report includes completed and failed
+invocations without changing the build's failure status.
+
+-------
+dub build --build-mode=singleFile --parallel --build-timings
+dub test --build-mode=singleFile --parallel --build-timings
+-------
+
+Rows show elapsed wall time, start/end offsets, exit status, invocation phase,
+target package, and explicit source inputs, sorted by decreasing elapsed time.
+The status $(TT no status) means that launching or waiting for the process failed
+without obtaining an exit status.
+Measurements include process launch and waiting for completion, but exclude
+worker queueing, command preparation, and output callbacks. Source inputs do not
+include every transitively imported module. A combined target's package label
+identifies the target owner, not necessarily the owner of every source.
+
+Use $(TT --build-mode=singleFile) for individual source timings. Other modes may
+compile multiple sources together or combine compilation and linking. Library
+creation may be included in a compile invocation. Cached targets produce no
+invocation records; $(TT --force) requests a rebuild. Enabling timings does not
+change build cache keys or force recompilation.
+
+Summed invocation time counts overlapping parallel jobs separately. Build-stage
+elapsed time includes direct build setup, cache checks, build commands and file
+operations, but excludes earlier package configuration, application/test execution,
+and report formatting. Start/end offsets begin when the collector is created.
+
+$(TT --rdmd) is unsupported and rejected with this option. Compiler probes and
+commands launched by build hooks are not instrumented. Custom compiler
+implementations participate when they use DUB's shared process runner.
+Machine-readable export is not included in this change.

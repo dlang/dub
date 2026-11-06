@@ -908,6 +908,7 @@ struct GeneratorSettings {
 
 	/// Internal, opt-in instrumentation for the direct build generator.
 	package(dub) BuildTimingCollector buildTimings;
+	package(dub) bool reportBuildTimings;
 
 	/// Returns `overrideToolWorkingDirectory` or if that's not set, just the
 	/// current working directory of the application. This may differ if dub is
