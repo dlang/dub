@@ -103,6 +103,7 @@ source/dub/recipe/selection.d
 source/dub/semver.d
 source/dub/test/base.d
 source/dub/test/dependencies.d
+source/dub/test/npm_package_json.d
 source/dub/test/others.d
 source/dub/test/selections_from_parent_dir.d
 source/dub/test/subpackages.d
