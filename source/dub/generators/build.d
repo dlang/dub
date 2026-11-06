@@ -14,6 +14,7 @@ import dub.internal.utils;
 import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
+import dub.internal.buildtimings;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -290,7 +291,7 @@ class BuildGenerator : ProjectGenerator {
 		// override target path
 		auto cbuildsettings = buildsettings;
 		cbuildsettings.targetPath = target_path.toNativeString();
-		buildWithCompiler(settings, cbuildsettings);
+		buildWithCompiler(settings, cbuildsettings, pack.name);
 		target_binary_path = getTargetPath(cbuildsettings, settings);
 
 		if (!settings.tempBuild) {
@@ -464,7 +465,7 @@ class BuildGenerator : ProjectGenerator {
 			runBuildCommands(CommandType.preBuild, buildsettings.preBuildCommands, pack, m_project, settings, buildsettings);
 		}
 
-		buildWithCompiler(settings, buildsettings);
+		buildWithCompiler(settings, buildsettings, pack.name);
 
 		if (is_temp_target) {
 			m_temporaryFiles ~= target_path;
@@ -575,6 +576,12 @@ class BuildGenerator : ProjectGenerator {
 
 	/// Compile a single source file (srcFile), and write the object to objName.
 	static string compileUnit(string srcFile, string objName, BuildSettings bs, GeneratorSettings gs) {
+		return compileUnit(srcFile, objName, bs, gs, null);
+	}
+
+	private static string compileUnit(string srcFile, string objName, BuildSettings bs,
+		GeneratorSettings gs, string targetPackage)
+	{
 		NativePath tempobj = NativePath(bs.targetPath)~objName;
 		string objPath = tempobj.toNativeString();
 		bs.libs = null;
@@ -584,11 +591,31 @@ class BuildGenerator : ProjectGenerator {
 		bs.targetType = TargetType.object;
 		gs.compiler.prepareBuildSettings(bs, gs.platform, BuildSetting.commandLine);
 		gs.compiler.setTarget(bs, gs.platform, objPath);
-		gs.compiler.invoke(bs, gs.platform, gs.compileCallback, gs.toolWorkingDirectory);
+		if (gs.buildTimings is null)
+			gs.compiler.invoke(bs, gs.platform, gs.compileCallback, gs.toolWorkingDirectory);
+		else
+			invokeTimedCompiler(gs, bs, targetPackage, BuildTimingPhase.compile, [srcFile]);
 		return objPath;
 	}
 
-	private void buildWithCompiler(GeneratorSettings settings, BuildSettings buildsettings)
+	// Keep timing delegates in a separate function so disabled instrumentation
+	// cannot introduce closure allocations into the ordinary invocation path.
+	private static void invokeTimedCompiler(ref GeneratorSettings settings, ref BuildSettings bs,
+		string targetPackage, BuildTimingPhase phase, in string[] sources, string[] objects = null)
+	{
+		assert(settings.buildTimings !is null);
+		auto context = BuildTimingContext(phase, targetPackage, sources.idup);
+		withCompilerTiming(settings.buildTimings, context, {
+			if (phase == BuildTimingPhase.link)
+				settings.compiler.invokeLinker(bs, settings.platform, objects,
+					settings.linkCallback, settings.toolWorkingDirectory);
+			else
+				settings.compiler.invoke(bs, settings.platform,
+					settings.compileCallback, settings.toolWorkingDirectory);
+		});
+	}
+
+	private void buildWithCompiler(GeneratorSettings settings, BuildSettings buildsettings, string targetPackage)
 	{
 		auto generate_binary = !(buildsettings.options & BuildOption.syntaxOnly);
 		auto is_static_library = buildsettings.targetType == TargetType.staticLibrary || buildsettings.targetType == TargetType.library;
@@ -620,7 +647,7 @@ class BuildGenerator : ProjectGenerator {
 			void compileSource(size_t i, string src) {
 				logInfo("Compiling", Color.light_green, "%s", src);
 				const objPath = pathToObjName(settings.platform, src, settings.toolWorkingDirectory);
-				objs[i] = compileUnit(src, objPath, buildsettings, settings);
+				objs[i] = compileUnit(src, objPath, buildsettings, settings, targetPackage);
 			}
 
 			if (settings.parallelBuild) {
@@ -630,7 +657,10 @@ class BuildGenerator : ProjectGenerator {
 			}
 
 			logInfo("Linking", Color.light_green, "%s", buildsettings.targetName.color(Mode.bold));
-			settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs, settings.linkCallback, settings.toolWorkingDirectory);
+			if (settings.buildTimings is null)
+				settings.compiler.invokeLinker(lbuildsettings, settings.platform, objs, settings.linkCallback, settings.toolWorkingDirectory);
+			else
+				invokeTimedCompiler(settings, lbuildsettings, targetPackage, BuildTimingPhase.link, [], objs);
 
 		// NOTE: separate compile/link is not yet enabled for GDC.
 		} else if (generate_binary && (settings.buildMode == BuildMode.allAtOnce || settings.compiler.name == "gdc" || is_static_library)) {
@@ -638,11 +668,20 @@ class BuildGenerator : ProjectGenerator {
 			if (is_static_library) buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(settings.platform, f)).array;
 
 			// setup for command line
+			auto sources = settings.buildTimings is null ? null
+				: buildsettings.sourceFiles.filter!(f => !isLinkerFile(settings.platform, f)).array;
 			settings.compiler.setTarget(buildsettings, settings.platform);
 			settings.compiler.prepareBuildSettings(buildsettings, settings.platform, BuildSetting.commandLine);
 
 			// invoke the compiler
-			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback, settings.toolWorkingDirectory);
+			// Static libraries and object targets do not link an executable.
+			if (settings.buildTimings is null)
+				settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback, settings.toolWorkingDirectory);
+			else {
+				auto phase = is_static_library || buildsettings.targetType == TargetType.object
+					? BuildTimingPhase.compile : BuildTimingPhase.compileAndLink;
+				invokeTimedCompiler(settings, buildsettings, targetPackage, phase, sources);
+			}
 		} else {
 			// determine path for the temporary object file
 			string tempobjname = buildsettings.targetName ~ getObjSuffix(settings.platform);
@@ -668,9 +707,13 @@ class BuildGenerator : ProjectGenerator {
 			if (generate_binary) buildsettings.addDFlags("-c", "-of"~tempobj.toNativeString());
 			buildsettings.sourceFiles = buildsettings.sourceFiles.filter!(f => !isLinkerFile(settings.platform, f)).array;
 
+			auto sources = buildsettings.sourceFiles;
 			settings.compiler.prepareBuildSettings(buildsettings, settings.platform, BuildSetting.commandLine);
 
-			settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback, settings.toolWorkingDirectory);
+			if (settings.buildTimings is null)
+				settings.compiler.invoke(buildsettings, settings.platform, settings.compileCallback, settings.toolWorkingDirectory);
+			else
+				invokeTimedCompiler(settings, buildsettings, targetPackage, BuildTimingPhase.compile, sources);
 
 			if (generate_binary) {
 				if (settings.tempBuild) {
@@ -678,7 +721,10 @@ class BuildGenerator : ProjectGenerator {
 				} else {
 					logInfo("Linking", Color.light_green, "%s", buildsettings.targetName.color(Mode.bold));
 				}
-				settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback, settings.toolWorkingDirectory);
+				if (settings.buildTimings is null)
+					settings.compiler.invokeLinker(lbuildsettings, settings.platform, [tempobj.toNativeString()], settings.linkCallback, settings.toolWorkingDirectory);
+				else
+					invokeTimedCompiler(settings, lbuildsettings, targetPackage, BuildTimingPhase.link, [], [tempobj.toNativeString()]);
 			}
 		}
 	}
@@ -785,6 +831,112 @@ unittest {
 		assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/foo/baz")) == NativePath("../bar/baz").toNativeString());
 	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/bar/")) == NativePath("/foo/bar/baz").toNativeString());
 	assert(shrinkPath(NativePath("/foo/bar/baz"), NativePath("/bar/baz")) == NativePath("/foo/bar/baz").toNativeString());
+}
+
+unittest {
+	import dub.compilers.dmd : DMDCompiler;
+	import dub.platform : determinePlatform;
+	import core.time : Duration;
+
+	// Exercise the real build-mode dispatch and process runner, without requiring
+	// a compiler installation or producing object files in a unit test.
+	static class TimingCompiler : DMDCompiler {
+		private void run(void delegate(int, string) callback, NativePath cwd) {
+			version (Windows)
+				auto args = [environment.get("COMSPEC", "cmd.exe"), "/d", "/c", "exit /b 0"];
+			else
+				auto args = ["/bin/sh", "-c", "exit 0"];
+			invokeTool(args, callback, cwd);
+		}
+		override void invoke(in BuildSettings bs, in BuildPlatform platform,
+			void delegate(int, string) callback, NativePath cwd)
+		{
+			run(callback, cwd);
+		}
+		override void invokeLinker(in BuildSettings bs, in BuildPlatform platform,
+			string[] objects, void delegate(int, string) callback, NativePath cwd)
+		{
+			run(callback, cwd);
+		}
+	}
+
+	auto gen = new BuildGenerator(null);
+	GeneratorSettings gs;
+	gs.compiler = new TimingCompiler;
+	gs.platform = BuildPlatform(determinePlatform(), ["x86_64"], "dmd", "test", 2113);
+	BuildSettings bs;
+	bs.targetType = TargetType.executable;
+	bs.targetName = "dub-build-timing-test";
+	bs.targetPath = getWorkingDirectory().toNativeString();
+	bs.sourceFiles = ["first.d", "second.d"];
+
+	foreach (mode; [BuildMode.singleFile, BuildMode.separate, BuildMode.allAtOnce]) {
+		foreach (parallel; [false, true]) {
+			gs.buildMode = mode;
+			gs.parallelBuild = parallel;
+			gs.buildTimings = new BuildTimingCollector;
+			gen.buildWithCompiler(gs, bs, "example");
+			auto records = gs.buildTimings.snapshot();
+			foreach (entry; records) {
+				assert(entry.context.targetPackage == "example");
+				assert(entry.exitStatus.get == 0);
+				assert(entry.elapsed >= Duration.zero);
+			}
+			if (mode == BuildMode.singleFile) {
+				assert(records.length == 3);
+				assert(records[0].context.phase == BuildTimingPhase.compile);
+				assert(records[1].context.phase == BuildTimingPhase.compile);
+				assert(records[0].context.sourceFiles.length == 1);
+				assert(records[1].context.sourceFiles.length == 1);
+				assert(records[0].context.sourceFiles != records[1].context.sourceFiles);
+				foreach (entry; records[0 .. 2])
+					assert(bs.sourceFiles.canFind(entry.context.sourceFiles[0]));
+			} else {
+				assert(records.length == (mode == BuildMode.separate ? 2 : 1));
+				assert(records[0].context.sourceFiles == bs.sourceFiles);
+				assert(records[0].context.phase == (mode == BuildMode.separate
+					? BuildTimingPhase.compile : BuildTimingPhase.compileAndLink));
+			}
+			if (mode != BuildMode.allAtOnce) {
+				assert(records[$ - 1].context.phase == BuildTimingPhase.link);
+				assert(records[$ - 1].context.sourceFiles.length == 0);
+			}
+			// The direct, untimed path must still compile and link in every mode.
+			// Count callbacks atomically because single-file jobs may be parallel.
+			import core.atomic : atomicOp, atomicLoad;
+			shared int callbacks;
+			gs.compileCallback = gs.linkCallback = (status, output) {
+				assert(status == 0);
+				atomicOp!"+="(callbacks, 1);
+			};
+			auto previous = gs.buildTimings;
+			gs.buildTimings = null;
+			gen.buildWithCompiler(gs, bs, "untimed");
+			assert(atomicLoad(callbacks) == records.length);
+			assert(previous.snapshot().length == records.length);
+			gs.compileCallback = gs.linkCallback = null;
+		}
+	}
+
+	// Static-library and syntax-only invocations must not be called compile/link.
+	gs.buildMode = BuildMode.separate;
+	bs.targetType = TargetType.staticLibrary;
+	gs.buildTimings = new BuildTimingCollector;
+	gen.buildWithCompiler(gs, bs, "library");
+	assert(gs.buildTimings.snapshot().length == 1);
+	assert(gs.buildTimings.snapshot()[0].context.phase == BuildTimingPhase.compile);
+	bs.targetType = TargetType.executable;
+	bs.options |= BuildOption.syntaxOnly;
+	gs.buildTimings = new BuildTimingCollector;
+	gen.buildWithCompiler(gs, bs, "syntax");
+	assert(gs.buildTimings.snapshot().length == 1);
+	assert(gs.buildTimings.snapshot()[0].context.phase == BuildTimingPhase.compile);
+
+	// Disabling collection leaves the previous collector untouched.
+	auto previous = gs.buildTimings;
+	gs.buildTimings = null;
+	gen.buildWithCompiler(gs, bs, "untimed");
+	assert(previous.snapshot().length == 1);
 }
 
 unittest { // issue #1235 - pass no library files to compiler command line when building a static lib
