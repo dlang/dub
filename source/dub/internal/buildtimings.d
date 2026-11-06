@@ -52,7 +52,7 @@ struct BuildTimingRecord {
 	lock contention must not contribute to the invocation's elapsed time.
 
 	Records are retained in submission order, which is not necessarily launch
-	or completion order. Reporting may sort a snapshot without holding the lock.
+	or completion order. Reporting can order snapshot indices without holding the lock.
 */
 final class BuildTimingCollector {
 	private immutable MonoTime m_origin;
@@ -75,12 +75,100 @@ final class BuildTimingCollector {
 		}
 	}
 
-	/// Independent array; callers can edit or sort it without altering collection.
+	/// Independent array; callers can inspect it without holding the collection lock.
 	BuildTimingRecord[] snapshot() {
 		synchronized (m_mutex) {
 			return m_records.dup;
 		}
 	}
+}
+
+/// A reporting error must not replace the original build exception.
+void printBuildTimings(BuildTimingCollector collector, Duration buildElapsed, bool completed)
+{
+	import std.stdio : stderr;
+	import dub.internal.logging : logWarn;
+	try {
+		stderr.write(formatBuildTimings(collector.snapshot(), buildElapsed, completed));
+		stderr.flush();
+	} catch (Exception e) {
+		logWarn("Could not print build timings: %s", e.msg);
+	}
+}
+
+/// Format a snapshot without changing its records or their submission order.
+string formatBuildTimings(in BuildTimingRecord[] records, Duration buildElapsed, bool completed)
+{
+	import std.algorithm : sort;
+	import std.array : appender, array, join;
+	import std.format : formattedWrite;
+	import std.range : iota;
+	import std.conv : to;
+
+	auto result = appender!string;
+	formattedWrite(result, "Build timings (%s)\n", completed ? "completed" : "partial; build failed");
+	if (!records.length) {
+		result.put("  No compiler or linker invocations were recorded.");
+		if (completed) result.put(" Targets may be up to date; use --force to rebuild.");
+		result.put("\n");
+	} else {
+		result.put("  Elapsed ms    Start ms      End ms  Status       Phase         Target / sources\n");
+		// Records contain immutable source lists. Sort indices rather than moving
+		// records, and break equal-duration ties by submission index.
+		auto order = iota(records.length).array;
+		order.sort!((a, b) => records[a].elapsed == records[b].elapsed
+			? a < b : records[a].elapsed > records[b].elapsed);
+		foreach (i; order) {
+			auto entry = records[i];
+			string phase;
+			final switch (entry.context.phase) {
+			case BuildTimingPhase.compile: phase = "compile"; break;
+			case BuildTimingPhase.link: phase = "link"; break;
+			case BuildTimingPhase.compileAndLink: phase = "compile+link"; break;
+			}
+			auto status = entry.exitStatus.isNull ? "no status"
+				: entry.exitStatus.get == 0 ? "ok" : "exit " ~ to!string(entry.exitStatus.get);
+			formattedWrite(result, "  %10.3f  %10.3f  %10.3f  %-12s %-13s %s",
+				entry.elapsed.total!"nsecs" / 1e6, entry.startOffset.total!"nsecs" / 1e6,
+				entry.endOffset.total!"nsecs" / 1e6, status, phase, entry.context.targetPackage);
+			if (entry.context.sourceFiles.length)
+				formattedWrite(result, " / %s", entry.context.sourceFiles.join(", "));
+			result.put("\n");
+		}
+	}
+	Duration total;
+	foreach (entry; records) total += entry.elapsed;
+	formattedWrite(result, "  Summed invocation time: %.3f ms (%s invocation%s; parallel jobs overlap).\n",
+		total.total!"nsecs" / 1e6, records.length, records.length == 1 ? "" : "s");
+	formattedWrite(result, "  Build stage elapsed: %.3f ms (excludes application/test execution).\n",
+		buildElapsed.total!"nsecs" / 1e6);
+	result.put("  Start/end offsets are relative to timing collection start; rows are slowest first.\n");
+	return result.data;
+}
+
+unittest {
+	import core.time : msecs;
+	import std.algorithm : canFind;
+	import std.string : indexOf;
+
+	auto compile = BuildTimingContext(BuildTimingPhase.compile, "root", ["a.d", "b.d"]);
+	auto link = BuildTimingContext(BuildTimingPhase.link, "root", []);
+	auto combined = BuildTimingContext(BuildTimingPhase.compileAndLink, "dependency", ["dep.d"]);
+	auto records = [
+		BuildTimingRecord(compile, 0.msecs, 20.msecs, Nullable!int(0)),
+		BuildTimingRecord(link, 20.msecs, 25.msecs, Nullable!int(7)),
+		BuildTimingRecord(combined, 0.msecs, 30.msecs, Nullable!int.init),
+	];
+	auto report = formatBuildTimings(records, 35.msecs, false);
+	assert(report.canFind("partial; build failed"));
+	assert(report.canFind("exit 7") && report.canFind("no status"));
+	assert(report.canFind("compile+link") && report.canFind("root / a.d, b.d"));
+	assert(report.indexOf("dependency / dep.d") < report.indexOf("root / a.d, b.d"));
+	assert(report.canFind("Summed invocation time: 55.000 ms (3 invocations"));
+	assert(report.canFind("Build stage elapsed: 35.000 ms"));
+	assert(records[0].context == compile);
+	assert(formatBuildTimings([], 0.msecs, true).canFind("use --force"));
+	assert(!formatBuildTimings([], 0.msecs, false).canFind("use --force"));
 }
 
 unittest {

@@ -1282,6 +1282,14 @@ class InitCommand : Command {
 /******************************************************************************/
 
 abstract class PackageBuildCommand : Command {
+	protected void prepareBuildTimings(scope CommandArgs args)
+	{
+		args.getopt("build-timings", &this.baseSettings.reportBuildTimings, [
+			"Print compiler/linker invocation timings to stderr, including partial results on failure.",
+			"Use --build-mode=singleFile for individual source timings. Cached targets produce no timings.",
+			"Excludes application/test execution; not supported with --rdmd."
+		]);
+	}
 	protected {
 		string m_compilerName;
 		string m_arch;
@@ -1552,6 +1560,7 @@ class BuildCommand : GenerateCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
+		prepareBuildTimings(args);
 		args.getopt("temp-build", &this.baseSettings.tempBuild, [
 			"Builds the project in the temp folder if possible."
 		]);
@@ -1574,6 +1583,8 @@ class BuildCommand : GenerateCommand {
 		]);
 		super.prepare(args);
 		m_generator = "build";
+		enforceUsage(!(this.baseSettings.reportBuildTimings && this.baseSettings.rdmd),
+			"--build-timings is not supported with --rdmd.");
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)
@@ -1704,6 +1715,7 @@ class TestCommand : PackageBuildCommand {
 
 	override void prepare(scope CommandArgs args)
 	{
+		prepareBuildTimings(args);
 		args.getopt("temp-build", &this.baseSettings.tempBuild, [
 			"Builds the project in the temp folder if possible."
 		]);
