@@ -15,6 +15,7 @@ import dub.internal.vibecompat.inet.path;
 import dub.internal.vibecompat.core.file;
 
 import dub.internal.logging;
+import dub.internal.buildtimings;
 
 import std.algorithm;
 import std.array;
@@ -151,7 +152,9 @@ interface Compiler {
 		import std.string;
 
 		int status;
-		if (output_callback) {
+		if (s_invocationTiming !is null) {
+			status = invokeTimedTool(args, output_callback, cwd, env);
+		} else if (output_callback) {
 			auto result = execute(args,
 				env, Config.none, size_t.max, cwd.toNativeString());
 			output_callback(result.status, result.output);
@@ -211,6 +214,155 @@ interface Compiler {
 
 private {
 	Compiler[] s_compilers;
+
+	struct InvocationTiming {
+		BuildTimingCollector collector;
+		BuildTimingContext context;
+	}
+	// D module variables are thread-local: parallel compiler jobs never share
+	// the active context. Compiler instances themselves may be shared.
+	InvocationTiming* s_invocationTiming;
+}
+
+// Keep the disabled path in invokeTool identical to ordinary process execution,
+// apart from the context check. No clocks, TLS writes, or timing cleanup there.
+private int invokeTimedTool(string[] args, void delegate(int, string) output_callback,
+	NativePath cwd, string[string] env)
+{
+	import core.time : MonoTime;
+	import std.typecons : Nullable;
+
+	// A reentrant invocation from an output callback must not inherit this context.
+	auto timing = s_invocationTiming;
+	s_invocationTiming = null;
+	scope (exit) s_invocationTiming = timing;
+
+	int status;
+	string output;
+	auto nativeCwd = cwd.toNativeString();
+	{
+		Nullable!int exitStatus;
+		auto start = MonoTime.currTime;
+		// Also record launch/wait failures, for which no exit status is known.
+		scope (exit)
+			timing.collector.record(timing.context, start, MonoTime.currTime, exitStatus);
+		if (output_callback) {
+			auto result = execute(args, env, Config.none, size_t.max, nativeCwd);
+			status = result.status;
+			output = result.output;
+		} else {
+			auto compiler_pid = spawnProcess(args, env, Config.none, nativeCwd);
+			status = compiler_pid.wait();
+		}
+		exitStatus = status;
+	}
+	if (output_callback) output_callback(status, output);
+	return status;
+}
+
+/** Attach timing context to a synchronous compiler invocation without changing
+	Compiler's extension interface. Implementations using invokeTool participate;
+	implementations launching their own processes do not. Restore context on
+	normal return and failure, including nested invocations.
+*/
+package(dub) void withCompilerTiming(BuildTimingCollector collector,
+	BuildTimingContext context, scope void delegate() invoke)
+{
+	auto previous = s_invocationTiming;
+	s_invocationTiming = collector is null ? null : new InvocationTiming(collector, context);
+	scope (exit) s_invocationTiming = previous;
+	invoke();
+}
+
+unittest {
+	import dub.compilers.dmd : DMDCompiler;
+	import std.exception : assertThrown;
+	import std.string : strip;
+
+	static class TestCompiler : DMDCompiler {
+		void run(string[] args, void delegate(int, string) callback = null) {
+			invokeTool(args, callback, getWorkingDirectory());
+		}
+	}
+	version (Windows) {
+		auto shell = [environment.get("COMSPEC", "cmd.exe"), "/d", "/c"];
+		auto success = shell ~ "echo timing-test";
+		auto failure = shell ~ "exit /b 7";
+	} else {
+		auto success = ["/bin/sh", "-c", "echo timing-test"];
+		auto failure = ["/bin/sh", "-c", "exit 7"];
+	}
+	auto compiler = new TestCompiler;
+	auto collector = new BuildTimingCollector;
+	auto context = BuildTimingContext(BuildTimingPhase.compile, "example", ["source/app.d"]);
+
+	bool called;
+	withCompilerTiming(collector, context, {
+		compiler.run(success, (status, output) {
+			called = true;
+			assert(status == 0 && output.strip == "timing-test");
+			// Collection must finish before the callback, not when it returns.
+			auto records = collector.snapshot();
+			assert(records.length == 1 && records[0].exitStatus.get == 0);
+			assert(records[0].context == context);
+			// Reentrant, untimed calls must not acquire the outer context.
+			assertThrown!CompilerInvocationException(
+				compiler.run(failure, (status, output) { assert(status == 7); }));
+		});
+	});
+	assert(called && collector.snapshot().length == 1);
+	assert(s_invocationTiming is null);
+
+	// Both inherited-output and captured-output paths record nonzero exits.
+	foreach (capture; [false, true]) {
+		auto failures = new BuildTimingCollector;
+		void delegate(int, string) callback;
+		if (capture) callback = (status, output) { assert(status == 7); };
+		assertThrown!CompilerInvocationException(withCompilerTiming(failures, context, {
+			compiler.run(failure, callback);
+		}));
+		assert(failures.snapshot().length == 1);
+		assert(failures.snapshot()[0].exitStatus.get == 7);
+		assert(s_invocationTiming is null);
+
+		auto launches = new BuildTimingCollector;
+		assertThrown!ProcessException(withCompilerTiming(launches, context, {
+			compiler.run(["dub-timing-test-missing-directory/no-such-compiler"], callback);
+		}));
+		assert(launches.snapshot().length == 1);
+		assert(launches.snapshot()[0].exitStatus.isNull);
+		assert(s_invocationTiming is null);
+	}
+
+	// A callback exception must not erase or duplicate the completed record.
+	auto callbackError = new Exception("callback failure");
+	try {
+		withCompilerTiming(collector, context, {
+			compiler.run(success, (status, output) { throw callbackError; });
+		});
+		assert(false);
+	} catch (Exception e) {
+		assert(e is callbackError);
+	}
+	assert(collector.snapshot().length == 2);
+	assert(collector.snapshot()[1].exitStatus.get == 0);
+	assert(s_invocationTiming is null);
+
+	// Nested timing scopes restore the outer context even after an exception.
+	auto inner = new BuildTimingCollector;
+	auto innerContext = BuildTimingContext(BuildTimingPhase.link, "inner", []);
+	withCompilerTiming(collector, context, {
+		assertThrown!CompilerInvocationException(withCompilerTiming(inner, innerContext, {
+			compiler.run(failure);
+		}));
+		compiler.run(success, (status, output) {});
+	});
+	assert(inner.snapshot().length == 1);
+	assert(inner.snapshot()[0].context == innerContext);
+	assert(collector.snapshot().length == 3);
+	assert(collector.snapshot()[2].context == context);
+	compiler.run(success, (status, output) {});
+	assert(collector.snapshot().length == 3);
 }
 
 /// Adds the given flags to the build settings if desired, otherwise informs the user
