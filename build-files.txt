@@ -19,6 +19,7 @@ source/dub/generators/sublimetext.d
 source/dub/generators/targetdescription.d
 source/dub/generators/visuald.d
 source/dub/init.d
+source/dub/internal/buildtimings.d
 source/dub/internal/colorize/colors.d
 source/dub/internal/colorize/cwrite.d
 source/dub/internal/colorize/package.d
