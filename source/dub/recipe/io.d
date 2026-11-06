@@ -89,8 +89,11 @@ PackageRecipe parsePackageRecipe(string contents, string filename,
 
 	ret.name = default_package_name;
 
-	if (filename.endsWith(".json"))
-	{
+	if (filename.endsWith(".yaml") || filename.endsWith(".yml")) {
+		// Warn users about unused field, but don't error for forward-compatibility
+		ret = parseConfigString!PackageRecipe(contents, filename, StrictMode.Warn);
+		fixDependenciesNames(ret.name, ret);
+	} else if (filename.endsWith(".json")) {
 		ret = parseConfigString!PackageRecipe(contents, filename, mode);
 		fixDependenciesNames(ret.name, ret);
 	}
@@ -208,11 +211,15 @@ void serializePackageRecipe(R)(ref R dst, const scope ref PackageRecipe recipe, 
 	import dub.internal.vibecompat.data.json : writeJsonString;
 	import dub.recipe.json : toJson;
 	import dub.recipe.sdl : toSDL;
+	import dub.recipe.yaml : toYAML;
 
 	if (filename.endsWith(".json"))
 		dst.writeJsonString!(R, true)(toJson(recipe));
 	else if (filename.endsWith(".sdl"))
 		toSDL(recipe).toSDLDocument(dst);
+	else if (filename.endsWith(".yaml") || filename.endsWith(".yml")) {
+		toJson(recipe).toYAML(dst);
+	}
 	else assert(false, "writePackageRecipe called with filename with unknown extension: "~filename);
 }
 

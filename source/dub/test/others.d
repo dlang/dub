@@ -120,3 +120,50 @@ unittest
     dub.loadPackage();
     assert(dub.project.hasAllDependencies());
 }
+
+// Ensure that dub recognizes `dub.yaml`
+unittest
+{
+    scope dubJSON = new TestDub((scope Filesystem fs) {
+        fs.writeFile(TestDub.ProjectPath ~ "dub.json", `{"name":"json"}`);
+        fs.writeFile(TestDub.ProjectPath ~ "dub.sdl", `name "sdl"`);
+        fs.writeFile(TestDub.ProjectPath ~ "dub.yaml", `name: yaml`);
+        fs.writeFile(TestDub.ProjectPath ~ "dub.yml", `name: yml`);
+        fs.writeFile(TestDub.ProjectPath ~ "package.json", `{"name":"package"}`);
+    });
+    dubJSON.loadPackage();
+    assert(dubJSON.project.name() == "json");
+
+    scope dubSDL = dubJSON.newTest((scope Filesystem fs) {
+        fs.removeFile(TestDub.ProjectPath ~ "dub.json");
+    });
+    dubSDL.loadPackage();
+    assert(dubSDL.project.name() == "sdl");
+
+    scope dubYAML = dubSDL.newTest((scope Filesystem fs) {
+        fs.removeFile(TestDub.ProjectPath ~ "dub.sdl");
+    });
+    dubYAML.loadPackage();
+    assert(dubYAML.project.name() == "yaml");
+
+    scope dubYML = dubYAML.newTest((scope Filesystem fs) {
+        fs.removeFile(TestDub.ProjectPath ~ "dub.yaml");
+    });
+    dubYML.loadPackage();
+    assert(dubYML.project.name() == "yml");
+
+    scope dubPackageJSON = dubYML.newTest((scope Filesystem fs) {
+        fs.removeFile(TestDub.ProjectPath ~ "dub.yml");
+    });
+    dubPackageJSON.loadPackage();
+    assert(dubPackageJSON.project.name() == "package");
+
+    scope dubNothing = dubPackageJSON.newTest((scope Filesystem fs) {
+        fs.removeFile(TestDub.ProjectPath ~ "package.json");
+    });
+    try {
+        dubNothing.loadPackage();
+        assert(0, "dubNothing should have thrown");
+    } catch (Exception exc)
+        assert(exc.message().canFind("No package file found in"));
+}

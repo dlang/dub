@@ -100,6 +100,7 @@ source/dub/recipe/json.d
 source/dub/recipe/packagerecipe.d
 source/dub/recipe/sdl.d
 source/dub/recipe/selection.d
+source/dub/recipe/yaml.d
 source/dub/semver.d
 source/dub/test/base.d
 source/dub/test/dependencies.d
