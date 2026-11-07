@@ -11,6 +11,20 @@ dub build --build-mode=singleFile --parallel --build-timings
 dub test --build-mode=singleFile --parallel --build-timings
 -------
 
+For example, a parallel build of a package named $(TT example) with two source
+files printed this timing report:
+
+-------
+Build timings (completed)
+  Elapsed ms    Start ms      End ms  Status       Phase         Target / sources
+     564.390      56.935     621.325  ok           link          example
+      51.025       5.605      56.630  ok           compile       example / source/app.d
+      49.139       6.097      55.236  ok           compile       example / source/helper.d
+  Summed invocation time: 664.554 ms (3 invocations; parallel jobs overlap).
+  Build stage elapsed: 624.678 ms (excludes application/test execution).
+  Start/end offsets are relative to timing collection start; rows are slowest first.
+-------
+
 Rows show elapsed wall time, start/end offsets, exit status, invocation phase,
 target package, and explicit source inputs, sorted by decreasing elapsed time.
 The status $(TT no status) means that launching or waiting for the process failed
