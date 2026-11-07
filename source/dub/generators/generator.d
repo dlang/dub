@@ -18,6 +18,7 @@ import dub.internal.vibecompat.core.file;
 import dub.internal.vibecompat.data.json;
 import dub.internal.vibecompat.inet.path;
 import dub.internal.logging;
+import dub.internal.buildtimings : BuildTimingCollector;
 import dub.package_;
 import dub.packagemanager;
 import dub.project;
@@ -904,6 +905,10 @@ struct GeneratorSettings {
 	void delegate(int status, string output) compileCallback;
 	void delegate(int status, string output) linkCallback;
 	void delegate(int status, string output) runCallback;
+
+	/// Internal, opt-in instrumentation for the direct build generator.
+	package(dub) BuildTimingCollector buildTimings;
+	package(dub) bool reportBuildTimings;
 
 	/// Returns `overrideToolWorkingDirectory` or if that's not set, just the
 	/// current working directory of the application. This may differ if dub is
