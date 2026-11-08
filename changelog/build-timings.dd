@@ -48,4 +48,46 @@ and report formatting. Start/end offsets begin when the collector is created.
 $(TT --rdmd) is unsupported and rejected with this option. Compiler probes and
 commands launched by build hooks are not instrumented. Custom compiler
 implementations participate when they use DUB's shared process runner.
-Machine-readable export is not included in this change.
+
+Use $(TT --build-timings-file=PATH) to write a JSON report. A relative path is
+resolved from the directory where you invoke DUB. The parent directory must
+exist. New reports are created with owner-only access. Use the file option alone
+for JSON, or add $(TT --build-timings) for both
+JSON and terminal output:
+
+-------
+dub test --build-mode=singleFile --parallel --build-timings --build-timings-file=timings.json
+-------
+
+For example, a build that compiled and linked one source file in a single
+invocation produced this report (source path shortened):
+
+-------
+{
+  "schemaVersion": 1,
+  "completed": true,
+  "buildElapsedNs": 1436907600,
+  "summedInvocationNs": 1403419800,
+  "invocations": [{
+    "package": "example",
+    "phase": "compile+link",
+    "sources": ["source/app.d"],
+    "startOffsetNs": 16764600,
+    "endOffsetNs": 1420184400,
+    "elapsedNs": 1403419800,
+    "exitStatus": 0
+  }]
+}
+-------
+
+Times are integer nanoseconds. Offsets use the same monotonic origin as the
+terminal report. Phases are $(TT compile), $(TT link), or $(TT compile+link).
+Exit status is an integer, or JSON null if no process status was obtained.
+
+DUB replaces the file after the direct build stage, before running the program
+or tests. Cached builds can produce an empty invocation list. When $(TT dub test)
+skips a package with target type $(TT none), it writes a completed report with
+zero build time and no invocations. A failure in the direct build stage writes
+a partial report with $(TT completed) set to false. Failures before that stage,
+such as an invalid package recipe, leave any previous report in place. If the
+requested file cannot be written, DUB reports the error and exits unsuccessfully.

@@ -84,12 +84,12 @@ final class BuildTimingCollector {
 }
 
 /// A reporting error must not replace the original build exception.
-void printBuildTimings(BuildTimingCollector collector, Duration buildElapsed, bool completed)
+void printBuildTimings(in BuildTimingRecord[] records, Duration buildElapsed, bool completed)
 {
 	import std.stdio : stderr;
 	import dub.internal.logging : logWarn;
 	try {
-		stderr.write(formatBuildTimings(collector.snapshot(), buildElapsed, completed));
+		stderr.write(formatBuildTimings(records, buildElapsed, completed));
 		stderr.flush();
 	} catch (Exception e) {
 		logWarn("Could not print build timings: %s", e.msg);
