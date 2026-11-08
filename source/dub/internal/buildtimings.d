@@ -96,6 +96,127 @@ void printBuildTimings(BuildTimingCollector collector, Duration buildElapsed, bo
 	}
 }
 
+private string phaseName(BuildTimingPhase phase) {
+	final switch (phase) {
+	case BuildTimingPhase.compile: return "compile";
+	case BuildTimingPhase.link: return "link";
+	case BuildTimingPhase.compileAndLink: return "compile+link";
+	}
+}
+
+void writeBuildTimingsFile(string path, in BuildTimingRecord[] records, Duration buildElapsed, bool completed) {
+	import dub.internal.logging : logWarn;
+	try writeReport(path, records, buildElapsed, completed);
+	catch (Exception e) {
+		auto message = "Could not write build timings to " ~ path ~ ": " ~ e.msg;
+		if (completed) throw new Exception(message, e);
+		logWarn("%s", message); // Preserve the original build failure.
+	}
+}
+
+private void writeReport(string path, in BuildTimingRecord[] records, Duration buildElapsed, bool completed)
+{
+	import dub.internal.vibecompat.data.json : Json;
+
+	auto report = Json.emptyObject;
+	report["schemaVersion"] = 1;
+	report["completed"] = completed;
+	report["buildElapsedNs"] = buildElapsed.total!"nsecs";
+	Duration total;
+	auto invocations = Json.emptyArray;
+	foreach (ref entry; records) {
+		auto row = Json.emptyObject;
+		row["package"] = entry.context.targetPackage;
+		row["phase"] = phaseName(entry.context.phase);
+		auto sources = Json.emptyArray;
+		foreach (source; entry.context.sourceFiles) sources ~= Json(source);
+		row["sources"] = sources;
+		row["startOffsetNs"] = entry.startOffset.total!"nsecs";
+		row["endOffsetNs"] = entry.endOffset.total!"nsecs";
+		row["elapsedNs"] = entry.elapsed.total!"nsecs";
+		row["exitStatus"] = entry.exitStatus.isNull ? Json(null) : Json(entry.exitStatus.get);
+		invocations ~= row;
+		total += entry.elapsed;
+	}
+	report["summedInvocationNs"] = total.total!"nsecs";
+	report["invocations"] = invocations;
+	publishReport(path, report.toPrettyString() ~ "\n");
+}
+
+private void publishReport(string path, string contents)
+{
+	import std.file : exists, remove, rename;
+	import std.path : buildPath, dirName;
+	import std.uuid : randomUUID;
+
+	// Rename within the destination directory so readers see a complete report.
+	auto tmp = buildPath(dirName(path), ".dub-timings-" ~ randomUUID().toString() ~ ".tmp");
+	version (Posix) {
+		import core.sys.posix.fcntl : open, O_CREAT, O_EXCL, O_WRONLY;
+		import core.sys.posix.sys.stat : fchmod;
+		import core.sys.posix.unistd : close;
+		import std.conv : octal;
+		import std.exception : errnoEnforce;
+		import std.file : getAttributes;
+		import std.stdio : File;
+		import std.string : toStringz;
+
+		// Keep unpublished contents private. Apply the prior mode only after
+		// writing, before the rename makes the complete report visible.
+		auto fd = open(tmp.toStringz, O_WRONLY | O_CREAT | O_EXCL, octal!600);
+		errnoEnforce(fd >= 0, "Creating temporary timing report");
+		scope (failure) if (exists(tmp)) remove(tmp);
+		File file;
+		try file.fdopen(fd, "wb");
+		catch (Exception e) { close(fd); throw e; }
+		file.rawWrite(contents);
+		if (exists(path))
+			errnoEnforce(fchmod(fd, getAttributes(path) & octal!777) == 0, "Setting timing report permissions");
+		file.close();
+		rename(tmp, path);
+	} else version (Windows) {
+		import core.sys.windows.winbase : ReplaceFileW, MoveFileW, GetLastError;
+		import core.sys.windows.winerror : ERROR_FILE_NOT_FOUND;
+		import std.file : write;
+		import std.utf : toUTF16z;
+		import std.windows.syserror : wenforce;
+
+		auto target = path.toUTF16z;
+		auto replacement = tmp.toUTF16z;
+		createPrivateReportFile(replacement);
+		scope (failure) if (exists(tmp)) remove(tmp);
+		write(tmp, contents);
+		// ReplaceFile preserves the existing destination's access control list.
+		if (!ReplaceFileW(target, replacement, null, 0, null, null)) {
+			wenforce(GetLastError() == ERROR_FILE_NOT_FOUND, "Replacing timing report");
+			wenforce(MoveFileW(replacement, target), "Publishing timing report");
+		}
+	}
+}
+
+version (Windows) {
+	private extern(Windows) int ConvertStringSecurityDescriptorToSecurityDescriptorW(
+		const(wchar)*, uint, void**, uint*) nothrow;
+	pragma(lib, "advapi32");
+
+	private void createPrivateReportFile(const(wchar)* path) {
+		import core.sys.windows.winbase;
+		import core.sys.windows.winnt : SECURITY_ATTRIBUTES, GENERIC_WRITE, FILE_ATTRIBUTE_NORMAL;
+		import std.windows.syserror : wenforce;
+
+		// A shared directory can grant broader access than the destination.
+		// Give only the owner access to the temporary file from creation.
+		void* descriptor;
+		wenforce(ConvertStringSecurityDescriptorToSecurityDescriptorW("D:P(A;;FA;;;OW)"w.ptr,
+			1, &descriptor, null), "Creating timing report security descriptor");
+		scope (exit) LocalFree(descriptor);
+		SECURITY_ATTRIBUTES security = { SECURITY_ATTRIBUTES.sizeof, descriptor, 0 };
+		auto handle = CreateFileW(path, GENERIC_WRITE, 0, &security, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, null);
+		wenforce(handle != INVALID_HANDLE_VALUE, "Creating temporary timing report");
+		wenforce(CloseHandle(handle), "Closing temporary timing report");
+	}
+}
+
 /// Format a snapshot without changing its records or their submission order.
 string formatBuildTimings(in BuildTimingRecord[] records, Duration buildElapsed, bool completed)
 {
@@ -120,17 +241,11 @@ string formatBuildTimings(in BuildTimingRecord[] records, Duration buildElapsed,
 			? a < b : records[a].elapsed > records[b].elapsed);
 		foreach (i; order) {
 			auto entry = records[i];
-			string phase;
-			final switch (entry.context.phase) {
-			case BuildTimingPhase.compile: phase = "compile"; break;
-			case BuildTimingPhase.link: phase = "link"; break;
-			case BuildTimingPhase.compileAndLink: phase = "compile+link"; break;
-			}
 			auto status = entry.exitStatus.isNull ? "no status"
 				: entry.exitStatus.get == 0 ? "ok" : "exit " ~ to!string(entry.exitStatus.get);
 			formattedWrite(result, "  %10.3f  %10.3f  %10.3f  %-12s %-13s %s",
 				entry.elapsed.total!"nsecs" / 1e6, entry.startOffset.total!"nsecs" / 1e6,
-				entry.endOffset.total!"nsecs" / 1e6, status, phase, entry.context.targetPackage);
+				entry.endOffset.total!"nsecs" / 1e6, status, phaseName(entry.context.phase), entry.context.targetPackage);
 			if (entry.context.sourceFiles.length)
 				formattedWrite(result, " / %s", entry.context.sourceFiles.join(", "));
 			result.put("\n");
