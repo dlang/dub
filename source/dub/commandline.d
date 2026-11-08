@@ -1289,6 +1289,19 @@ abstract class PackageBuildCommand : Command {
 			"Use --build-mode=singleFile for individual source timings. Cached targets produce no timings.",
 			"Excludes application/test execution; not supported with --rdmd."
 		]);
+		string file;
+		bool hasFile;
+		args.getopt("build-timings-file", &file, (string option, string value) @safe {
+			hasFile = true;
+			file = value;
+		}, [
+			"Write compiler/linker invocation timings to a JSON file, including partial results on build failure.",
+			"Paths are relative to the current directory. Add --build-timings to also print the terminal report."
+		]);
+		if (hasFile) {
+			enforceUsage(file.length != 0, "--build-timings-file requires a file path.");
+			this.baseSettings.buildTimingsFile = absolutePath(file);
+		}
 	}
 	protected {
 		string m_compilerName;
@@ -1585,6 +1598,8 @@ class BuildCommand : GenerateCommand {
 		m_generator = "build";
 		enforceUsage(!(this.baseSettings.reportBuildTimings && this.baseSettings.rdmd),
 			"--build-timings is not supported with --rdmd.");
+		enforceUsage(!(this.baseSettings.buildTimingsFile.length && this.baseSettings.rdmd),
+			"--build-timings-file is not supported with --rdmd.");
 	}
 
 	override int execute(Dub dub, string[] free_args, string[] app_args)

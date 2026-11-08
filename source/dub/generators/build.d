@@ -77,15 +77,20 @@ class BuildGenerator : ProjectGenerator {
 		scope (exit) cleanupTemporaries();
 
 		MonoTime timingStart;
-		if (settings.reportBuildTimings) {
-			enforce(!settings.rdmd, "--build-timings is not supported with --rdmd.");
+		const collectTimings = settings.reportBuildTimings || settings.buildTimingsFile.length != 0;
+		if (collectTimings) {
+			enforce(!settings.rdmd, "Build timing reports are not supported with --rdmd.");
 			timingStart = MonoTime.currTime;
 			settings.buildTimings = new BuildTimingCollector;
 		}
 		bool completed;
-		scope (exit) if (settings.reportBuildTimings) {
+		scope (exit) if (collectTimings) {
 			// Report before application/test execution, including on build failure.
-			printBuildTimings(settings.buildTimings, MonoTime.currTime - timingStart, completed);
+			auto elapsed = MonoTime.currTime - timingStart;
+			auto records = settings.buildTimings.snapshot();
+			if (settings.reportBuildTimings) printBuildTimings(records, elapsed, completed);
+			if (settings.buildTimingsFile.length)
+				writeBuildTimingsFile(settings.buildTimingsFile, records, elapsed, completed);
 		}
 		scope (success) completed = true;
 

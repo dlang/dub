@@ -817,7 +817,13 @@ class Dub {
 		if (!custom_main_file.empty && !custom_main_file.absolute) custom_main_file = m_rootPath ~ custom_main_file;
 
 		const test_config = m_project.addTestRunnerConfiguration(settings, !m_dryRun, config, custom_main_file);
-		if (!test_config) return; // target type "none"
+		if (!test_config) { // target type "none": no direct build stage ran
+			import core.time : Duration;
+			import dub.internal.buildtimings : writeBuildTimingsFile;
+			if (settings.buildTimingsFile.length)
+				writeBuildTimingsFile(settings.buildTimingsFile, [], Duration.zero, true);
+			return;
+		}
 
 		settings.config = test_config;
 
