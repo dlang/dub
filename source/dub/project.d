@@ -1532,8 +1532,12 @@ string processVars(Project, Package)(string var, in Project project, in Package 
 	auto p = NativePath(var);
 	if (!p.absolute)
 		return (pack.path ~ p).toNativeString();
-	else
-		return p.toNativeString();
+	// Relative paths are normalized by `~` above. Do the same for absolute
+	// ones so that paths can be compared as strings, e.g. to deduplicate
+	// source files: on Windows, `$PACKAGE_DIR/foo.d` expands to mixed
+	// separators (https://github.com/dlang/dub/issues/3070).
+	p.normalize();
+	return p.toNativeString();
 }
 string[string] processVars(bool glob = false)(in Project project, in Package pack, in GeneratorSettings gsettings, in string[string] vars, in string[string][] extraVers = null)
 {
