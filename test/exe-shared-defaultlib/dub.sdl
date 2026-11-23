@@ -1,0 +1,11 @@
+name "exe-shared-defaultlib"
+description "An executable with a statically linked dep, linked against *shared* druntime/Phobos"
+targetType "executable"
+dependency "staticlib-simple" path="../1-staticLib-simple/"
+
+# With LDC on Windows, `-link-defaultlib-shared` is passed down for compiling
+# all dependencies (for an implicit `-dllimport=defaultLibsOnly`).
+dflags "-link-defaultlib-shared" platform="ldc"
+
+# no libphobos2.dll/dylib with DMD on Windows/Mac
+dflags "-defaultlib=libphobos2.so" platform="linux-dmd"
