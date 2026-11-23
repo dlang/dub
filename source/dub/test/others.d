@@ -120,3 +120,32 @@ unittest
     dub.loadPackage();
     assert(dub.project.hasAllDependencies());
 }
+
+// https://github.com/dlang/dub/issues/3070
+// A source file spelled differently than `mainSourceFile` must not be passed
+// twice to the compiler. On Windows, `$PACKAGE_DIR/source/app.d` triggers this
+// since the variable expands with `\` separators.
+unittest
+{
+    import dub.compilers.buildsettings : BuildSettings;
+    import dub.generators.generator : GeneratorSettings;
+
+    scope dub = new TestDub((scope Filesystem fs) {
+        fs.writeFile(TestDub.ProjectPath ~ "dub.json", `{
+    "name": "a",
+    "targetType": "executable",
+    "sourcePaths": [],
+    "importPaths": [],
+    "mainSourceFile": "source/app.d",
+    "sourceFiles": ["$PACKAGE_DIR/./source/app.d"]
+}`);
+    });
+    dub.loadPackage();
+
+    GeneratorSettings gs;
+    BuildSettings bs;
+    dub.project.addBuildSettings(bs, gs, dub.project.getDefaultConfiguration(gs.platform));
+    const expected = (TestDub.ProjectPath ~ "source/app.d").toNativeString();
+    assert(bs.sourceFiles == [expected], format("%s", bs.sourceFiles));
+    assert(bs.mainSourceFile == expected, bs.mainSourceFile);
+}
