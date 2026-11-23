@@ -67,3 +67,4 @@ version-filters-source-dep/version-filters-source-dep
 version-filters/version-filters
 version-spec/newfoo/foo-test-application
 version-spec/oldfoo/foo-test-application
+warnings/warnings
