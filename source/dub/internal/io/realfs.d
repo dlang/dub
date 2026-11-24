@@ -95,6 +95,12 @@ public final class RealFS : Filesystem {
     }
 
 	/// Ditto
+	public override SysTime timeLastModified (in NativePath path) const scope
+	{
+		return std.file.timeLastModified(path.toNativeString());
+	}
+
+	/// Ditto
 	protected override void setTimes (in NativePath path, in SysTime accessTime,
 		in SysTime modificationTime)
 	{

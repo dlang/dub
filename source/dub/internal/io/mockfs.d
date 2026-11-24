@@ -242,6 +242,15 @@ public final class MockFS : Filesystem {
     }
 
     /// Ditto
+    public override SysTime timeLastModified (in NativePath path) const scope
+    {
+        auto e = this.lookup(path);
+        enforce(e !is null,
+            "timeLastModified: No such file or directory: " ~ path.toNativeString());
+        return e.attributes.modification;
+    }
+
+    /// Ditto
     public override void setAttributes (in NativePath path, uint attributes)
     {
         auto e = this.lookup(path);
@@ -588,4 +597,26 @@ version (Windows) unittest {
     assert(!fs.existsDirectory(NativePath(`C:\`)));
     assert(!fs.existsDirectory(NativePath(`C:\foo\bar`)));
     assert(!fs.existsFile(NativePath(`C:/foo/bar.exe`)));
+}
+
+// `timeLastModified` returns what `setTimes` set
+unittest {
+    import std.datetime.date;
+    import std.string : representation;
+
+    alias P = NativePath;
+    scope fs = new MockFS();
+
+    fs.mkdir(P("foo"));
+    fs.writeFile(P("foo/bar.d"), "module bar;".representation);
+    const before = fs.timeLastModified(P("foo/bar.d"));
+    assert(fs.timeLastModified(P("foo")) == before);
+
+    const later = SysTime(DateTime(2024, 06, 01));
+    fs.setTimes(P("foo/bar.d"), later, later);
+    assert(fs.timeLastModified(P("foo/bar.d")) == later);
+    // Only the targeted entry is updated
+    assert(fs.timeLastModified(P("foo")) == before);
+
+    assertThrown(fs.timeLastModified(P("foo/baz.d")));
 }
