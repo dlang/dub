@@ -1,4 +1,5 @@
 {
 	"name": "test",
-	"extraDependencyFiles": ["dependency.txt"]
+	"dflags": ["-J$PACKAGE_DIR"],
+	"extraDependencyFiles": ["dependency.txt", "inputs/*.txt"]
 }
