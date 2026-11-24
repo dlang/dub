@@ -852,6 +852,7 @@ package(dub) NativePath targetCacheDir(NativePath cachePath, in Package pkg, str
 package(dub) string computeBuildID(in BuildSettings buildsettings,
 	in NativePath packagePath, string config, GeneratorSettings settings)
 {
+	import std.algorithm : sort;
 	import std.conv : to;
 
 	const(string[])[] hashing = [
@@ -862,6 +863,8 @@ package(dub) string computeBuildID(in BuildSettings buildsettings,
 		buildsettings.stringImportPaths,
 		buildsettings.importPaths,
 		buildsettings.cImportPaths,
+		// Directory iteration order can vary even when a glob matches the same files.
+		buildsettings.extraDependencyFiles.dup.sort().release,
 		settings.platform.architecture,
 		[
 			(cast(uint)(buildsettings.options & ~BuildOption.color)).to!string, // exclude color option from id

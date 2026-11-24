@@ -1478,7 +1478,8 @@ void processVars(ref BuildSettings dst, in Project project, in Package pack,
 	dst.addStringImportFiles(processVars(project, pack, gsettings, settings.stringImportFiles, true, buildEnvs));
 	dst.addInjectSourceFiles(processVars!true(project, pack, gsettings, settings.injectSourceFiles, true, buildEnvs));
 	dst.addCopyFiles(processVars(project, pack, gsettings, settings.copyFiles, true, buildEnvs));
-	dst.addExtraDependencyFiles(processVars(project, pack, gsettings, settings.extraDependencyFiles, true, buildEnvs));
+	foreach (pattern; settings.extraDependencyFiles)
+		dst.addExtraDependencyFiles(processVarsWithGlob(pattern, project, pack, gsettings, true, buildEnvs, true));
 	dst.addVersions(processVars(project, pack, gsettings, settings.versions, false, buildEnvs));
 	dst.addDebugVersions(processVars(project, pack, gsettings, settings.debugVersions, false, buildEnvs));
 	dst.addVersionFilters(processVars(project, pack, gsettings, settings.versionFilters, false, buildEnvs));
@@ -1555,7 +1556,7 @@ void processVars(bool glob = false)(ref string[string] dst, in Project project, 
 		dst[k] = process(var, project, pack, gsettings, false, extraVers);
 }
 
-private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers)
+private string[] processVarsWithGlob(Project, Package)(string var, in Project project, in Package pack, in GeneratorSettings gsettings, bool is_path, in string[string][] extraVers, bool allowMissingDirectory = false)
 {
 	assert(is_path, "can't glob something that isn't a path");
 	string res = processVars(var, project, pack, gsettings, is_path, extraVers);
@@ -1573,7 +1574,7 @@ private string[] processVarsWithGlob(Project, Package)(string var, in Project pr
 	}
 	if (i == res.length) //no globbing found in the path
 		return [res];
-	import std.file : dirEntries, SpanMode;
+	import std.file : dirEntries, FileException, SpanMode;
 	import std.path : buildNormalizedPath, globMatch, isAbsolute, relativePath;
 	auto cwd = gsettings.toolWorkingDirectory.toNativeString;
 	auto path = res[0 .. sepIdx];
@@ -1584,7 +1585,22 @@ private string[] processVarsWithGlob(Project, Package)(string var, in Project pr
 		path = buildNormalizedPath(cwd, path);
 	}
 
-	return dirEntries(path, SpanMode.depth)
+	typeof(dirEntries(path, SpanMode.depth)) entries;
+	try {
+		entries = dirEntries(path, SpanMode.depth);
+	} catch (FileException e) {
+		version (Windows) {
+			import core.sys.windows.winerror : ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND;
+			if (allowMissingDirectory && (e.errno == ERROR_FILE_NOT_FOUND || e.errno == ERROR_PATH_NOT_FOUND))
+				return [];
+		} else version (Posix) {
+			import core.stdc.errno : ENOENT;
+			if (allowMissingDirectory && e.errno == ENOENT)
+				return [];
+		}
+		throw e;
+	}
+	return entries
 		.map!(de => prependCwd
 			? de.name.relativePath(cwd)
 			: de.name)
