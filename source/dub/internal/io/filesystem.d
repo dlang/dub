@@ -47,6 +47,20 @@ public interface Filesystem
     /// Checks the existence of a directory
     public abstract bool existsDirectory (in NativePath path) const scope;
 
+    /**
+     * Implement `std.file.timeLastModified`
+     *
+     * Params:
+     *   path = Path to the file or directory
+     *
+     * Returns:
+     *   The time at which `path` was last modified.
+     *
+     * Throws:
+     *   If `path` does not exist.
+     */
+    public abstract SysTime timeLastModified (in NativePath path) const scope;
+
     /// Reads a file, returns the content as `ubyte[]`
     public abstract ubyte[] readFile (in NativePath path) const scope;
 
