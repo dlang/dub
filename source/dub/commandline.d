@@ -2558,9 +2558,15 @@ class ListCommand : Command {
 		const pname = pinfo.name;
 		enforceUsage(app_args.length == 0, "The list command supports no application arguments.");
 		logInfoNoTag("Packages present in the system and known to dub:");
+		bool[Tuple!(string, string, string)] listed;
 		foreach (p; dub.packageManager.getPackageIterator()) {
-			if ((pname == "" || pname == p.name) && pinfo.range.matches(p.version_))
-				logInfoNoTag("  %s %s: %s", p.name.color(Mode.bold), p.version_, p.path.toNativeString());
+			if ((pname != "" && pname != p.name) || !pinfo.range.matches(p.version_))
+				continue;
+			auto path = p.path.toNativeString();
+			auto entry = tuple(p.name, p.version_.toString(), path);
+			if (entry in listed) continue;
+			listed[entry] = true;
+			logInfoNoTag("  %s %s: %s", p.name.color(Mode.bold), p.version_, path);
 		}
 		logInfo("");
 		return 0;
