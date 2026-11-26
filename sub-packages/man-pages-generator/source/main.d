@@ -1,18 +1,20 @@
 module main;
 
-import std.algorithm;
-import std.conv;
-import std.format;
-import std.path;
-import std.range;
+import std.algorithm : canFind, endsWith, joiner, map, remove, sort, startsWith, uniq;
+import std.array : array;
+import std.conv : text, to;
+import std.format : format;
+import std.path : buildPath, dirName;
+import std.range : chain, join, replace, split, take;
 import std.stdio : File;
 
 import dub.commandline;
-import dub.internal.dyaml.stdsumtype;
+import dub.internal.dyaml.stdsumtype : match;
 
 static struct Config
 {
-	import std.datetime;
+	import std.datetime : Clock, DateTime, SysTime;
+
 	SysTime date;
 	string[] relatedSubCommands;
 
