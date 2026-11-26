@@ -1,9 +1,14 @@
 module main;
 
-import std.algorithm, std.conv, std.format, std.path, std.range;
+import std.algorithm;
+import std.conv;
+import std.format;
+import std.path;
+import std.range;
 import std.stdio : File;
-import dub.internal.dyaml.stdsumtype;
+
 import dub.commandline;
+import dub.internal.dyaml.stdsumtype;
 
 static struct Config
 {
