@@ -18,7 +18,7 @@ static struct Config
 	SysTime date;
 	string[] relatedSubCommands;
 
-	static Config init(){
+	static Config create(){
 		import std.process : environment;
 		Config config;
 		config.date = Clock.currTime;
@@ -473,7 +473,7 @@ void writeManFile(Command command, const Config config, ManWriter.Mode mode)
 
 void main()
 {
-	Config config = Config.init;
+	Config config = Config.create;
 	auto commands = getCommands();
 
 	// main dub.1
