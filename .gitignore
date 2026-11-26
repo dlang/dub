@@ -30,6 +30,7 @@ __dummy.html
 /bin/libdub.a
 /bin/dub-*
 /bin/dub.*
+/bin/man-pages-generator
 
 # Ignore files or directories created by the test suite.
 *.exe
