@@ -199,6 +199,9 @@ lib%1$s.a
 *.o
 *.obj
 *.lst
+profilegc.log
+trace.def
+trace.log
 }".format(pkg_name));
 }
 
