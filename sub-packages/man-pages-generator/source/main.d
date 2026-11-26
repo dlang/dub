@@ -3,10 +3,11 @@ module main;
 import std.algorithm : canFind, endsWith, joiner, map, remove, sort, startsWith, uniq;
 import std.array : array;
 import std.conv : text, to;
+import std.file : chdir, exists, getcwd, mkdirRecurse;
 import std.format : format;
 import std.path : buildPath, dirName;
 import std.range : chain, join, replace, split, take;
-import std.stdio : File;
+import std.stdio : File, writefln;
 
 import dub.commandline;
 import dub.internal.dyaml.stdsumtype : match;
@@ -17,6 +18,7 @@ static struct Config
 
 	SysTime date;
 	string[] relatedSubCommands;
+	string cwd;
 
 	static Config create(){
 		import std.process : environment;
@@ -25,11 +27,9 @@ static struct Config
 		auto diffable = environment.get("DIFFABLE", "0");
 		if (diffable == "1")
 			config.date = SysTime(DateTime(2018, 01, 01));
-
-		config.cwd = __FILE_FULL_PATH__.dirName;
+		config.cwd = getcwd;
 		return config;
 	}
-	string cwd;
 }
 
 struct ManWriter
@@ -471,8 +471,20 @@ void writeManFile(Command command, const Config config, ManWriter.Mode mode)
 	}
 }
 
-void main()
+int main(string[] mainArgs)
 {
+	if (mainArgs.length != 2)
+	{
+		writefln!"Usage: %s [output-path]"(mainArgs[0]);
+		return 1;
+	}
+	const outputPath = mainArgs[1];
+
+	if (!exists(outputPath))
+		outputPath.mkdirRecurse;
+
+	chdir(outputPath);
+
 	Config config = Config.create;
 	auto commands = getCommands();
 
@@ -512,4 +524,6 @@ void main()
 		cmd.writeManFile(config, ManWriter.Mode.man);
 		cmd.writeManFile(config, ManWriter.Mode.markdown);
 	}
+
+	return 0;
 }
