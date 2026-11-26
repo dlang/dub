@@ -1,0 +1,17 @@
+Add `dub tree` command
+
+Introduces a new `dub tree` command that prints the resolved dependency tree
+of the current project, showing the selected version and the file system path
+of every package. This makes it easy to tell path based packages (e.g.
+referenced with a path dependency or registered with `dub add-path`) apart
+from packages loaded from the package cache.
+
+The `--invert=<package>` option prints the tree in reverse, listing all
+packages that (directly or indirectly) depend on the given package instead.
+
+All build related options (`-c`, `-b`, `--compiler`, `--arch`, ...) apply, so
+that the printed tree matches the selected configuration, build type and
+platform. Optional dependencies that were not selected are omitted, and
+dependencies closing a cycle are marked with `(*)`.
+
+Related: #937, #1064, #1065

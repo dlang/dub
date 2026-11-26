@@ -6,7 +6,7 @@ _dub()
     _init_completion -s || return
 
     local creation_commands
-    creation_commands='init run build test generate describe clean dustmite'
+    creation_commands='init run build test generate describe tree clean dustmite'
 
     local management_commands
     management_commands='fetch remove upgrade add-path remove-path add-local remove-local list add-override remove-override list-overrides clean-caches'
@@ -42,7 +42,7 @@ _dub()
             init | add-path | remove-path | add-local | remove-local | dustmite )
                 COMPREPLY=( $( compgen -d -W '$common_options $specific_options' -- "$cur" ) )
                 ;;
-            run | build | test | generate | describe | clean | upgrade | add-override | remove-override )
+            run | build | test | generate | describe | tree | clean | upgrade | add-override | remove-override )
                 COMPREPLY=( $( compgen -W '$packages $common_options $specific_options' -- "$cur" ) )
                 ;;
             *)

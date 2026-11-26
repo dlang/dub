@@ -1,0 +1,5 @@
+name "tree-project"
+version "1.0.0"
+targetType "library"
+dependency "dep-a" path="dep-a"
+dependency "dep-b" path="dep-b"

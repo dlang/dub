@@ -57,6 +57,7 @@ _command_dispatch() {
         test:'Execute the tests of a dub package'
         generate:'Generates project files using the specified generator'
         describe:'Prints a JSON description of the project and its dependencies'
+        tree:'Prints the dependency tree of the current project'
         clean:'Removes intermediate build files and cached build results'
         dustmite:'Create reduced test cases for build errors'
 
@@ -229,6 +230,17 @@ _dub_describe() {
         '--data=[List the values of a particular build setting]:listing options: _values -s , argument main-source-file dflags lflags libs linker-files source-files versions debug-versions import-paths string-import-paths import-files options'
         '--data-list[Output --data information in list format (line-by-line)]'
         '--data-0[Output --data information using null-delimiters, rather than spaces or newlines]'
+    )
+
+    integer ret=0
+    _call_function ret _dub_build ${(@)localArgs}
+    return ret
+}
+
+(( $+functions[_dub_tree] )) ||
+_dub_tree() {
+    local localArgs=(
+        '--invert=[Prints an inverted dependency tree for the given package]'
     )
 
     integer ret=0

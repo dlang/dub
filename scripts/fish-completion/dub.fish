@@ -14,6 +14,7 @@ complete -c dub -n '__fish_use_subcommand' -x -a build           -d 'Builds a pa
 complete -c dub -n '__fish_use_subcommand' -x -a test            -d 'Executes the tests of the selected package'
 complete -c dub -n '__fish_use_subcommand' -x -a generate        -d 'Generates project files using the specified generator'
 complete -c dub -n '__fish_use_subcommand' -x -a describe        -d 'Prints a JSON description of the project and its dependencies'
+complete -c dub -n '__fish_use_subcommand' -x -a tree            -d 'Prints the dependency tree of the current project'
 complete -c dub -n '__fish_use_subcommand' -x -a clean           -d 'Removes intermediate build files and cached build results'
 complete -c dub -n '__fish_use_subcommand' -x -a dustmite        -d 'Create reduced test cases for build errors'
 # Package management
@@ -42,6 +43,10 @@ end
 
 for cmd in run
 	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l temp-build            -d "Build in temp folder"
+end
+
+for cmd in run build test generate describe tree dustmite
+	complete -c dub -n "contains '$cmd' (commandline -poc)"      -l invert              -r -d "Print an inverted dependency tree for the given package"
 end
 
 for cmd in run build test generate describe dustmite
