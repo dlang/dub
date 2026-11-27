@@ -47,6 +47,9 @@ void main()
 		run([dub, "generate", "visuald", compiler], dir);
 		run(["powershell.exe", "-NoProfile", "-Command", `
 			$config = ([xml](Get-Content -Raw events.visualdproj)).DProject.Config
+			if (!$config.filesToClean -or '*.cmd' -in ($config.filesToClean -split ';')) {
+				throw 'Visual D Rebuild must preserve package-owned .cmd files'
+			}
 			foreach ($event in $config.preBuildCommand, $config.postBuildCommand) {
 				[IO.File]::WriteAllLines((Join-Path $pwd 'event.cmd'), $event.Split([char]10))
 				cmd.exe /d /c event.cmd

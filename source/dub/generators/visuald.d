@@ -479,7 +479,7 @@ class VisualDGenerator : ProjectGenerator {
 					wdir.relativeTo(cwd ~ basepath).toNativeString());
 				writeBuildCommands("preBuildCommand", CommandType.preBuild, buildsettings.preBuildCommands);
 				writeBuildCommands("postBuildCommand", CommandType.postBuild, buildsettings.postBuildCommands);
-				ret.put("    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>\n");
+				ret.put("    <filesToClean>*.obj;*.build;*.dep</filesToClean>\n");
 				ret.put("  </Config>\n");
 			} // foreach(architecture)
 		}
