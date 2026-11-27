@@ -398,6 +398,9 @@ class VisualDGenerator : ProjectGenerator {
 					case singleFile: singlefilemode = 1; break;
 					//case compileOnly: singlefilemode = 3; break;
 				}
+				// Visual D runs pre-build commands in the link step, so compile and link together.
+				if (buildsettings.preBuildCommands.length)
+					singlefilemode = 0;
 				ret.formattedWrite("    <singleFileCompilation>%s</singleFileCompilation>\n", singlefilemode);
 				ret.formattedWrite("    <mscoff>%s</mscoff>", buildsettings.dflags.canFind("-m32mscoff") ? "1" : "0");
 				ret.put("    <oneobj>0</oneobj>\n");
