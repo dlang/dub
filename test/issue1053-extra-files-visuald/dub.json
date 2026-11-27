@@ -4,6 +4,8 @@
     "extraDependencyFiles": [
         "shaders/*"
     ],
+    "preBuildCommands": ["echo $DUB_PACKAGE > build.txt", "more < build.txt && echo ready"],
+    "postBuildCommands": ["echo done >> build.txt"],
     "copyFiles": [
         "text/LICENSE.txt",
         "text/README.txt"

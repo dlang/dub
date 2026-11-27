@@ -28,8 +28,6 @@ import std.uuid;
 // Dubbing is developing dub...
 //version = DUBBING;
 
-// TODO: handle pre/post build commands
-
 
 class VisualDGenerator : ProjectGenerator {
 	private {
@@ -261,6 +259,38 @@ class VisualDGenerator : ProjectGenerator {
 				return ret;
 			}
 
+			void writeBuildCommands(string element, CommandType type, string[] commands)
+			{
+				if (!commands.length) {
+					ret.formattedWrite("    <%s />\n", element);
+					return;
+				}
+
+				auto pkg = targets[pack].pack;
+				auto env = makeCommandEnvironmentVariables(type, pkg, m_project, settings, buildsettings);
+				auto packageDir = pkg.path.relativeTo(cwd ~ basepath).toNativeString();
+				auto script = appender!string();
+				script.put("setlocal DisableDelayedExpansion\n");
+				script.formattedWrite("pushd %s || exit /b 1\n", escapeBatchText('"' ~ packageDir ~ '"'));
+
+				// Inherit the IDE environment at build time. Only emit DUB and recipe variables.
+				auto overrides = env[1 .. $].collapseEnv();
+				foreach (name; overrides.keys.sort()) {
+					auto assignment = name ~ "=" ~ overrides[name];
+					enforce(!assignment.canFind('\r') && !assignment.canFind('\n'),
+						"Cannot write multiline environment variable " ~ name ~ " to a Visual D build event.");
+					script.formattedWrite("set %s\n", escapeBatchText(assignment));
+				}
+				foreach (command; processVars(m_project, pkg, settings, commands, false, env)) {
+					// Run each recipe command in its own shell, as dub build does.
+					script.formattedWrite("cmd /d /s /c %s\n", escapeBatchText('"' ~ command ~ '"'));
+					script.put("if %errorlevel% neq 0 exit /b %errorlevel%\n");
+				}
+				script.put("popd\nendlocal");
+				auto escaped = script.data.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+				ret.formattedWrite("    <%s>%s</%s>\n", element, escaped, element);
+			}
+
 			if (buildsettings.targetType == TargetType.none)
 				return;
 
@@ -444,8 +474,8 @@ class VisualDGenerator : ProjectGenerator {
 				if (!wdir.absolute) wdir = m_project.rootPackage.path ~ wdir;
 				ret.formattedWrite("    <debugworkingdir>%s</debugworkingdir>\n",
 					wdir.relativeTo(cwd ~ basepath).toNativeString());
-				ret.put("    <preBuildCommand />\n");
-				ret.put("    <postBuildCommand />\n");
+				writeBuildCommands("preBuildCommand", CommandType.preBuild, buildsettings.preBuildCommands);
+				writeBuildCommands("postBuildCommand", CommandType.postBuild, buildsettings.postBuildCommands);
 				ret.put("    <filesToClean>*.obj;*.cmd;*.build;*.dep</filesToClean>\n");
 				ret.put("  </Config>\n");
 			} // foreach(architecture)
@@ -545,6 +575,18 @@ class VisualDGenerator : ProjectGenerator {
 		assert(sortedSfs[4].structurePath == NativePath("b/c/fileA.d"), "5");
 		assert(sortedSfs[5].structurePath == NativePath("b/file.d"), "6");
 	}
+}
+
+// Pass text through one batch-file parse, leaving quoting to the receiving command.
+private string escapeBatchText(string text)
+{
+	auto result = appender!string();
+	foreach (c; text) {
+		if (c == '%') result.put('%');
+		else if (canFind(`^"&|<>`, c)) result.put('^');
+		result.put(c);
+	}
+	return result.data;
 }
 
 private NativePath determineStructurePath(NativePath file_path, in ProjectGenerator.TargetInfo target)
