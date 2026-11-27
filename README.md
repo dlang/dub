@@ -34,6 +34,8 @@ The `dub` executable then just needs to be accessible from `PATH` and can be inv
 
 If you want to build for yourself, just install a D compiler such as [DMD](http://dlang.org/download.html) and libcurl development headers and run `./build.d`.
 
+Afterwards you optionally build the man pages by running `./bin/dub run :man-pages-generator -- man1`, and read them by running `man -M . dub build`.
+
 ### Arch Linux
 
 Михаил Страшун (Dicebot) maintains a dub package of the latest release in `Community`, for [x86_64](https://www.archlinux.org/packages/community/x86_64/dub/) and [i686](https://www.archlinux.org/packages/community/i686/dub/).

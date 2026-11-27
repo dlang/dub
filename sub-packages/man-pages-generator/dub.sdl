@@ -1,0 +1,7 @@
+name "man-pages-generator"
+
+targetType "executable"
+targetPath "../../bin"
+targetName "man-pages-generator"
+
+dependency "dub" path="../.."

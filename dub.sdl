@@ -7,6 +7,8 @@ license "MIT"
 
 targetPath "bin"
 
+subPackage "sub-packages/man-pages-generator"
+
 // Deprecated module(s)
 excludedSourceFiles "source/dub/packagesupplier.d"
 

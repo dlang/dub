@@ -3,6 +3,9 @@
 dependency "dub" path="../.."
 +/
 
+pragma(msg, "NOTE: This script is deprecated. Please use"
+		~ "`bin/dub run :man-pages-generator -- [output-path]` instead");
+
 import std.algorithm, std.conv, std.format, std.path, std.range;
 import std.stdio : File;
 import dub.internal.dyaml.stdsumtype;
